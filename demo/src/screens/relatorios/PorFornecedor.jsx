@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { Fragment, useState, useEffect, useMemo, useCallback } from 'react'
 import { useCollection } from '../../contexts/CollectionContext'
 import styles from './PorFornecedor.module.css'
 
@@ -148,8 +148,8 @@ export default function PorFornecedor({ selectedForn, segFilter, onSelectForn, o
           <tbody>
             {grouped.map(g => {
               return (
-                <>
-                  <tr key={`sep-${g.classificacao}-${g.tipo_produto}`}>
+                <Fragment key={`group-${g.classificacao}-${g.tipo_produto}`}>
+                  <tr>
                     <td colSpan={5} className={styles.groupSep}>
                       {g.classificacao} — {g.tipo_produto}
                     </td>
@@ -168,7 +168,7 @@ export default function PorFornecedor({ selectedForn, segFilter, onSelectForn, o
                       </tr>
                     )
                   })}
-                </>
+                </Fragment>
               )
             })}
           </tbody>
