@@ -16,6 +16,8 @@ export default function Compras() {
   const [totais,  setTotais]  = useState([])   // { tamanho, total_pedido }
   const [qtds,    setQtds]    = useState({})   // { [tamanho]: number }
   const [success, setSuccess] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     Promise.all([
@@ -57,7 +59,7 @@ export default function Compras() {
   const valorNum   = parseFloat(valor.replace(',', '.')) || 0
   const totalValor = totalQtd * valorNum
 
-  const canConfirm = fornId && segId && totalQtd > 0 && valorNum > 0 && active
+  const canConfirm = !isSaving && fornId && segId && totalQtd > 0 && valorNum > 0 && active
 
   async function handleConfirm() {
     const itens = proj
@@ -65,25 +67,32 @@ export default function Compras() {
       .filter(i => i.qtd_pedida > 0)
     if (!itens.length) return
 
-    await window.api.pedidos.salvar({
-      fornecedor_id:  Number(fornId),
-      colecao_id:     active.id,
-      segmentacao_id: segId,
-      data_pedido:    dataPed,
-      valor_unitario: valorNum,
-      itens,
-    })
-
-    // Reload totais and reset qtds
-    const newTotais = await window.api.pedidos.totaisPorTamanho(segId, active.id)
-    setTotais(newTotais)
-    setQtds({})
-    setSuccess(true)
+    setIsSaving(true)
+    setError(null)
+    try {
+      await window.api.pedidos.salvar({
+        fornecedor_id:  Number(fornId),
+        colecao_id:     active.id,
+        segmentacao_id: segId,
+        data_pedido:    dataPed,
+        valor_unitario: valorNum,
+        itens,
+      })
+      const newTotais = await window.api.pedidos.totaisPorTamanho(segId, active.id)
+      setTotais(newTotais)
+      setQtds({})
+      setSuccess(true)
+    } catch {
+      setError('Erro ao registrar pedido. Tente novamente.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   function handleCancel() {
     setQtds({})
     setSuccess(false)
+    setError(null)
   }
 
   return (
@@ -93,6 +102,7 @@ export default function Compras() {
       {success && (
         <div className={styles.successBanner}>✓ Pedido registrado com sucesso.</div>
       )}
+      {error && <div className={styles.errorBanner}>{error}</div>}
 
       <div className={styles.panel}>
         {/* Form header */}
