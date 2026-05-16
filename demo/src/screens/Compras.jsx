@@ -5,20 +5,33 @@ import SegmentacaoSelect from '../components/SegmentacaoSelect'
 import { GRADE_LABEL } from '../utils/gradeConfig'
 import styles from './Compras.module.css'
 
+const fmt = n => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
 export default function Compras() {
   const { active } = useCollection()
   const [segs,    setSegs]    = useState([])
   const [forns,   setForns]   = useState([])
-  const [fornId,  setFornId]  = useState('')
-  const [segId,   setSegId]   = useState(null)
-  const [dataPed, setDataPed] = useState(new Date().toISOString().slice(0, 10))
-  const [valor,   setValor]   = useState('')
-  const [proj,    setProj]    = useState([])   // { tamanho, qtd_ajustada }
-  const [totais,  setTotais]  = useState([])   // { tamanho, total_pedido }
-  const [qtds,    setQtds]    = useState({})   // { [tamanho]: number }
-  const [success, setSuccess] = useState(false)
+
+  // header fields
+  const [fornId,        setFornId]        = useState('')
+  const [vendedor,      setVendedor]      = useState('')
+  const [dataPed,       setDataPed]       = useState(new Date().toISOString().slice(0, 10))
+  const [valor,         setValor]         = useState('')
+  const [desconto,      setDesconto]      = useState('')
+  const [condPag,       setCondPag]       = useState('')
+  const [frete,         setFrete]         = useState('')
+  const [transportadora,setTransportadora]= useState('')
+  const [notaFiscal,    setNotaFiscal]    = useState('')
+  const [obs,           setObs]           = useState('')
+
+  // grade / order
+  const [segId,    setSegId]    = useState(null)
+  const [proj,     setProj]     = useState([])
+  const [totais,   setTotais]   = useState([])
+  const [qtds,     setQtds]     = useState({})
+  const [success,  setSuccess]  = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const [error, setError] = useState(null)
+  const [error,    setError]    = useState(null)
 
   useEffect(() => {
     Promise.all([
@@ -29,26 +42,13 @@ export default function Compras() {
 
   useEffect(() => {
     if (!active || !segId) { setProj([]); setTotais([]); setQtds({}); return }
-    loadGrade(segId, active.id)
+    window.api.projecoes.get(segId, active.id).then(setProj)
+    window.api.pedidos.totaisPorTamanho(segId, active.id).then(setTotais)
+    setQtds({})
   }, [active?.id, segId])
 
-  async function loadGrade(sid, colId) {
-    const [projRows, totaisRows] = await Promise.all([
-      window.api.projecoes.get(sid, colId),
-      window.api.pedidos.totaisPorTamanho(sid, colId),
-    ])
-    setProj(projRows)
-    setTotais(totaisRows)
-    setQtds({})
-  }
-
-  function getComprado(tamanho) {
-    return totais.find(r => r.tamanho === tamanho)?.total_pedido ?? 0
-  }
-
-  function getSaldo(tamanho, projecao) {
-    return Math.max(0, projecao - getComprado(tamanho))
-  }
+  const getComprado = t => totais.find(r => r.tamanho === t)?.total_pedido ?? 0
+  const getSaldo    = (t, pj) => Math.max(0, pj - getComprado(t))
 
   function handleQty(tamanho, raw) {
     const val = parseInt(raw, 10)
@@ -56,9 +56,11 @@ export default function Compras() {
     setQtds(prev => ({ ...prev, [tamanho]: isNaN(val) || val < 0 ? 0 : val }))
   }
 
-  const totalQtd   = Object.values(qtds).reduce((s, q) => s + q, 0)
-  const valorNum   = parseFloat(valor.replace(',', '.')) || 0
-  const totalValor = totalQtd * valorNum
+  const totalQtd     = Object.values(qtds).reduce((s, q) => s + q, 0)
+  const valorNum     = parseFloat(valor.replace(',', '.')) || 0
+  const descontoNum  = Math.min(100, Math.max(0, parseFloat(desconto.replace(',', '.')) || 0))
+  const valorBruto   = totalQtd * valorNum
+  const valorLiquido = valorBruto * (1 - descontoNum / 100)
 
   const canConfirm = !isSaving && fornId && segId && totalQtd > 0 && valorNum > 0 && active
 
@@ -77,10 +79,16 @@ export default function Compras() {
         segmentacao_id: segId,
         data_pedido:    dataPed,
         valor_unitario: valorNum,
+        desconto_pct:   descontoNum,
+        vendedor,
+        cond_pag:       condPag,
+        frete,
+        transportadora,
+        nota_fiscal:    notaFiscal,
+        obs,
         itens,
       })
-      const newTotais = await window.api.pedidos.totaisPorTamanho(segId, active.id)
-      setTotais(newTotais)
+      setTotais(await window.api.pedidos.totaisPorTamanho(segId, active.id))
       setQtds({})
       setSuccess(true)
     } catch {
@@ -96,19 +104,20 @@ export default function Compras() {
     setError(null)
   }
 
+  const selectedSeg = segs.find(s => s.id === segId)
+
   return (
     <div className={styles.page}>
       <h1 className={styles.title}>Registrar Pedido{active ? ` — ${active.nome}` : ''}</h1>
 
-      {success && (
-        <div className={styles.successBanner}>✓ Pedido registrado com sucesso.</div>
-      )}
-      {error && <div className={styles.errorBanner}>{error}</div>}
+      {success && <div className={styles.successBanner}>✓ Pedido registrado com sucesso.</div>}
+      {error   && <div className={styles.errorBanner}>{error}</div>}
 
       <div className={styles.panel}>
-        {/* Form header */}
+
+        {/* Row 1: Fornecedor / Vendedor / Data */}
         <div className={styles.formRow}>
-          <div className={styles.field}>
+          <div className={`${styles.field} ${styles.fieldWide}`}>
             <span className={styles.fieldLabel}>Fornecedor</span>
             <select value={fornId} onChange={e => setFornId(e.target.value)}>
               <option value="">Selecione…</option>
@@ -116,37 +125,75 @@ export default function Compras() {
             </select>
           </div>
           <div className={styles.field}>
+            <span className={styles.fieldLabel}>Vendedor</span>
+            <input type="text" placeholder="Nome do vendedor" value={vendedor}
+              onChange={e => setVendedor(e.target.value)} style={{ width: 160 }} />
+          </div>
+          <div className={styles.field}>
             <span className={styles.fieldLabel}>Data do pedido</span>
             <input type="date" value={dataPed} onChange={e => setDataPed(e.target.value)} />
           </div>
+        </div>
+
+        {/* Row 2: Valor / Desconto / Cond. Pag / Frete */}
+        <div className={styles.formRow}>
           <div className={styles.field}>
             <span className={styles.fieldLabel}>Valor unitário (R$)</span>
-            <input
-              type="text"
-              placeholder="0,00"
-              value={valor}
-              onChange={e => setValor(e.target.value)}
-              style={{ width: 90 }}
-            />
+            <input type="text" placeholder="0,00" value={valor}
+              onChange={e => setValor(e.target.value)} style={{ width: 90 }} />
+          </div>
+          <div className={styles.field}>
+            <span className={styles.fieldLabel}>Desconto (%)</span>
+            <input type="text" placeholder="0" value={desconto}
+              onChange={e => setDesconto(e.target.value)} style={{ width: 64 }} />
+          </div>
+          <div className={styles.field}>
+            <span className={styles.fieldLabel}>Cond. pagamento</span>
+            <input type="text" placeholder="Ex: 30/60 dias" value={condPag}
+              onChange={e => setCondPag(e.target.value)} style={{ width: 140 }} />
+          </div>
+          <div className={styles.field}>
+            <span className={styles.fieldLabel}>Frete</span>
+            <select value={frete} onChange={e => setFrete(e.target.value)} style={{ width: 90 }}>
+              <option value="">—</option>
+              <option value="CIF">CIF</option>
+              <option value="FOB">FOB</option>
+            </select>
           </div>
         </div>
 
-        {/* Segmentation row */}
+        {/* Row 3: Transportadora / NF / Obs */}
+        <div className={styles.formRow}>
+          <div className={styles.field}>
+            <span className={styles.fieldLabel}>Transportadora</span>
+            <input type="text" placeholder="Nome da transportadora" value={transportadora}
+              onChange={e => setTransportadora(e.target.value)} style={{ width: 180 }} />
+          </div>
+          <div className={styles.field}>
+            <span className={styles.fieldLabel}>Nota fiscal</span>
+            <input type="text" placeholder="Nº NF" value={notaFiscal}
+              onChange={e => setNotaFiscal(e.target.value)} style={{ width: 100 }} />
+          </div>
+          <div className={`${styles.field} ${styles.fieldGrow}`}>
+            <span className={styles.fieldLabel}>Observações</span>
+            <input type="text" placeholder="Obs / Trocas…" value={obs}
+              onChange={e => setObs(e.target.value)} />
+          </div>
+        </div>
+
+        {/* Row 4: Segmentação */}
         <div className={styles.formRow}>
           <div className={styles.field}>
             <span className={styles.fieldLabel}>Segmentação</span>
             <SegmentacaoSelect segs={segs} value={segId} onChange={setSegId} />
           </div>
-          {segId && (() => {
-            const seg = segs.find(s => s.id === segId)
-            return seg?.tipo_grade ? (
-              <div className={styles.field} style={{ alignSelf: 'flex-end' }}>
-                <span className={styles.gradeBadge}>
-                  Grade: {GRADE_LABEL[seg.tipo_grade] ?? seg.tipo_grade}
-                </span>
-              </div>
-            ) : null
-          })()}
+          {selectedSeg?.tipo_grade && (
+            <div className={styles.field} style={{ alignSelf: 'flex-end' }}>
+              <span className={styles.gradeBadge}>
+                Grade: {GRADE_LABEL[selectedSeg.tipo_grade] ?? selectedSeg.tipo_grade}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Grade table */}
@@ -174,7 +221,7 @@ export default function Compras() {
                 <tbody>
                   {proj.map(r => {
                     const comprado = getComprado(r.tamanho)
-                    const saldo = getSaldo(r.tamanho, r.qtd_ajustada)
+                    const saldo    = getSaldo(r.tamanho, r.qtd_ajustada)
                     return (
                       <tr key={r.tamanho}>
                         <td>{r.tamanho}</td>
@@ -183,17 +230,12 @@ export default function Compras() {
                         <td>
                           {saldo === 0
                             ? <span className={styles.checkCell}>0 ✓</span>
-                            : <span style={{ color: 'var(--yellow)' }}>{saldo}</span>
-                          }
+                            : <span style={{ color: 'var(--yellow)' }}>{saldo}</span>}
                         </td>
                         <td>
-                          <input
-                            type="number"
-                            min="0"
-                            className={styles.qtyInput}
+                          <input type="number" min="0" className={styles.qtyInput}
                             value={qtds[r.tamanho] ?? 0}
-                            onChange={e => handleQty(r.tamanho, e.target.value)}
-                          />
+                            onChange={e => handleQty(r.tamanho, e.target.value)} />
                         </td>
                       </tr>
                     )
@@ -212,10 +254,17 @@ export default function Compras() {
             </div>
 
             <div className={styles.footer}>
-              <div className={styles.total}>
-                Valor total do pedido:{' '}
-                <span className={styles.totalValue}>
-                  R$ {totalValor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <div className={styles.totals}>
+                <span className={styles.totalLine}>
+                  Bruto: <strong>R$ {fmt(valorBruto)}</strong>
+                </span>
+                {descontoNum > 0 && (
+                  <span className={styles.totalLine} style={{ color: 'var(--text-muted)' }}>
+                    Desconto {descontoNum}%: <strong>− R$ {fmt(valorBruto - valorLiquido)}</strong>
+                  </span>
+                )}
+                <span className={styles.totalLine}>
+                  Líquido: <strong className={styles.totalValue}>R$ {fmt(valorLiquido)}</strong>
                 </span>
               </div>
               <div className={styles.actions}>
