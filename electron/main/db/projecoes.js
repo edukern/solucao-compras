@@ -4,6 +4,7 @@ export function makeProjecoes(db) {
     INSERT INTO projecoes (segmentacao_id, colecao_id, tamanho, ordem, qtd_projetada, qtd_ajustada, metodo)
     VALUES (@segmentacao_id, @colecao_id, @tamanho, @ordem, @qtd_projetada, @qtd_ajustada, @metodo)
     ON CONFLICT(segmentacao_id, colecao_id, tamanho) DO UPDATE SET
+      ordem         = excluded.ordem,
       qtd_projetada = excluded.qtd_projetada,
       qtd_ajustada  = excluded.qtd_ajustada,
       metodo        = excluded.metodo
@@ -36,6 +37,7 @@ export function makeProjecoes(db) {
 
   return {
     calcular(segId, targetColId, baseColIds, metodo) {
+      if (baseColIds.length < 2) throw new Error('calcular requer pelo menos 2 coleções base')
       const [idN2, idN1] = baseColIds
       const gradeN2 = gradeBySegCol.all(segId, idN2)
       const gradeN1 = gradeBySegCol.all(segId, idN1)
@@ -60,9 +62,7 @@ export function makeProjecoes(db) {
       })
     },
 
-    salvar(segId, colId, rows, metodo) {
-      saveMany(segId, colId, rows, metodo)
-    },
+    salvar: saveMany,
 
     getProjecao(segId, colId) {
       return bySegCol.all(segId, colId)
