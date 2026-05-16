@@ -29,6 +29,14 @@
   --text-muted:    #94a3b8;
   --input-bg:      #f8fafc;
   --input-border:  #cbd5e1;
+  /* Semantic colors adjusted for light backgrounds */
+  --accent:        #4f46e5;
+  --accent-light:  #4338ca;
+  --green:         #16a34a;
+  --yellow:        #b45309;
+  --orange:        #ea580c;
+  --purple:        #7c3aed;
+  --red:           #dc2626;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
