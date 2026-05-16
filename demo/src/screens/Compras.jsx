@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useCollection } from '../contexts/CollectionContext'
 import SegmentacaoSelect from '../components/SegmentacaoSelect'
+import { GRADE_LABEL } from '../utils/gradeConfig'
 import styles from './Compras.module.css'
 
 export default function Compras() {
@@ -136,6 +137,16 @@ export default function Compras() {
             <span className={styles.fieldLabel}>Segmentação</span>
             <SegmentacaoSelect segs={segs} value={segId} onChange={setSegId} />
           </div>
+          {segId && (() => {
+            const seg = segs.find(s => s.id === segId)
+            return seg?.tipo_grade ? (
+              <div className={styles.field} style={{ alignSelf: 'flex-end' }}>
+                <span className={styles.gradeBadge}>
+                  Grade: {GRADE_LABEL[seg.tipo_grade] ?? seg.tipo_grade}
+                </span>
+              </div>
+            ) : null
+          })()}
         </div>
 
         {/* Grade table */}

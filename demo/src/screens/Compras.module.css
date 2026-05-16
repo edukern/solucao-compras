@@ -20,6 +20,18 @@
 }
 
 .field { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.gradeBadge {
+  display: inline-block;
+  background: rgba(var(--accent-rgb), 0.1);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
+  border-radius: 4px;
+  color: var(--accent-light);
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
 .fieldLabel {
   font-size: 0.65rem;
   color: var(--text-muted);
