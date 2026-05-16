@@ -33,6 +33,8 @@ contextBridge.exposeInMainWorld('api', {
     totaisPorTamanho: (segId, colId) => ipcRenderer.invoke('pedidos:totaisPorTamanho', segId, colId),
     listarVisitas:    (colId)        => ipcRenderer.invoke('pedidos:listarVisitas', colId),
     listarPorColecao: (colId)        => ipcRenderer.invoke('pedidos:listarPorColecao', colId),
+    totaisPorFornecedor:   (colId, segId) => ipcRenderer.invoke('pedidos:totaisPorFornecedor', colId, segId),
+    itensPorFornecedor:    (fornId, colId) => ipcRenderer.invoke('pedidos:itensPorFornecedor', fornId, colId),
   },
   backup: {
     export: () => ipcRenderer.invoke('backup:export'),

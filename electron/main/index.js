@@ -73,6 +73,8 @@ app.whenReady().then(() => {
   ipcMain.handle('pedidos:totaisPorTamanho', (_, segId, colId) => ped.getTotaisPorTamanho(segId, colId))
   ipcMain.handle('pedidos:listarVisitas',    (_, colId) => ped.listarVisitas(colId))
   ipcMain.handle('pedidos:listarPorColecao', (_, colId) => ped.listarPorColecao(colId))
+  ipcMain.handle('pedidos:totaisPorFornecedor',   (_, colId, segId) => ped.totaisPorFornecedor(colId, segId ?? null))
+  ipcMain.handle('pedidos:itensPorFornecedor',    (_, fornId, colId) => ped.itensPorFornecedor(fornId, colId))
 
   // Backup / Restore
   ipcMain.handle('backup:export', async () => {
