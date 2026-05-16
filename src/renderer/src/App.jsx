@@ -4,11 +4,13 @@ import Sidebar from './components/Sidebar'
 import Dashboard from './screens/Dashboard'
 import Planejamento from './screens/Planejamento'
 import Compras from './screens/Compras'
+import Relatorios from './screens/Relatorios'
 
 const SCREENS = {
   dashboard:    () => <Dashboard />,
   planejamento: () => <Planejamento />,
   compras:      () => <Compras />,
+  relatorios:   () => <Relatorios />,
 }
 
 export default function App() {
