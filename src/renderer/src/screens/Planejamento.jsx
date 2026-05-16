@@ -31,6 +31,7 @@ export default function Planejamento() {
   }, [active?.id, segId, metodo])
 
   async function loadPlanejamento(sid, met) {
+    if (!active) return
     setWarning(null)
     const base = findBaseColecoes(collections, active)
     if (base.length < 2) {
@@ -47,9 +48,7 @@ export default function Planejamento() {
       window.api.grades.get(sid, n2Id),
       window.api.grades.get(sid, n1Id),
       window.api.projecoes.get(sid, active.id),
-      met !== 'manual'
-        ? window.api.projecoes.calcular(sid, active.id, [n2Id, n1Id], met)
-        : Promise.resolve([]),
+      window.api.projecoes.calcular(sid, active.id, [n2Id, n1Id], met !== 'manual' ? met : 'media_simples'),
     ])
 
     const savedMap = Object.fromEntries(projSaved.map(r => [r.tamanho, r.qtd_ajustada]))
@@ -57,7 +56,7 @@ export default function Planejamento() {
     const n1Map    = Object.fromEntries(gradeN1.map(r => [r.tamanho, r.qtd_comprada]))
 
     let merged
-    if (met === 'manual') {
+    if (met === 'manual' && projSaved.length > 0) {
       merged = projSaved.map(r => ({
         tamanho:       r.tamanho,
         ordem:         r.ordem,
@@ -73,7 +72,7 @@ export default function Planejamento() {
         n2:            n2Map[r.tamanho] ?? 0,
         n1:            n1Map[r.tamanho] ?? 0,
         qtd_projetada: r.qtd_projetada,
-        qtd_ajustada:  savedMap[r.tamanho] ?? r.qtd_projetada,
+        qtd_ajustada:  met === 'manual' ? r.qtd_projetada : (savedMap[r.tamanho] ?? r.qtd_projetada),
       }))
     }
 
