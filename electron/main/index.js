@@ -19,6 +19,7 @@ function createWindow() {
     minHeight: 680,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
+      // sandbox: false required — preload uses ESM imports; renderer has no Node access
       sandbox: false
     }
   })
@@ -81,7 +82,7 @@ app.whenReady().then(() => {
       filters: [{ name: 'Database', extensions: ['db'] }]
     })
     if (!filePath) return false
-    fs.copyFileSync(db.name, filePath)
+    fs.copyFileSync(db.filename, filePath)
     return true
   })
 
@@ -93,7 +94,10 @@ app.whenReady().then(() => {
     })
     if (!filePaths.length) return false
     db.close()
-    fs.copyFileSync(filePaths[0], db.name)
+    fs.copyFileSync(filePaths[0], db.filename)
+    for (const ext of ['-wal', '-shm']) {
+      try { fs.unlinkSync(db.filename + ext) } catch {}
+    }
     app.relaunch()
     app.exit(0)
     return true
@@ -105,6 +109,10 @@ app.whenReady().then(() => {
   })
 
   createWindow()
+})
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow()
 })
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
