@@ -41,12 +41,15 @@ Demo pública: **https://solucao-compras-demo.vercel.app**
 
 ```
 colecoes        id, nome, estacao(verão|inverno), ano, status(em_preparacao|em_compra|finalizada)
-segmentacoes    id, classificacao(AD|EX|INF), tipo_produto, classe(FEM|MASC|UNI)
+segmentacoes    id, classificacao(AD|EX|INF), tipo_produto, classe(FEM|MASC|UNI), tipo_grade
+                tipo_grade: PP|BB|INF|JUV|AD|EX|AD1|EX1|AD2|EX2|U
                 UNIQUE(classificacao, tipo_produto, classe)
 grades          id, segmentacao_id, colecao_id, tamanho, qtd_comprada, qtd_vendida, estoque
 projecoes       id, segmentacao_id, colecao_id, tamanho, qtd_calculada, qtd_ajustada, metodo
 fornecedores    id, nome, cnpj, contato
-pedidos         id, fornecedor_id, segmentacao_id, colecao_id, tamanho, qtd_pedida, valor_unitario, data_pedido, status
+pedidos         id, fornecedor_id, segmentacao_id, colecao_id, tamanho, qtd_pedida,
+                valor_unitario, desconto_pct, data_pedido, status,
+                vendedor, cond_pag, frete(CIF|FOB), transportadora, nota_fiscal, obs
 ```
 
 ---
@@ -121,20 +124,20 @@ Colunas por item: Ref (código), Produto, Grade (tipo), Classe (FEM/MASC/UNI), I
 
 ## O que está pronto vs. pendente
 
-### ✅ Pronto
-- Schema SQLite completo
-- API bridge (window.api) com todos os métodos
-- Todas as telas (Dashboard, Planejamento, Compras, Relatórios completo)
-- Demo no Vercel com dados mock (Inverno 2026, 15 fornecedores)
-- Tema claro
+### ✅ Pronto (demo Vercel)
+- Todas as telas: Dashboard, Planejamento (placeholder), Compras, Relatórios completo
+- Tipos de grade granulares: PP/BB/INF/JUV/AD/EX/AD1/EX1/AD2/EX2/U com tamanhos corretos
+- Campos completos do pedido: Vendedor, Cond. Pag., Frete (CIF/FOB), Transportadora, NF, Obs, Desconto %
+- Cálculo de valor líquido com desconto
+- Badge de tipo_grade na tela de Compras
+- Tema claro, deploy automático no Vercel
 
 ### 🔧 Pendente / não iniciado
+- Desktop app (Electron + SQLite) — schema definido, implementação não iniciada
 - Interface para criar/editar coleções
-- Importação automática de histórico via Excel (TOTAL GRADE)
+- Importação de histórico via Excel (TOTAL GRADE)
 - Cadastro completo de fornecedores (~150 do ERP)
-- Tipos de grade granulares (PP, BB, JUV, AD1, EX1, etc.) no modelo de dados
-- Distribuição de pedidos por comprador (os 8 do grupo)
-- Campos adicionais do pedido (Vendedor, Cond. Pag, NF, Frete, ICMS, etc.)
+- Distribuição de pedidos por comprador (os 8 do grupo Backes/Streit) + geração de PDF por comprador
 
 ### 💡 Features sugeridas (pendentes de aprovação do gestor)
 - **Cálculo automático de grade por proporção:** usuário digita total de peças → sistema distribui por tamanho com base no histórico de projeções
