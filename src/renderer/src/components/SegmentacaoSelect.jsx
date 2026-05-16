@@ -16,7 +16,7 @@ export default function SegmentacaoSelect({ segs, value, onChange }) {
       s => s.classificacao === selClass && s.tipo_produto === selTipo && s.classe === selClasse
     )
     onChange(seg?.id ?? null)
-  }, [selClass, selTipo, selClasse, segs])
+  }, [selClass, selTipo, selClasse, segs, onChange])
 
   function handleClass(v) { setSelClass(v); setSelTipo(''); setSelClasse('') }
   function handleTipo(v)  { setSelTipo(v);  setSelClasse('') }
