@@ -1,0 +1,134 @@
+<h2>Design — Telas Principais</h2>
+<p class="subtitle">Navegação e fluxo geral do aplicativo</p>
+
+<div class="section">
+  <p class="label">Estrutura de navegação</p>
+  <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem">
+    <div style="background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.5);border-radius:8px;padding:0.6rem 1rem;text-align:center;min-width:120px">
+      <div style="font-size:1.2em">📊</div>
+      <div style="font-weight:600;font-size:0.9em;margin-top:0.2rem">Dashboard</div>
+      <div style="font-size:0.75em;color:#94a3b8;margin-top:0.1rem">Visão geral da coleção ativa</div>
+    </div>
+    <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:0.6rem 1rem;text-align:center;min-width:120px">
+      <div style="font-size:1.2em">📥</div>
+      <div style="font-weight:600;font-size:0.9em;margin-top:0.2rem">Importação</div>
+      <div style="font-size:0.75em;color:#94a3b8;margin-top:0.1rem">Carregar dados do ERP</div>
+    </div>
+    <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:0.6rem 1rem;text-align:center;min-width:120px">
+      <div style="font-size:1.2em">🎯</div>
+      <div style="font-weight:600;font-size:0.9em;margin-top:0.2rem">Planejamento</div>
+      <div style="font-size:0.75em;color:#94a3b8;margin-top:0.1rem">Revisar e ajustar projeções</div>
+    </div>
+    <div style="background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.3);border-radius:8px;padding:0.6rem 1rem;text-align:center;min-width:120px">
+      <div style="font-size:1.2em">🛍️</div>
+      <div style="font-weight:600;font-size:0.9em;margin-top:0.2rem">Compras</div>
+      <div style="font-size:0.75em;color:#94a3b8;margin-top:0.1rem">Registrar pedidos feitos</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:0.6rem 1rem;text-align:center;min-width:120px">
+      <div style="font-size:1.2em">🏭</div>
+      <div style="font-weight:600;font-size:0.9em;margin-top:0.2rem">Fornecedores</div>
+      <div style="font-size:0.75em;color:#94a3b8;margin-top:0.1rem">Cadastro e histórico</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:0.6rem 1rem;text-align:center;min-width:120px">
+      <div style="font-size:1.2em">⚙️</div>
+      <div style="font-weight:600;font-size:0.9em;margin-top:0.2rem">Configurações</div>
+      <div style="font-size:0.75em;color:#94a3b8;margin-top:0.1rem">Segmentações e backup</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <p class="label">Mockup — Dashboard (tela principal)</p>
+  <div class="mockup" style="margin-top:0.5rem">
+    <div class="mockup-header">📊 Dashboard — Verão 2026 &nbsp;|&nbsp; <span style="color:#fcd34d">Em andamento</span></div>
+    <div class="mockup-body" style="padding:0">
+
+      <!-- Totalizadores -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0;border-bottom:1px solid rgba(255,255,255,0.08)">
+        <div style="padding:1rem;border-right:1px solid rgba(255,255,255,0.08)">
+          <div style="font-size:0.7em;text-transform:uppercase;letter-spacing:.05em;color:#64748b">Projeção total</div>
+          <div style="font-size:1.6em;font-weight:700;color:#c4b5fd;margin-top:0.2rem">4.820 pç</div>
+        </div>
+        <div style="padding:1rem;border-right:1px solid rgba(255,255,255,0.08)">
+          <div style="font-size:0.7em;text-transform:uppercase;letter-spacing:.05em;color:#64748b">Já comprado</div>
+          <div style="font-size:1.6em;font-weight:700;color:#86efac;margin-top:0.2rem">2.340 pç</div>
+        </div>
+        <div style="padding:1rem;border-right:1px solid rgba(255,255,255,0.08)">
+          <div style="font-size:0.7em;text-transform:uppercase;letter-spacing:.05em;color:#64748b">Saldo a comprar</div>
+          <div style="font-size:1.6em;font-weight:700;color:#fcd34d;margin-top:0.2rem">2.480 pç</div>
+        </div>
+        <div style="padding:1rem">
+          <div style="font-size:0.7em;text-transform:uppercase;letter-spacing:.05em;color:#64748b">Investimento</div>
+          <div style="font-size:1.6em;font-weight:700;color:#fb923c;margin-top:0.2rem">R$ 87.400</div>
+        </div>
+      </div>
+
+      <!-- Barra de progresso geral -->
+      <div style="padding:0.75rem 1rem;border-bottom:1px solid rgba(255,255,255,0.08)">
+        <div style="display:flex;justify-content:space-between;font-size:0.8em;color:#94a3b8;margin-bottom:0.4rem">
+          <span>Progresso geral da coleção</span><span style="color:#86efac;font-weight:600">48,5%</span>
+        </div>
+        <div style="background:rgba(255,255,255,0.08);border-radius:4px;height:8px">
+          <div style="background:linear-gradient(90deg,#6ee7b7,#34d399);width:48.5%;height:100%;border-radius:4px"></div>
+        </div>
+      </div>
+
+      <!-- Tabela por segmentação -->
+      <div style="padding:0.75rem 1rem 0.5rem">
+        <div style="font-size:0.7em;text-transform:uppercase;letter-spacing:.05em;color:#64748b;margin-bottom:0.5rem">Por segmentação</div>
+        <table style="width:100%;border-collapse:collapse;font-size:0.85em">
+          <thead>
+            <tr style="color:#64748b;font-size:0.8em;text-transform:uppercase">
+              <th style="text-align:left;padding:0.3rem 0.4rem">Segmentação</th>
+              <th style="text-align:right;padding:0.3rem 0.4rem">Projeção</th>
+              <th style="text-align:right;padding:0.3rem 0.4rem">Comprado</th>
+              <th style="text-align:right;padding:0.3rem 0.4rem">Saldo</th>
+              <th style="text-align:right;padding:0.3rem 0.4rem">Progresso</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-top:1px solid rgba(255,255,255,0.05)">
+              <td style="padding:0.4rem">Adulto › Jaqueta › Feminino</td>
+              <td style="text-align:right;padding:0.4rem;color:#c4b5fd">320</td>
+              <td style="text-align:right;padding:0.4rem;color:#86efac">320</td>
+              <td style="text-align:right;padding:0.4rem;color:#6ee7b7;font-weight:600">0 ✓</td>
+              <td style="text-align:right;padding:0.4rem">
+                <div style="background:rgba(255,255,255,0.08);border-radius:3px;height:6px;width:80px;display:inline-block;vertical-align:middle">
+                  <div style="background:#34d399;width:100%;height:100%;border-radius:3px"></div>
+                </div>
+              </td>
+            </tr>
+            <tr style="border-top:1px solid rgba(255,255,255,0.05)">
+              <td style="padding:0.4rem">Adulto › Blusa › Feminino</td>
+              <td style="text-align:right;padding:0.4rem;color:#c4b5fd">580</td>
+              <td style="text-align:right;padding:0.4rem;color:#86efac">210</td>
+              <td style="text-align:right;padding:0.4rem;color:#fcd34d;font-weight:600">370</td>
+              <td style="text-align:right;padding:0.4rem">
+                <div style="background:rgba(255,255,255,0.08);border-radius:3px;height:6px;width:80px;display:inline-block;vertical-align:middle">
+                  <div style="background:#fbbf24;width:36%;height:100%;border-radius:3px"></div>
+                </div>
+              </td>
+            </tr>
+            <tr style="border-top:1px solid rgba(255,255,255,0.05)">
+              <td style="padding:0.4rem">Infantil › Calça › Unissex</td>
+              <td style="text-align:right;padding:0.4rem;color:#c4b5fd">440</td>
+              <td style="text-align:right;padding:0.4rem;color:#86efac">0</td>
+              <td style="text-align:right;padding:0.4rem;color:#fca5a5;font-weight:600">440</td>
+              <td style="text-align:right;padding:0.4rem">
+                <div style="background:rgba(255,255,255,0.08);border-radius:3px;height:6px;width:80px;display:inline-block;vertical-align:middle">
+                  <div style="background:#ef4444;width:2%;height:100%;border-radius:3px"></div>
+                </div>
+              </td>
+            </tr>
+            <tr style="border-top:1px solid rgba(255,255,255,0.05);color:#475569;font-style:italic">
+              <td style="padding:0.4rem" colspan="5">… demais segmentações</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:1.5rem;text-align:center;color:#64748b;font-size:0.9em">Esse layout de dashboard faz sentido? Responda no terminal — depois mostro as telas de Planejamento e Compras.</div>
