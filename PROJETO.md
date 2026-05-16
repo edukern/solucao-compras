@@ -1,7 +1,7 @@
 # Solução Compras — Contexto do Projeto
 
 > Documentação enxuta de referência. Atualizar ao fim de cada sessão de trabalho.
-> Última atualização: 2026-05-16
+> Última atualização: 2026-05-16 (sessão 2)
 
 ---
 
@@ -85,6 +85,8 @@ window.api.grades.get(segmentacaoId, colecaoId)
 | Dashboard | Visão geral: métricas, progresso, tabela por segmentação | ✅ |
 | Planejamento | Revisão e ajuste de projeções por segmentação e método | ✅ (placeholder na demo) |
 | Compras | Registro de pedidos com tabela de grade por tamanho | ✅ |
+| Compras › Distribuição | Tabela de distribuição por comprador e tamanho, validação de saldo | ✅ |
+| Compras › Geração de PDFs | Talão de pedido por comprador via browser print | ✅ |
 | Relatórios › Por Fornecedor | Lista + detalhe com filtros por segmentação | ✅ |
 | Relatórios › Por Segmentação | Filtro cascata → detalhe por fornecedor | ✅ |
 | Relatórios › Curva ABC | Desabilitado, "Em breve" | 🔧 |
@@ -130,6 +132,8 @@ Colunas por item: Ref (código), Produto, Grade (tipo), Classe (FEM/MASC/UNI), I
 - Campos completos do pedido: Vendedor, Cond. Pag., Frete (CIF/FOB), Transportadora, NF, Obs, Desconto %
 - Cálculo de valor líquido com desconto
 - Badge de tipo_grade na tela de Compras
+- **Distribuição por comprador:** tabela por tamanho × comprador com validação de saldo
+- **Geração de PDFs:** talão de pedido individual por comprador via browser print (`window.open` + `print()`)
 - Tema claro, deploy automático no Vercel
 
 ### 🔧 Pendente / não iniciado
@@ -137,7 +141,7 @@ Colunas por item: Ref (código), Produto, Grade (tipo), Classe (FEM/MASC/UNI), I
 - Interface para criar/editar coleções
 - Importação de histórico via Excel (TOTAL GRADE)
 - Cadastro completo de fornecedores (~150 do ERP)
-- Distribuição de pedidos por comprador (os 8 do grupo Backes/Streit) + geração de PDF por comprador
+- Exportação de cadastro de produtos para ERP (depende de aprovação da equipe ERP)
 
 ### 💡 Features sugeridas (pendentes de aprovação do gestor)
 - **Cálculo automático de grade por proporção:** usuário digita total de peças → sistema distribui por tamanho com base no histórico de projeções
