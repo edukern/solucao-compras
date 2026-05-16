@@ -17,7 +17,7 @@ export default function PorFornecedor({ selectedForn, segFilter, onSelectForn, o
     window.api.pedidos.totaisPorFornecedor(active.id).then(setList)
   }, [active?.id])
 
-  const loadDetail = useCallback(async (fornId, colId) => {
+  const loadDetail = useCallback(async (fornId, colId, filter) => {
     const rows = await window.api.pedidos.itensPorFornecedor(fornId, colId)
     setItems(rows)
     const projMap = {}
@@ -26,23 +26,23 @@ export default function PorFornecedor({ selectedForn, segFilter, onSelectForn, o
       projMap[r.segmentacao_id] = proj.reduce((s, p) => s + p.qtd_ajustada, 0)
     }))
     setProjecoes(projMap)
-    const classes = new Set(rows.map(r => r.classificacao))
-    const tipos   = new Set(rows.map(r => r.tipo_produto))
-    setActivePills({ class: classes, tipo: tipos })
+    if (filter) {
+      setActivePills({
+        class: new Set([filter.classificacao]),
+        tipo:  new Set([filter.tipo_produto]),
+      })
+    } else {
+      setActivePills({
+        class: new Set(rows.map(r => r.classificacao)),
+        tipo:  new Set(rows.map(r => r.tipo_produto)),
+      })
+    }
   }, [])
 
   useEffect(() => {
     if (!selectedForn || !active) return
-    loadDetail(selectedForn.id, active.id)
+    loadDetail(selectedForn.id, active.id, segFilter)
   }, [selectedForn?.id, active?.id, loadDetail])
-
-  useEffect(() => {
-    if (!segFilter || items.length === 0) return
-    setActivePills({
-      class: new Set([segFilter.classificacao]),
-      tipo:  new Set([segFilter.tipo_produto]),
-    })
-  }, [segFilter, items])
 
   const filteredList = useMemo(() => {
     if (!search.trim()) return list
