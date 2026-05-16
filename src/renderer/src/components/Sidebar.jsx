@@ -1,15 +1,51 @@
+import { useCollection } from '../contexts/CollectionContext'
+import styles from './Sidebar.module.css'
+
+const NAV_ITEMS = [
+  { id: 'dashboard',    label: 'Dashboard',    icon: '◉' },
+  { id: 'planejamento', label: 'Planejamento', icon: '🎯' },
+  { id: 'compras',      label: 'Compras',      icon: '🛍️' },
+]
+
 export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
+  const { collections, activeId, setActiveId } = useCollection()
+
   return (
-    <aside style={{ width: 200, background: 'var(--bg-secondary)', borderRight: '1px solid var(--border)', padding: '1rem 0.5rem' }}>
-      <div style={{ marginBottom: '1rem', color: 'var(--accent-light)', fontWeight: 700 }}>SC</div>
-      {['dashboard', 'planejamento', 'compras'].map(s => (
-        <button key={s} onClick={() => onNavigate(s)} style={{ display: 'block', width: '100%', background: current === s ? 'rgba(99,102,241,0.15)' : 'transparent', border: 'none', color: current === s ? 'var(--accent-light)' : 'var(--text-secondary)', padding: '0.5rem 0.75rem', borderRadius: 6, textAlign: 'left', marginBottom: 2, cursor: 'pointer', fontSize: '0.85rem' }}>
-          {s.charAt(0).toUpperCase() + s.slice(1)}
+    <aside className={styles.sidebar}>
+      <div className={styles.brand}>Solução Compras</div>
+
+      <div className={styles.collectionSection}>
+        <span className={styles.label}>Coleção ativa</span>
+        <select
+          className={styles.colSelect}
+          value={activeId ?? ''}
+          onChange={e => setActiveId(Number(e.target.value))}
+        >
+          {collections.length === 0 && <option value="">— nenhuma —</option>}
+          {collections.map(c => (
+            <option key={c.id} value={c.id}>{c.nome}</option>
+          ))}
+        </select>
+      </div>
+
+      <nav className={styles.nav}>
+        {NAV_ITEMS.map(item => (
+          <button
+            key={item.id}
+            className={`${styles.navBtn} ${current === item.id ? styles.active : ''}`}
+            onClick={() => onNavigate(item.id)}
+          >
+            <span className={styles.icon}>{item.icon}</span>
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </nav>
+
+      <div className={styles.bottom}>
+        <button className={styles.themeBtn} onClick={onToggleTheme}>
+          {theme === 'dark' ? '☀️ Modo claro' : '🌙 Modo escuro'}
         </button>
-      ))}
-      <button onClick={onToggleTheme} style={{ marginTop: '1rem', background: 'transparent', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text-muted)', padding: '0.3rem 0.6rem', fontSize: '0.8rem', cursor: 'pointer' }}>
-        {theme === 'dark' ? '☀️' : '🌙'}
-      </button>
+      </div>
     </aside>
   )
 }
