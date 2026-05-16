@@ -1,3 +1,14 @@
+export const compradores = [
+  { id:1, nome:'Irmãos Backes',        cnpj:'08.889.201/0001-01', cidade:'Três Coroas/RS' },
+  { id:2, nome:'Samuel Paulo Backes',  cnpj:'15.563.106/0001-70', cidade:'Três Coroas/RS' },
+  { id:3, nome:'PSM Backes',           cnpj:'28.010.922/0001-07', cidade:'Igrejinha/RS' },
+  { id:4, nome:'Alexandre Backes',     cnpj:'06.284.903/0001-28', cidade:'' },
+  { id:5, nome:'Elisangela M. Backes', cnpj:'13.706.244/0001-36', cidade:'Santa Maria do Herval/RS' },
+  { id:6, nome:'Rafael J. Backes',     cnpj:'46.348.002/0001-77', cidade:'Rolante/RS' },
+  { id:7, nome:'Streit Conf',          cnpj:'10.206.469/0001-35', cidade:'Riozinho/RS' },
+  { id:8, nome:'FMV Streit Conf',      cnpj:'20.354.516/0001-41', cidade:'Rolante/RS' },
+]
+
 export const colecoes = [
   { id: 1, nome: 'Inverno 2026', estacao: 'inverno', ano: 2026, status: 'em_compra' },
 ]

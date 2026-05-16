@@ -1,4 +1,4 @@
-import { colecoes, segmentacoes, fornecedores, projecoes, pedidosBase } from './mockData.js'
+import { colecoes, segmentacoes, fornecedores, projecoes, pedidosBase, compradores } from './mockData.js'
 
 // mutable in-memory pedidos array (resets on page reload — by design)
 const pedidos = [...pedidosBase]
@@ -118,6 +118,10 @@ const mockApi = {
 
   grades: {
     get: () => resolve([]),
+  },
+
+  compradores: {
+    list: () => resolve([...compradores]),
   },
 }
 
