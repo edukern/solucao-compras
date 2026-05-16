@@ -1,24 +1,24 @@
 :root {
-  --bg-primary:    #0f172a;
-  --bg-secondary:  #1e293b;
-  --bg-card:       #1e293b;
-  --bg-hover:      rgba(255,255,255,0.05);
-  --border:        rgba(255,255,255,0.08);
-  --text-primary:  #e2e8f0;
-  --text-secondary:#94a3b8;
-  --text-muted:    #64748b;
+  --bg-primary:    #f8fafc;
+  --bg-secondary:  #f1f5f9;
+  --bg-card:       #ffffff;
+  --bg-hover:      rgba(0,0,0,0.04);
+  --border:        rgba(0,0,0,0.09);
+  --text-primary:  #0f172a;
+  --text-secondary:#475569;
+  --text-muted:    #94a3b8;
   --accent:        #6366f1;
   --accent-dark:   #4f46e5;
   --accent-rgb:    99,102,241;
-  --accent-light:  #a5b4fc;
-  --warning:       #b45309;
-  --green:         #86efac;
-  --yellow:        #fcd34d;
-  --orange:        #fb923c;
-  --purple:        #c4b5fd;
-  --red:           #f87171;
-  --input-bg:      rgba(255,255,255,0.08);
-  --input-border:  rgba(255,255,255,0.15);
+  --accent-light:  #818cf8;
+  --warning:       #92400e;
+  --green:         #16a34a;
+  --yellow:        #d97706;
+  --orange:        #ea580c;
+  --purple:        #7c3aed;
+  --red:           #dc2626;
+  --input-bg:      #ffffff;
+  --input-border:  rgba(0,0,0,0.15);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
