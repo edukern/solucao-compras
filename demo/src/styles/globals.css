@@ -8,8 +8,10 @@
   --text-secondary:#94a3b8;
   --text-muted:    #64748b;
   --accent:        #6366f1;
+  --accent-dark:   #4f46e5;
   --accent-rgb:    99,102,241;
   --accent-light:  #a5b4fc;
+  --warning:       #b45309;
   --green:         #86efac;
   --yellow:        #fcd34d;
   --orange:        #fb923c;
