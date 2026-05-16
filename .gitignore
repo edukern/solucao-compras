@@ -19,3 +19,8 @@ out
 
 # Claude Code runtime files
 .superpowers/brainstorm/*/state/server.pid
+
+# SQLite database (dados locais, não vão pro repositório)
+*.db
+*.db-wal
+*.db-shm

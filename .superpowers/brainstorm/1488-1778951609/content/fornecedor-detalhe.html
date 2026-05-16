@@ -1,0 +1,105 @@
+<h2>Relatório do Fornecedor — como apresentar a hierarquia?</h2>
+<p class="subtitle">Dentro do relatório de um fornecedor, como os dados ficam organizados?</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0f172a;border-radius:6px;padding:10px;font-size:10px;height:220px;overflow:hidden;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="color:#e2e8f0;font-weight:600;font-size:11px;">← Fornecedor Alpha</span>
+          <span style="color:#64748b;">4 SKUs · 620 pç · R$ 31.000</span>
+          <div style="margin-left:auto;display:flex;gap:4px;">
+            <div style="background:#1e293b;border:1px solid #334155;border-radius:3px;padding:2px 6px;color:#94a3b8;font-size:9px;">AD</div>
+            <div style="background:#6366f1;border-radius:3px;padding:2px 6px;color:#fff;font-size:9px;">CALCA</div>
+            <div style="background:#1e293b;border:1px solid #334155;border-radius:3px;padding:2px 6px;color:#94a3b8;font-size:9px;">FEM</div>
+          </div>
+        </div>
+        <!-- Grupo AD -->
+        <div style="background:#1e293b;border-radius:4px;margin-bottom:4px;">
+          <div style="padding:5px 8px;border-bottom:1px solid #0f172a;color:#a5b4fc;font-size:9px;font-weight:600;">▾ AD · 3 SKUs</div>
+          <!-- Tipo CALCA -->
+          <div style="padding:4px 8px 4px 16px;border-bottom:1px solid #0f172a;color:#94a3b8;font-size:9px;">▾ CALCA · 2 SKUs</div>
+          <!-- SKU -->
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:4px;padding:4px 8px 4px 28px;align-items:center;border-bottom:1px solid #0f172a;">
+            <span style="color:#e2e8f0;font-size:9px;">AD / CALCA / FEM</span>
+            <span style="color:#a78bfa;font-size:9px;">200 pç proj.</span>
+            <span style="color:#34d399;font-size:9px;">180 compr.</span>
+            <span style="color:#fbbf24;font-size:9px;">20 saldo</span>
+            <span style="color:#34d399;font-size:9px;">90%</span>
+          </div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:4px;padding:4px 8px 4px 28px;align-items:center;">
+            <span style="color:#e2e8f0;font-size:9px;">AD / CALCA / MASC</span>
+            <span style="color:#a78bfa;font-size:9px;">150 pç proj.</span>
+            <span style="color:#34d399;font-size:9px;">80 compr.</span>
+            <span style="color:#fbbf24;font-size:9px;">70 saldo</span>
+            <span style="color:#fbbf24;font-size:9px;">53%</span>
+          </div>
+        </div>
+        <!-- Grupo EX -->
+        <div style="background:#1e293b;border-radius:4px;">
+          <div style="padding:5px 8px;color:#94a3b8;font-size:9px;font-weight:600;">▸ EX · 1 SKU (clique para expandir)</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Hierarquia expansível</h3>
+      <p>Classificação → Tipo → SKU. Cada nível expande/colapsa. Filtros no topo removem/adicionam classificações e tipos. Mais denso, mais informação visível.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0f172a;border-radius:6px;padding:10px;font-size:10px;height:220px;overflow:hidden;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="color:#e2e8f0;font-weight:600;font-size:11px;">← Fornecedor Alpha</span>
+          <span style="color:#64748b;">4 SKUs · 620 pç</span>
+        </div>
+        <!-- Cards de resumo -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:8px;">
+          <div style="background:#1e293b;border-radius:4px;padding:6px;">
+            <div style="color:#64748b;font-size:8px;">PROJEÇÃO</div>
+            <div style="color:#a78bfa;font-size:13px;font-weight:700;">620</div>
+          </div>
+          <div style="background:#1e293b;border-radius:4px;padding:6px;">
+            <div style="color:#64748b;font-size:8px;">COMPRADO</div>
+            <div style="color:#34d399;font-size:13px;font-weight:700;">500</div>
+          </div>
+          <div style="background:#1e293b;border-radius:4px;padding:6px;">
+            <div style="color:#64748b;font-size:8px;">SALDO</div>
+            <div style="color:#fbbf24;font-size:13px;font-weight:700;">120</div>
+          </div>
+        </div>
+        <!-- Tabela flat com separadores -->
+        <div style="background:#1e293b;border-radius:4px;overflow:hidden;">
+          <div style="padding:4px 8px;background:#1e293b;border-bottom:2px solid #6366f1;display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:4px;">
+            <span style="color:#64748b;font-size:8px;">SEGMENTAÇÃO</span>
+            <span style="color:#64748b;font-size:8px;">PROJ</span>
+            <span style="color:#64748b;font-size:8px;">COMPR</span>
+            <span style="color:#64748b;font-size:8px;">%</span>
+          </div>
+          <div style="padding:3px 8px;border-bottom:1px solid #0f172a;background:rgba(99,102,241,.1);">
+            <span style="color:#a5b4fc;font-size:8px;font-weight:600;">AD — CALCA</span>
+          </div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:4px;padding:3px 8px 3px 16px;border-bottom:1px solid #0f172a;">
+            <span style="color:#e2e8f0;font-size:9px;">FEM</span>
+            <span style="color:#a78bfa;font-size:9px;">200</span>
+            <span style="color:#34d399;font-size:9px;">180</span>
+            <span style="color:#34d399;font-size:9px;">90%</span>
+          </div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:4px;padding:3px 8px 3px 16px;">
+            <span style="color:#e2e8f0;font-size:9px;">MASC</span>
+            <span style="color:#a78bfa;font-size:9px;">150</span>
+            <span style="color:#34d399;font-size:9px;">80</span>
+            <span style="color:#fbbf24;font-size:9px;">53%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Cards de resumo + tabela agrupada</h3>
+      <p>Cards de totais no topo (projeção, comprado, saldo), depois tabela com separadores por classificação/tipo. Mais limpo, sem necessidade de expandir/colapsar.</p>
+    </div>
+  </div>
+
+</div>

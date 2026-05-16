@@ -1,0 +1,90 @@
+<h2>Como organizar a tela de Relatórios?</h2>
+<p class="subtitle">Escolha a estrutura que faz mais sentido para navegar entre os tipos de relatório</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="display:flex;height:180px;background:#0f172a;border-radius:6px;overflow:hidden;font-size:11px;">
+        <div style="width:160px;background:#1e293b;padding:10px;border-right:1px solid #334155;flex-shrink:0;">
+          <div style="color:#94a3b8;font-size:9px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Relatórios</div>
+          <div style="background:#6366f1;color:#fff;padding:5px 8px;border-radius:4px;margin-bottom:4px;">Por Fornecedor</div>
+          <div style="color:#64748b;padding:5px 8px;margin-bottom:4px;">Por Segmentação</div>
+          <div style="color:#475569;padding:5px 8px;margin-bottom:4px;opacity:.5;">Curva ABC</div>
+          <div style="color:#475569;padding:5px 8px;opacity:.5;">Quebra Estoque</div>
+        </div>
+        <div style="flex:1;padding:12px;">
+          <div style="color:#e2e8f0;font-size:12px;font-weight:600;margin-bottom:8px;">Por Fornecedor</div>
+          <div style="background:#1e293b;border-radius:4px;padding:8px;margin-bottom:6px;">
+            <div style="color:#94a3b8;font-size:9px;">FORNECEDOR</div>
+            <div style="color:#e2e8f0;font-size:10px;">Fornecedor A · 3 SKUs · 450 pç</div>
+          </div>
+          <div style="background:#1e293b;border-radius:4px;padding:8px;">
+            <div style="color:#94a3b8;font-size:9px;">FORNECEDOR</div>
+            <div style="color:#e2e8f0;font-size:10px;">Fornecedor B · 1 SKU · 120 pç</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Menu lateral interno</h3>
+      <p>Lista de relatórios na esquerda, conteúdo à direita. Sempre visível qual relatório está ativo. Mais espaço horizontal para o conteúdo.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="height:180px;background:#0f172a;border-radius:6px;overflow:hidden;padding:10px;font-size:11px;">
+        <div style="display:flex;gap:4px;margin-bottom:10px;border-bottom:1px solid #1e293b;padding-bottom:8px;">
+          <div style="background:#6366f1;color:#fff;padding:4px 10px;border-radius:4px 4px 0 0;font-size:10px;">Por Fornecedor</div>
+          <div style="color:#64748b;padding:4px 10px;font-size:10px;">Por Segmentação</div>
+          <div style="color:#475569;padding:4px 10px;font-size:10px;opacity:.5;">Curva ABC</div>
+          <div style="color:#475569;padding:4px 10px;font-size:10px;opacity:.5;">Quebra Estoque</div>
+        </div>
+        <div style="background:#1e293b;border-radius:4px;padding:8px;margin-bottom:6px;">
+          <div style="color:#94a3b8;font-size:9px;">FORNECEDOR</div>
+          <div style="color:#e2e8f0;font-size:10px;">Fornecedor A · 3 SKUs · 450 pç</div>
+        </div>
+        <div style="background:#1e293b;border-radius:4px;padding:8px;">
+          <div style="color:#94a3b8;font-size:9px;">FORNECEDOR</div>
+          <div style="color:#e2e8f0;font-size:10px;">Fornecedor B · 1 SKU · 120 pç</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Abas no topo</h3>
+      <p>Tabs horizontais acima do conteúdo. Mais simples e familiar. Ocupa menos espaço lateral mas as abas crescem conforme novos relatórios são adicionados.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="height:180px;background:#0f172a;border-radius:6px;overflow:hidden;padding:10px;font-size:11px;">
+        <div style="color:#e2e8f0;font-size:12px;font-weight:600;margin-bottom:8px;">Relatórios — Verão 2026</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <div style="background:#1e293b;border:1px solid #6366f1;border-radius:6px;padding:8px;">
+            <div style="color:#a5b4fc;font-size:10px;font-weight:600;">Por Fornecedor</div>
+            <div style="color:#64748b;font-size:9px;margin-top:2px;">SKUs e peças por fornecedor</div>
+          </div>
+          <div style="background:#1e293b;border:1px solid #334155;border-radius:6px;padding:8px;">
+            <div style="color:#94a3b8;font-size:10px;font-weight:600;">Por Segmentação</div>
+            <div style="color:#64748b;font-size:9px;margin-top:2px;">Fornecedores por tipo/classe</div>
+          </div>
+          <div style="background:#1e293b;border:1px solid #334155;border-radius:6px;padding:8px;opacity:.5;">
+            <div style="color:#64748b;font-size:10px;font-weight:600;">Curva ABC</div>
+            <div style="color:#475569;font-size:9px;margin-top:2px;">Em breve</div>
+          </div>
+          <div style="background:#1e293b;border:1px solid #334155;border-radius:6px;padding:8px;opacity:.5;">
+            <div style="color:#64748b;font-size:10px;font-weight:600;">Quebra de Estoque</div>
+            <div style="color:#475569;font-size:9px;margin-top:2px;">Em breve</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Cards de seleção</h3>
+      <p>Landing page com cards para cada relatório. Clica no card, entra no relatório. Mais visual e escalável — novos relatórios viram novos cards.</p>
+    </div>
+  </div>
+
+</div>
