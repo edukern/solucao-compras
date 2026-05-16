@@ -63,7 +63,7 @@ Título grande + subtítulo de contraste:
 ### Seção 2 — Fluxo
 Linha do tempo horizontal com 4 etapas (ícone + título + 1 linha):
 1. **Criar coleção** — define a temporada (Inverno 2026, Verão 2027…)
-2. **Planejar projeções** — o sistema calcula baseado no histórico das 2 coleções equivalentes anteriores
+2. **Planejar projeções** — o sistema calcula baseado no histórico das 2 coleções equivalentes anteriores + produtos permanentes (itens que entram em toda coleção independente de estação)
 3. **Registrar pedidos** — a cada negociação fechada, registra fornecedor + segmentação + grade
 4. **Acompanhar relatórios** — visão em tempo real: projeção vs comprado, por fornecedor e por segmentação
 
@@ -143,4 +143,4 @@ Deploy manual: `cd demo && npx vercel --prod` na primeira vez. Subsequentes: aut
 - Autenticação
 - Persistência de dados (tudo é mock, resets ao recarregar)
 - Tela de Planejamento interativa
-- Mobile responsivo
+- Mobile responsivo — a landing exibe um banner fixo no topo em telas menores que 1024px: "Esta demonstração foi otimizada para desktop. Para melhor experiência, acesse de um computador."
