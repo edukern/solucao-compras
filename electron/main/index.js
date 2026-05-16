@@ -1,66 +1,110 @@
-import { app, shell, BrowserWindow } from 'electron'
+// electron/main/index.js
+import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { getDb } from './db/connection.js'
+import { runMigrations } from './db/schema.js'
+import { makeColecoes } from './db/colecoes.js'
+import { makeSegmentacoes } from './db/segmentacoes.js'
+import { makeGrades } from './db/grades.js'
+import { makeProjecoes } from './db/projecoes.js'
+import { makeFornecedores } from './db/fornecedores.js'
+import { makePedidos } from './db/pedidos.js'
+import fs from 'fs'
 
 function createWindow() {
-  // Create the browser window.
-  const mainWindow = new BrowserWindow({
-    width: 1200,
+  const win = new BrowserWindow({
+    width: 1280,
     height: 800,
-    show: false,
-    autoHideMenuBar: true,
+    minWidth: 1024,
+    minHeight: 680,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
     }
   })
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
-  })
-
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
-
-  // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+  if (process.env.VITE_DEV_SERVER_URL) {
+    win.loadURL(process.env.VITE_DEV_SERVER_URL)
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    win.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
-  // Set app user model id for windows
-  electronApp.setAppUserModelId('com.solucaocompras')
+  const db = getDb()
+  runMigrations(db)
 
-  // Default open or close DevTools by F12 in development
-  // and ignore CommandOrControl + R in production.
-  // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
+  const col  = makeColecoes(db)
+  const seg  = makeSegmentacoes(db)
+  const gr   = makeGrades(db)
+  const proj = makeProjecoes(db)
+  const forn = makeFornecedores(db)
+  const ped  = makePedidos(db)
+
+  // Colecoes
+  ipcMain.handle('colecoes:list',      () => col.list())
+  ipcMain.handle('colecoes:create',    (_, d) => col.create(d))
+  ipcMain.handle('colecoes:setStatus', (_, id, status) => col.setStatus(id, status))
+
+  // Segmentacoes
+  ipcMain.handle('segmentacoes:list',    () => seg.list())
+  ipcMain.handle('segmentacoes:create',  (_, d) => seg.create(d))
+  ipcMain.handle('segmentacoes:upsert',  (_, d) => seg.upsert(d))
+
+  // Grades
+  ipcMain.handle('grades:save',  (_, segId, colId, rows) => gr.saveGrade(segId, colId, rows))
+  ipcMain.handle('grades:get',   (_, segId, colId) => gr.getGrade(segId, colId))
+
+  // Projecoes
+  ipcMain.handle('projecoes:calcular',  (_, segId, colId, baseIds, metodo) => proj.calcular(segId, colId, baseIds, metodo))
+  ipcMain.handle('projecoes:salvar',    (_, segId, colId, rows, metodo) => proj.salvar(segId, colId, rows, metodo))
+  ipcMain.handle('projecoes:get',       (_, segId, colId) => proj.getProjecao(segId, colId))
+  ipcMain.handle('projecoes:ajustar',   (_, segId, colId, tamanho, qtd) => proj.ajustar(segId, colId, tamanho, qtd))
+  ipcMain.handle('projecoes:restaurar', (_, segId, colId, tamanho) => proj.restaurar(segId, colId, tamanho))
+
+  // Fornecedores
+  ipcMain.handle('fornecedores:list',   () => forn.list())
+  ipcMain.handle('fornecedores:create', (_, d) => forn.create(d))
+  ipcMain.handle('fornecedores:update', (_, id, d) => forn.update(id, d))
+
+  // Pedidos
+  ipcMain.handle('pedidos:salvar',           (_, d) => ped.salvar(d))
+  ipcMain.handle('pedidos:totaisPorTamanho', (_, segId, colId) => ped.getTotaisPorTamanho(segId, colId))
+  ipcMain.handle('pedidos:listarVisitas',    (_, colId) => ped.listarVisitas(colId))
+  ipcMain.handle('pedidos:listarPorColecao', (_, colId) => ped.listarPorColecao(colId))
+
+  // Backup / Restore
+  ipcMain.handle('backup:export', async () => {
+    const { filePath } = await dialog.showSaveDialog({
+      title: 'Exportar backup',
+      defaultPath: `solucao-compras-backup-${new Date().toISOString().slice(0,10)}.db`,
+      filters: [{ name: 'Database', extensions: ['db'] }]
+    })
+    if (!filePath) return false
+    fs.copyFileSync(db.name, filePath)
+    return true
+  })
+
+  ipcMain.handle('backup:import', async () => {
+    const { filePaths } = await dialog.showOpenDialog({
+      title: 'Restaurar backup',
+      filters: [{ name: 'Database', extensions: ['db'] }],
+      properties: ['openFile']
+    })
+    if (!filePaths.length) return false
+    db.close()
+    fs.copyFileSync(filePaths[0], db.name)
+    app.relaunch()
+    app.exit(0)
+    return true
+  })
+
+  ipcMain.handle('dialog:openFile', async (_, options) => {
+    const result = await dialog.showOpenDialog(options)
+    return result.filePaths[0] ?? null
   })
 
   createWindow()
-
-  app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
 })
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
-})
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
