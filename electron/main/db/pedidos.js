@@ -28,6 +28,36 @@ export function makePedidos(db) {
     ORDER BY p.data_pedido DESC
   `)
 
+  const totaisForn = db.prepare(`
+    SELECT f.id AS fornecedor_id, f.nome AS fornecedor_nome,
+           COUNT(DISTINCT p.segmentacao_id) AS num_skus,
+           SUM(p.qtd_pedida) AS total_pecas,
+           SUM(p.qtd_pedida * p.valor_unitario) AS total_valor
+    FROM pedidos p JOIN fornecedores f ON f.id = p.fornecedor_id
+    WHERE p.colecao_id = ?
+    GROUP BY p.fornecedor_id ORDER BY f.nome
+  `)
+
+  const totaisFornBySeg = db.prepare(`
+    SELECT f.id AS fornecedor_id, f.nome AS fornecedor_nome,
+           COUNT(DISTINCT p.segmentacao_id) AS num_skus,
+           SUM(p.qtd_pedida) AS total_pecas,
+           SUM(p.qtd_pedida * p.valor_unitario) AS total_valor
+    FROM pedidos p JOIN fornecedores f ON f.id = p.fornecedor_id
+    WHERE p.colecao_id = ? AND p.segmentacao_id = ?
+    GROUP BY p.fornecedor_id ORDER BY f.nome
+  `)
+
+  const itensForn = db.prepare(`
+    SELECT s.id AS segmentacao_id,
+           s.classificacao, s.tipo_produto, s.classe,
+           SUM(p.qtd_pedida) AS total_comprado
+    FROM pedidos p JOIN segmentacoes s ON s.id = p.segmentacao_id
+    WHERE p.fornecedor_id = ? AND p.colecao_id = ?
+    GROUP BY p.segmentacao_id
+    ORDER BY s.classificacao, s.tipo_produto, s.classe
+  `)
+
   return {
     salvar({ fornecedor_id, colecao_id, segmentacao_id, data_pedido, valor_unitario, itens }) {
       saveAll({ fornecedor_id, colecao_id, segmentacao_id, data_pedido, valor_unitario }, itens)
@@ -40,6 +70,12 @@ export function makePedidos(db) {
     },
     listarVisitas(colId) {
       return visitas.all(colId)
+    },
+    totaisPorFornecedor(colId, segId = null) {
+      return segId !== null ? totaisFornBySeg.all(colId, segId) : totaisForn.all(colId)
+    },
+    itensPorFornecedor(fornId, colId) {
+      return itensForn.all(fornId, colId)
     }
   }
 }
