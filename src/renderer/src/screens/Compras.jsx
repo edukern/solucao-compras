@@ -389,6 +389,12 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
       const visPedidos = pedidos.filter(p => p.visita_id === vis.id)
       const isLast = idx === visitasComPedidos.length - 1
 
+      const totalGeralComprador = visPedidos.reduce((s, p) => {
+        const q = p.itens.reduce((s2, i) => s2 + i.qtd, 0)
+        return s + q * p.valor_unitario * (1 - p.desconto_pct / 100)
+      }, 0)
+      const totalPecasComprador = visPedidos.reduce((s, p) => s + p.itens.reduce((s2, i) => s2 + i.qtd, 0), 0)
+
       const pedidosHtml = visPedidos.map(p => {
         const seg = segs.find(s => s.id === p.segmentacao_id)
         const segLabel = seg
@@ -433,8 +439,14 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
           <div class="section" style="border-top:1px solid #ddd; padding-top:10px;">
             <div class="section-title">Comprador</div>
             <div class="row"><span class="lbl">Nome:</span><span><strong>${esc(vis.comprador_nome)}</strong></span></div>
+            ${vis.comprador_cnpj   ? `<div class="row"><span class="lbl">CNPJ:</span><span>${esc(vis.comprador_cnpj)}</span></div>`   : ''}
+            ${vis.comprador_cidade ? `<div class="row"><span class="lbl">Cidade:</span><span>${esc(vis.comprador_cidade)}</span></div>` : ''}
           </div>
           ${pedidosHtml}
+          <div class="total-geral">
+            <span>${totalPecasComprador} peça(s)</span>
+            <span>Total do pedido: <strong>R$ ${totalGeralComprador.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></span>
+          </div>
           <div class="footer">Gerado por Solução Compras — ${dateStr}</div>
         </div>`
     }).join('')
@@ -460,6 +472,7 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
     th:first-child, td:first-child { text-align: left; }
     th { background: #f0f0f0; font-weight: bold; }
     .totals { margin-top: 10px; text-align: right; line-height: 1.7; }
+    .total-geral { display:flex; justify-content:space-between; align-items:center; margin-top:20px; padding:10px 12px; background:#f5f5f5; border:2px solid #333; border-radius:4px; font-size:13px; }
     .footer { margin-top: 24px; font-size: 10px; color: #888; text-align: center; border-top: 1px solid #ddd; padding-top: 8px; }
     @media print { @page { margin: 15mm; } }
   </style>
@@ -469,10 +482,12 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
 
     const win = window.open('', '_blank')
     if (!win) { alert('Bloqueador de pop-ups ativo. Permita pop-ups para este site.'); return }
+    win.onload = () => win.print()
     win.document.write(html)
     win.document.close()
     win.focus()
-    win.addEventListener('load', () => win.print())
+    // fallback: se o load já disparou antes do listener ser registrado
+    if (win.document.readyState === 'complete') win.print()
   }
 
   const visitasComPedidos = visitas.filter(v => pedidos.some(p => p.visita_id === v.id))
@@ -674,11 +689,16 @@ export default function Compras() {
   }, [])
 
   function handleStart(novaSessao, lojas) {
-    const visitasEnriquecidas = novaSessao.visitas.map(v => ({
-      id: v.visita_id,
-      comprador_id: v.comprador_id,
-      comprador_nome: lojas.find(l => l.id === v.comprador_id)?.nome ?? `Loja #${v.comprador_id}`
-    }))
+    const visitasEnriquecidas = novaSessao.visitas.map(v => {
+      const loja = lojas.find(l => l.id === v.comprador_id)
+      return {
+        id: v.visita_id,
+        comprador_id: v.comprador_id,
+        comprador_nome:   loja?.nome   ?? `Loja #${v.comprador_id}`,
+        comprador_cnpj:   loja?.cnpj   ?? '',
+        comprador_cidade: loja?.cidade  ?? '',
+      }
+    })
     setSessao(novaSessao)
     setVisitas(visitasEnriquecidas)
     setPhase(2)
