@@ -137,4 +137,9 @@ export function runMigrations(db) {
 
   // Add categoria to fornecedores if upgrading from very old schema
   try { db.exec(`ALTER TABLE fornecedores ADD COLUMN categoria TEXT`) } catch {}
+
+  // Add unique index on fornecedores.nome for idempotent imports
+  try {
+    db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_fornecedores_nome ON fornecedores(nome)`)
+  } catch {}
 }

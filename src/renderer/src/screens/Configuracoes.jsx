@@ -602,6 +602,7 @@ function AbaFornecedores() {
     try {
       await window.api.fornecedores.update(id, { nome: editForm.nome.trim(), contato: '', categoria: editForm.categoria.trim() })
       setEditId(null)
+      setSucesso(null)
       await carregar()
     } catch (e) {
       setErro('Erro ao salvar fornecedor.')
