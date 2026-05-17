@@ -521,6 +521,224 @@ function AbaCompradores() {
 }
 
 // ---------------------------------------------------------------------------
+// AbaFornecedores
+// ---------------------------------------------------------------------------
+function AbaFornecedores() {
+  const [fornecedores, setFornecedores] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [erro, setErro] = useState(null)
+  const [sucesso, setSucesso] = useState(null)
+  const [busca, setBusca] = useState('')
+  const [editId, setEditId] = useState(null)
+  const [editForm, setEditForm] = useState({ nome: '', categoria: '' })
+  const [novoForm, setNovoForm] = useState({ nome: '', categoria: '' })
+  const [savingEdit, setSavingEdit] = useState(false)
+
+  async function carregar() {
+    setLoading(true)
+    try {
+      const lista = await window.api.fornecedores.list()
+      setFornecedores(lista)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { carregar() }, [])
+
+  async function handleImportar() {
+    setErro(null)
+    setSucesso(null)
+    const filePath = await window.api.dialog.openFile({
+      title: 'Selecione o arquivo do ERP',
+      filters: [{ name: 'Excel', extensions: ['xlsx', 'xls'] }],
+      properties: ['openFile']
+    })
+    if (!filePath) return
+    setImporting(true)
+    try {
+      const result = await window.api.fornecedores.importarArquivo(filePath)
+      setFornecedores(result.fornecedores)
+      setSucesso(`${result.inserted} fornecedores importados, ${result.skipped} já existiam.`)
+    } catch (e) {
+      setErro('Erro ao importar arquivo.')
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  async function handleCriar(e) {
+    e.preventDefault()
+    if (!novoForm.nome.trim()) return
+    setErro(null)
+    setSucesso(null)
+    setSaving(true)
+    try {
+      await window.api.fornecedores.create({ nome: novoForm.nome.trim(), contato: '', categoria: novoForm.categoria.trim() })
+      setNovoForm({ nome: '', categoria: '' })
+      await carregar()
+    } catch (e) {
+      setErro('Erro ao adicionar fornecedor.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function handleStartEdit(f) {
+    setEditId(f.id)
+    setEditForm({ nome: f.nome, categoria: f.categoria || '' })
+  }
+
+  function handleCancelEdit() {
+    setEditId(null)
+    setEditForm({ nome: '', categoria: '' })
+  }
+
+  async function handleSaveEdit(id) {
+    setErro(null)
+    setSavingEdit(true)
+    try {
+      await window.api.fornecedores.update(id, { nome: editForm.nome.trim(), contato: '', categoria: editForm.categoria.trim() })
+      setEditId(null)
+      await carregar()
+    } catch (e) {
+      setErro('Erro ao salvar fornecedor.')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  async function handleRemover(id) {
+    setErro(null)
+    setSucesso(null)
+    try {
+      await window.api.fornecedores.remove(id)
+      setFornecedores(prev => prev.filter(f => f.id !== id))
+    } catch (e) {
+      setErro('Erro ao remover fornecedor.')
+    }
+  }
+
+  const filtrados = busca.trim()
+    ? fornecedores.filter(f => f.nome.toLowerCase().includes(busca.toLowerCase()))
+    : fornecedores
+
+  return (
+    <div className={styles.section}>
+      {erro && <div className={styles.erro}>{erro}</div>}
+      {sucesso && <div className={styles.sucesso}>{sucesso}</div>}
+
+      <div className={styles.listSection}>
+        <div className={styles.listHeader}>
+          <h2 className={styles.sectionTitle}>Fornecedores ({fornecedores.length})</h2>
+          <button
+            className={styles.btnPrimary}
+            onClick={handleImportar}
+            disabled={importing}
+          >
+            {importing ? 'Importando…' : 'Importar do ERP'}
+          </button>
+        </div>
+        <input
+          className={styles.input}
+          type="text"
+          placeholder="Buscar por nome…"
+          value={busca}
+          onChange={e => setBusca(e.target.value)}
+        />
+        {loading ? (
+          <p className={styles.muted}>Carregando…</p>
+        ) : filtrados.length === 0 ? (
+          <p className={styles.muted}>{busca ? 'Nenhum fornecedor encontrado.' : 'Nenhum fornecedor cadastrado.'}</p>
+        ) : (
+          <div className={styles.list}>
+            {filtrados.map(f => (
+              <div key={f.id} className={styles.listItem}>
+                {editId === f.id ? (
+                  <div className={styles.inlineEdit}>
+                    <div className={styles.formRow}>
+                      <div className={styles.field}>
+                        <label className={styles.label}>Nome</label>
+                        <input
+                          className={styles.input}
+                          type="text"
+                          value={editForm.nome}
+                          onChange={e => setEditForm(prev => ({ ...prev, nome: e.target.value }))}
+                          required
+                        />
+                      </div>
+                      <div className={styles.field}>
+                        <label className={styles.label}>Categoria</label>
+                        <input
+                          className={styles.input}
+                          type="text"
+                          value={editForm.categoria}
+                          onChange={e => setEditForm(prev => ({ ...prev, categoria: e.target.value }))}
+                          placeholder="Ex: CONFECCOES"
+                        />
+                      </div>
+                    </div>
+                    <div className={styles.inlineActions}>
+                      <button className={styles.btnPrimary} onClick={() => handleSaveEdit(f.id)} disabled={savingEdit}>
+                        {savingEdit ? 'Salvando…' : 'Salvar'}
+                      </button>
+                      <button className={styles.btnSecondary} onClick={handleCancelEdit}>Cancelar</button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className={styles.listItemLabel}>
+                      <span className={styles.listItemName}>{f.nome}</span>
+                      {f.categoria && <span className={styles.listItemSub}>{f.categoria}</span>}
+                    </div>
+                    <div className={styles.listItemActions}>
+                      <button className={styles.btnSecondary} onClick={() => handleStartEdit(f)} disabled={editId !== null}>Editar</button>
+                      <button className={styles.btnDanger} onClick={() => handleRemover(f.id)} disabled={editId !== null}>Remover</button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <form className={styles.form} onSubmit={handleCriar}>
+        <h2 className={styles.sectionTitle}>Novo Fornecedor</h2>
+        <div className={styles.formRow}>
+          <div className={styles.field}>
+            <label className={styles.label}>Nome</label>
+            <input
+              className={styles.input}
+              type="text"
+              value={novoForm.nome}
+              onChange={e => setNovoForm(prev => ({ ...prev, nome: e.target.value }))}
+              placeholder="Nome do fornecedor"
+              required
+            />
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label}>Categoria</label>
+            <input
+              className={styles.input}
+              type="text"
+              value={novoForm.categoria}
+              onChange={e => setNovoForm(prev => ({ ...prev, categoria: e.target.value }))}
+              placeholder="Ex: CONFECCOES"
+            />
+          </div>
+        </div>
+        <button className={styles.btnPrimary} type="submit" disabled={saving}>
+          {saving ? 'Salvando…' : 'Adicionar Fornecedor'}
+        </button>
+      </form>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main Configuracoes screen
 // ---------------------------------------------------------------------------
 export default function Configuracoes() {
@@ -548,10 +766,17 @@ export default function Configuracoes() {
         >
           Compradores
         </button>
+        <button
+          className={aba === 'fornecedores' ? styles.tabActive : styles.tab}
+          onClick={() => setAba('fornecedores')}
+        >
+          Fornecedores
+        </button>
       </div>
       {aba === 'colecoes'     && <AbaColecoes />}
       {aba === 'segmentacoes' && <AbaSegmentacoes />}
       {aba === 'compradores'  && <AbaCompradores />}
+      {aba === 'fornecedores' && <AbaFornecedores />}
     </div>
   )
 }

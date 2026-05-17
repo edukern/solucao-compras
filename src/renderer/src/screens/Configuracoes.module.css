@@ -67,6 +67,16 @@
   padding: 0.6rem 0.9rem;
 }
 
+/* ── Success message ──────────────────────────────────────────────────────── */
+.sucesso {
+  font-size: 0.875rem;
+  color: var(--green);
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid var(--green);
+  border-radius: 6px;
+  padding: 0.6rem 0.9rem;
+}
+
 /* ── Form ─────────────────────────────────────────────────────────────────── */
 .form {
   background: var(--bg-card);
@@ -317,6 +327,18 @@
 .inlineActions {
   display: flex;
   gap: 0.5rem;
+}
+
+/* ── List section header (title + action button side by side) ─────────────── */
+.listHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.listHeader .sectionTitle {
+  margin-bottom: 0;
 }
 
 /* ── Muted helper text ────────────────────────────────────────────────────── */

@@ -12,6 +12,7 @@ import { makeCompradores } from './db/compradores.js'
 import { makeVisitas } from './db/visitas.js'
 import { makePedidos } from './db/pedidos.js'
 import fs from 'fs'
+import XLSX from 'xlsx'
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -72,6 +73,28 @@ app.whenReady().then(() => {
   ipcMain.handle('fornecedores:list',   () => forn.list())
   ipcMain.handle('fornecedores:create', (_, d) => forn.create(d))
   ipcMain.handle('fornecedores:update', (_, id, d) => forn.update(id, d))
+  ipcMain.handle('fornecedores:remove', (_, id) => forn.remove(id))
+  ipcMain.handle('fornecedores:importarArquivo', async (_, filePath) => {
+    // ERP export: 'Confirma seleção' = category header, '__EMPTY' = brand name
+    const workbook = XLSX.readFile(filePath)
+    const sheet = workbook.Sheets[workbook.SheetNames[0]]
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' })
+
+    let currentCategoria = ''
+    const marcas = []
+    rows.forEach(row => {
+      const cat = row['Confirma seleção']?.toString().trim()
+      const nome = row['__EMPTY']?.toString().trim()
+      if (cat) {
+        currentCategoria = cat
+      } else if (nome && nome !== 'Descrição') {
+        marcas.push({ nome, categoria: currentCategoria })
+      }
+    })
+
+    const stats = forn.importar(marcas)
+    return { ...stats, fornecedores: forn.list() }
+  })
 
   // Compradores
   ipcMain.handle('compradores:list',   () => comp.list())
