@@ -171,7 +171,7 @@ export const pedidosBase = [
   { fornecedor_id:1, colecao_id:1, segmentacao_id:6, data_pedido:'2026-04-08', tamanho:'G3', qtd_pedida:54,  valor_unitario:79.90 },
   // --- BLUE MACAW → seg1 GG
   { fornecedor_id:7, colecao_id:1, segmentacao_id:1, data_pedido:'2026-04-12', tamanho:'GG', qtd_pedida:36,  valor_unitario:92.00 },
-  // --- DANKA → seg6 G4+G5
+  // --- CROCKER → seg6 G4+G5
   { fornecedor_id:14,colecao_id:1, segmentacao_id:6, data_pedido:'2026-04-15', tamanho:'G4', qtd_pedida:42,  valor_unitario:82.00 },
   { fornecedor_id:14,colecao_id:1, segmentacao_id:6, data_pedido:'2026-04-15', tamanho:'G5', qtd_pedida:24,  valor_unitario:82.00 },
   // --- AQUECCE → seg2 (AD CALCA FEM) todos os tamanhos
@@ -193,7 +193,7 @@ export const pedidosBase = [
   { fornecedor_id:11,colecao_id:1, segmentacao_id:3, data_pedido:'2026-04-14', tamanho:'G',  qtd_pedida:78,  valor_unitario:76.90 },
   // --- AUTENTICADA → seg3 GG
   { fornecedor_id:3, colecao_id:1, segmentacao_id:3, data_pedido:'2026-04-18', tamanho:'GG', qtd_pedida:42,  valor_unitario:79.00 },
-  // --- COTTON E COTTON → seg7 G4+G5
+  // --- DANKA → seg7 G4+G5
   { fornecedor_id:15,colecao_id:1, segmentacao_id:7, data_pedido:'2026-04-20', tamanho:'G4', qtd_pedida:54,  valor_unitario:91.00 },
   { fornecedor_id:15,colecao_id:1, segmentacao_id:7, data_pedido:'2026-04-20', tamanho:'G5', qtd_pedida:30,  valor_unitario:91.00 },
   // --- BIOGAS → seg7 G2 complemento
@@ -211,7 +211,7 @@ export const pedidosBase = [
   { fornecedor_id:5, colecao_id:1, segmentacao_id:4, data_pedido:'2026-04-09', tamanho:'40', qtd_pedida:42,  valor_unitario:149.90 },
   { fornecedor_id:5, colecao_id:1, segmentacao_id:4, data_pedido:'2026-04-09', tamanho:'41', qtd_pedida:36,  valor_unitario:149.90 },
   { fornecedor_id:5, colecao_id:1, segmentacao_id:4, data_pedido:'2026-04-09', tamanho:'42', qtd_pedida:24,  valor_unitario:149.90 },
-  // --- COSTAO → seg4 tamanho 43
+  // --- COTTON E COTTON → seg4 tamanho 43
   { fornecedor_id:13,colecao_id:1, segmentacao_id:4, data_pedido:'2026-04-16', tamanho:'43', qtd_pedida:12,  valor_unitario:155.00 },
   // --- BICHO BAGUNCA → seg5 (AD CALCADO FEM) 35-38
   { fornecedor_id:5, colecao_id:1, segmentacao_id:5, data_pedido:'2026-04-09', tamanho:'35', qtd_pedida:24,  valor_unitario:139.90 },
