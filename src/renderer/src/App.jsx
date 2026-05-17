@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { CollectionProvider } from './contexts/CollectionContext'
 import ErrorBoundary from './components/ErrorBoundary'
 import Sidebar from './components/Sidebar'
@@ -7,19 +7,21 @@ import Planejamento from './screens/Planejamento'
 import Compras from './screens/Compras'
 import Relatorios from './screens/Relatorios'
 import Configuracoes from './screens/Configuracoes'
+import Pendencias from './screens/Pendencias'
 
 const SCREENS = {
-  dashboard:    () => <Dashboard />,
-  planejamento: () => <Planejamento />,
-  compras:      () => <Compras />,
-  relatorios:   () => <Relatorios />,
+  dashboard:     () => <Dashboard />,
+  planejamento:  () => <Planejamento />,
+  compras:       () => <Compras />,
+  relatorios:    () => <Relatorios />,
   configuracoes: () => <Configuracoes />,
+  pendencias:    () => <Pendencias />,
 }
 
 const noApi = !window.api
 
 export default function App() {
-  const [screen, setScreen] = useState('dashboard')
+  const [screen, setScreen] = useState(noApi ? 'pendencias' : 'dashboard')
   const [theme, setTheme] = useState('dark')
   const [updateStatus, setUpdateStatus] = useState(null)
 
@@ -32,17 +34,16 @@ export default function App() {
     return window.api.updater.onStatus(setUpdateStatus)
   }, [])
 
-  const Screen = SCREENS[screen] ?? SCREENS.dashboard
-
+  // No Vercel: só mostra a tela de Pendências, sem CollectionProvider nem Sidebar
   if (noApi) {
     return (
-      <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '0.75rem', color: '#888', fontFamily: 'sans-serif' }}>
-        <div style={{ fontSize: '2rem' }}>💻</div>
-        <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#aaa' }}>Solução Compras</div>
-        <div style={{ fontSize: '0.9rem' }}>Disponível apenas no app desktop.</div>
+      <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+        <Pendencias />
       </div>
     )
   }
+
+  const Screen = SCREENS[screen] ?? SCREENS.dashboard
 
   return (
     <CollectionProvider>
