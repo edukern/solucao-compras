@@ -25,9 +25,11 @@ contextBridge.exposeInMainWorld('api', {
     restaurar: (segId, colId, tamanho)         => ipcRenderer.invoke('projecoes:restaurar', segId, colId, tamanho),
   },
   fornecedores: {
-    list:   ()       => ipcRenderer.invoke('fornecedores:list'),
-    create: (d)      => ipcRenderer.invoke('fornecedores:create', d),
-    update: (id, d)  => ipcRenderer.invoke('fornecedores:update', id, d),
+    list:            ()          => ipcRenderer.invoke('fornecedores:list'),
+    create:          (d)         => ipcRenderer.invoke('fornecedores:create', d),
+    update:          (id, d)     => ipcRenderer.invoke('fornecedores:update', id, d),
+    remove:          (id)        => ipcRenderer.invoke('fornecedores:remove', id),
+    importarArquivo: (filePath)  => ipcRenderer.invoke('fornecedores:importarArquivo', filePath),
   },
   compradores: {
     list:   ()       => ipcRenderer.invoke('compradores:list'),
