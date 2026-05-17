@@ -526,3 +526,232 @@
   color: var(--text-secondary);
 }
 .resumoGeralTotal strong { color: var(--text-primary); font-size: 1rem; }
+
+/* ─── SKU layout (Phase 2) ─── */
+.skuLayout {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.skuList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 200px;
+  max-width: 220px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.skuItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  background: var(--bg-secondary);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  position: relative;
+}
+.skuItem:last-child { border-bottom: none; }
+.skuItem:hover { background: var(--bg-hover); }
+
+.skuItemActive {
+  background: rgba(99,102,241,0.1) !important;
+  border-left: 3px solid var(--accent);
+}
+
+.skuItemHasData .skuItemName { color: var(--text-primary); }
+
+.skuItemClass {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.skuItemName {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.skuDot {
+  position: absolute;
+  top: 50%;
+  right: 0.6rem;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+/* SKU detail area */
+.skuDetail {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.skuHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-hover);
+  border-radius: 6px;
+}
+
+.skuHeaderName {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.skuHeaderGrade {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.skuPricing {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+/* Loja tabs */
+.lojaTabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0;
+}
+
+.lojaTab {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
+  border-radius: 4px 4px 0 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: -2px;
+  transition: color 0.1s;
+}
+.lojaTab:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+.lojaTabActive {
+  color: var(--accent-light) !important;
+  background: rgba(99,102,241,0.08) !important;
+  border-color: var(--border) var(--border) var(--bg-card) var(--border);
+  border-bottom-color: var(--bg-card) !important;
+  font-weight: 600;
+}
+
+.lojaTabCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  background: rgba(34,197,94,0.15);
+  color: var(--green);
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0 4px;
+}
+
+/* Grade grid */
+.gradeGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-x: auto;
+}
+
+.gradeHeader {
+  display: flex;
+  align-items: center;
+}
+
+.gradeHeaderLabel {
+  min-width: 120px;
+  flex-shrink: 0;
+}
+
+.gradeHeaderCell {
+  min-width: 56px;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.25rem;
+}
+
+.gradeRow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.gradeRowLabel {
+  min-width: 120px;
+  flex-shrink: 0;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  padding-right: 0.5rem;
+}
+
+.gradeProjCell {
+  min-width: 56px;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--purple, #7c8ff5);
+  padding: 0.15rem 0.25rem;
+}
+
+.gradeTotalCell {
+  min-width: 56px;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  padding: 0.15rem 0.25rem;
+}
+
+.gradeTotal {
+  min-width: 56px;
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent-light);
+  padding: 0.2rem 0.25rem;
+}
+
+.gradeTotaisRow {
+  border-top: 1px solid var(--border);
+  padding-top: 4px;
+  margin-top: 2px;
+}
+.gradeTotaisRow .gradeRowLabel {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}

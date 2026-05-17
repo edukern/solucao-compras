@@ -117,3 +117,60 @@
   color: var(--text-muted);
   padding: 2.5rem !important;
 }
+
+/* Drill-down */
+.rowClickable { cursor: pointer; }
+.rowClickable:hover { background: var(--bg-hover) !important; }
+
+.expandIcon {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+
+.drillRow { background: var(--bg-secondary); }
+.drillCell { padding: 0 !important; }
+
+.drillGrid { padding: 0.5rem 1rem 0.75rem 2rem; }
+
+.drillTable {
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.drillMetricHead {
+  min-width: 90px;
+}
+
+.drillHead {
+  padding: 0.25rem 0.6rem;
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  min-width: 48px;
+  border-bottom: 1px solid var(--border);
+}
+
+.drillMetric {
+  padding: 0.3rem 0.75rem 0.3rem 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.drillNum {
+  padding: 0.3rem 0.6rem;
+  text-align: center;
+  border-left: 1px solid var(--border);
+}
+
+.drillTotalCol {
+  font-weight: 700;
+  border-left: 2px solid var(--border);
+}

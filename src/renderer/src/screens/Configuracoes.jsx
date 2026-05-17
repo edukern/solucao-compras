@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import styles from './Configuracoes.module.css'
+import { CLASSIFICACOES, gradesPorClassificacao } from '../constants/grades'
+import { TIPOS_PRODUTO } from '../constants/tipoProduto'
 
 // Bonus fix #4: module-level constant
 const anoAtual = new Date().getFullYear()
@@ -170,13 +172,20 @@ function AbaSegmentacoes() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [erro, setErro] = useState(null)
-  const [form, setForm] = useState({
-    classificacao: 'AD',
-    tipo_produto: '',
-    classe: 'MASC',
-    tipo_grade: 'AD',
-    estacao: 'verao',
-  })
+
+  function makeDefaultForm(classificacao = 'AD') {
+    const grades = gradesPorClassificacao(classificacao)
+    return {
+      classificacao,
+      tipo_produto: '',
+      classe: 'MASC',
+      tipo_grade: grades[0]?.tipo_grade ?? classificacao,
+      estacao: 'verao',
+    }
+  }
+
+  const [form, setForm] = useState(() => makeDefaultForm())
+  const gradesDisponiveis = gradesPorClassificacao(form.classificacao)
 
   async function carregar() {
     setLoading(true)
@@ -191,16 +200,26 @@ function AbaSegmentacoes() {
   useEffect(() => { carregar() }, [])
 
   function handleChange(field, value) {
-    setForm(prev => ({ ...prev, [field]: value }))
+    if (field === 'classificacao') {
+      const grades = gradesPorClassificacao(value)
+      setForm(prev => ({ ...prev, classificacao: value, tipo_grade: grades[0]?.tipo_grade ?? value }))
+    } else {
+      setForm(prev => ({ ...prev, [field]: value }))
+    }
   }
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!form.tipo_produto.trim()) return
+    const tipoProdutoNorm = form.tipo_produto.trim().toUpperCase()
+    if (!TIPOS_PRODUTO.includes(tipoProdutoNorm)) {
+      setErro('Selecione um tipo de produto válido da lista.')
+      return
+    }
+    setErro(null)
     setSaving(true)
     try {
-      await window.api.segmentacoes.create({ ...form, tipo_produto: form.tipo_produto.trim().toUpperCase() })
-      setForm({ classificacao: 'AD', tipo_produto: '', classe: 'MASC', tipo_grade: 'AD', estacao: 'verao' })
+      await window.api.segmentacoes.create({ ...form, tipo_produto: tipoProdutoNorm })
+      setForm(makeDefaultForm(form.classificacao))
       await carregar()
     } finally {
       setSaving(false)
@@ -212,30 +231,32 @@ function AbaSegmentacoes() {
     try {
       await window.api.segmentacoes.remove(id)
       setSegmentacoes(prev => prev.filter(s => s.id !== id))
-    } catch (e) {
+    } catch {
       setErro('Erro ao remover segmentação.')
     }
   }
 
-  // Group by classificacao
-  const grupos = ['AD', 'EX', 'INF']
-  const agrupado = grupos.reduce((acc, g) => {
+  const agrupado = CLASSIFICACOES.reduce((acc, g) => {
     acc[g] = segmentacoes.filter(s => s.classificacao === g)
     return acc
   }, {})
+
+  // Segmentações com classificação fora das 12 opções (dados legados)
+  const legados = segmentacoes.filter(s => !CLASSIFICACOES.includes(s.classificacao))
 
   return (
     <div className={styles.section}>
       {erro && <div className={styles.erro}>{erro}</div>}
       <form className={styles.form} onSubmit={handleSubmit}>
         <h2 className={styles.sectionTitle}>Nova Segmentação</h2>
+        <datalist id="tipos-produto">
+          {TIPOS_PRODUTO.map(t => <option key={t} value={t} />)}
+        </datalist>
         <div className={styles.formRow}>
           <div className={styles.field}>
             <label className={styles.label}>Classificação</label>
             <select className={styles.select} value={form.classificacao} onChange={e => handleChange('classificacao', e.target.value)}>
-              <option value="AD">AD</option>
-              <option value="EX">EX</option>
-              <option value="INF">INF</option>
+              {CLASSIFICACOES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
           <div className={styles.field}>
@@ -243,9 +264,11 @@ function AbaSegmentacoes() {
             <input
               className={styles.input}
               type="text"
+              list="tipos-produto"
               value={form.tipo_produto}
               onChange={e => handleChange('tipo_produto', e.target.value)}
-              placeholder="Ex: CALCA, CAMISETA"
+              placeholder="Digite ou selecione…"
+              autoComplete="off"
               required
             />
           </div>
@@ -257,14 +280,18 @@ function AbaSegmentacoes() {
               <option value="UNI">UNI</option>
             </select>
           </div>
-          <div className={styles.field}>
-            <label className={styles.label}>Tipo Grade</label>
-            <select className={styles.select} value={form.tipo_grade} onChange={e => handleChange('tipo_grade', e.target.value)}>
-              <option value="AD">AD</option>
-              <option value="EX">EX</option>
-              <option value="INF">INF</option>
-            </select>
-          </div>
+          {gradesDisponiveis.length > 1 && (
+            <div className={styles.field}>
+              <label className={styles.label}>Tipo de Grade</label>
+              <select className={styles.select} value={form.tipo_grade} onChange={e => handleChange('tipo_grade', e.target.value)}>
+                {gradesDisponiveis.map(g => (
+                  <option key={g.tipo_grade} value={g.tipo_grade}>
+                    {g.tipo_grade} ({g.tamanhos.join(', ')})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className={styles.field}>
             <label className={styles.label}>Estação</label>
             <select className={styles.select} value={form.estacao} onChange={e => handleChange('estacao', e.target.value)}>
@@ -282,9 +309,11 @@ function AbaSegmentacoes() {
         <h2 className={styles.sectionTitle}>Segmentações Cadastradas</h2>
         {loading ? (
           <p className={styles.muted}>Carregando…</p>
+        ) : segmentacoes.length === 0 ? (
+          <p className={styles.muted}>Nenhuma segmentação cadastrada.</p>
         ) : (
-          grupos.map(g => (
-            agrupado[g].length > 0 && (
+          <>
+            {CLASSIFICACOES.map(g => agrupado[g].length > 0 && (
               <div key={g} className={styles.grupo}>
                 <h3 className={styles.grupoTitle}>{g}</h3>
                 <div className={styles.list}>
@@ -294,10 +323,7 @@ function AbaSegmentacoes() {
                         {s.tipo_produto} — {s.classe} — {s.tipo_grade} — {s.estacao === 'verao' ? 'Verão' : 'Inverno'}
                       </span>
                       <div className={styles.listItemActions}>
-                        <button
-                          className={styles.btnDanger}
-                          onClick={() => handleRemover(s.id)}
-                        >
+                        <button className={styles.btnDanger} onClick={() => handleRemover(s.id)}>
                           Remover
                         </button>
                       </div>
@@ -305,11 +331,27 @@ function AbaSegmentacoes() {
                   ))}
                 </div>
               </div>
-            )
-          ))
-        )}
-        {!loading && segmentacoes.length === 0 && (
-          <p className={styles.muted}>Nenhuma segmentação cadastrada.</p>
+            ))}
+            {legados.length > 0 && (
+              <div className={styles.grupo}>
+                <h3 className={styles.grupoTitle}>Outros (legado)</h3>
+                <div className={styles.list}>
+                  {legados.map(s => (
+                    <div key={s.id} className={styles.listItem}>
+                      <span className={styles.listItemLabel}>
+                        [{s.classificacao}] {s.tipo_produto} — {s.classe} — {s.tipo_grade}
+                      </span>
+                      <div className={styles.listItemActions}>
+                        <button className={styles.btnDanger} onClick={() => handleRemover(s.id)}>
+                          Remover
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -591,8 +633,8 @@ function AbaFornecedores() {
   const [sucesso, setSucesso] = useState(null)
   const [busca, setBusca] = useState('')
   const [editId, setEditId] = useState(null)
-  const [editForm, setEditForm] = useState({ nome: '', categoria: '' })
-  const [novoForm, setNovoForm] = useState({ nome: '', categoria: '' })
+  const [editForm, setEditForm] = useState({ nome: '', contato: '', categoria: '' })
+  const [novoForm, setNovoForm] = useState({ nome: '', contato: '', categoria: '' })
   const [savingEdit, setSavingEdit] = useState(false)
 
   async function carregar() {
@@ -635,8 +677,8 @@ function AbaFornecedores() {
     setSucesso(null)
     setSaving(true)
     try {
-      await window.api.fornecedores.create({ nome: novoForm.nome.trim(), contato: '', categoria: novoForm.categoria.trim() })
-      setNovoForm({ nome: '', categoria: '' })
+      await window.api.fornecedores.create({ nome: novoForm.nome.trim(), contato: novoForm.contato.trim(), categoria: novoForm.categoria.trim() })
+      setNovoForm({ nome: '', contato: '', categoria: '' })
       await carregar()
     } catch (e) {
       setErro('Erro ao adicionar fornecedor.')
@@ -647,19 +689,19 @@ function AbaFornecedores() {
 
   function handleStartEdit(f) {
     setEditId(f.id)
-    setEditForm({ nome: f.nome, categoria: f.categoria || '' })
+    setEditForm({ nome: f.nome, contato: f.contato || '', categoria: f.categoria || '' })
   }
 
   function handleCancelEdit() {
     setEditId(null)
-    setEditForm({ nome: '', categoria: '' })
+    setEditForm({ nome: '', contato: '', categoria: '' })
   }
 
   async function handleSaveEdit(id) {
     setErro(null)
     setSavingEdit(true)
     try {
-      await window.api.fornecedores.update(id, { nome: editForm.nome.trim(), contato: '', categoria: editForm.categoria.trim() })
+      await window.api.fornecedores.update(id, { nome: editForm.nome.trim(), contato: editForm.contato.trim(), categoria: editForm.categoria.trim() })
       setEditId(null)
       setSucesso(null)
       await carregar()
@@ -730,6 +772,16 @@ function AbaFornecedores() {
                         />
                       </div>
                       <div className={styles.field}>
+                        <label className={styles.label}>Contato</label>
+                        <input
+                          className={styles.input}
+                          type="text"
+                          value={editForm.contato}
+                          onChange={e => setEditForm(prev => ({ ...prev, contato: e.target.value }))}
+                          placeholder="Tel ou e-mail"
+                        />
+                      </div>
+                      <div className={styles.field}>
                         <label className={styles.label}>Categoria</label>
                         <input
                           className={styles.input}
@@ -751,7 +803,9 @@ function AbaFornecedores() {
                   <>
                     <div className={styles.listItemLabel}>
                       <span className={styles.listItemName}>{f.nome}</span>
-                      {f.categoria && <span className={styles.listItemSub}>{f.categoria}</span>}
+                      <span className={styles.listItemSub}>
+                        {[f.contato, f.categoria].filter(Boolean).join(' · ')}
+                      </span>
                     </div>
                     <div className={styles.listItemActions}>
                       <button className={styles.btnSecondary} onClick={() => handleStartEdit(f)} disabled={editId !== null}>Editar</button>
@@ -777,6 +831,16 @@ function AbaFornecedores() {
               onChange={e => setNovoForm(prev => ({ ...prev, nome: e.target.value }))}
               placeholder="Nome do fornecedor"
               required
+            />
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label}>Contato</label>
+            <input
+              className={styles.input}
+              type="text"
+              value={novoForm.contato}
+              onChange={e => setNovoForm(prev => ({ ...prev, contato: e.target.value }))}
+              placeholder="Tel ou e-mail"
             />
           </div>
           <div className={styles.field}>

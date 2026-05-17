@@ -58,6 +58,8 @@ const projecoesList = [
 ]
 
 const visitasList = []
+const sessoesList = []
+const sessaoVisitasList = []
 const pedidosList = []
 const pedidoItensList = []
 
@@ -200,6 +202,55 @@ export const mockApi = {
     },
   },
 
+  sessoes: {
+    async create(dados, lojaIds) {
+      await delay()
+      const forn = fornecedoresList.find(f => f.id === dados.fornecedor_id)
+      const id = uid()
+      const sessao = { id, ...dados, fornecedor_nome: forn?.nome ?? '' }
+      sessoesList.push(sessao)
+
+      // Create a visita per loja and link them
+      const visitasArr = []
+      for (const compradorId of lojaIds) {
+        const visitaId = uid()
+        visitasList.push({
+          id: visitaId,
+          fornecedor_id: dados.fornecedor_id,
+          colecao_id: dados.colecao_id,
+          data_visita: dados.data_visita,
+          vendedor: dados.vendedor,
+          cond_pag: dados.cond_pag,
+          frete: dados.frete,
+          obs: dados.obs ?? '',
+          comprador_id: compradorId,
+          sessao_id: id,
+        })
+        sessaoVisitasList.push({ sessao_id: id, visita_id: visitaId, comprador_id: compradorId })
+        visitasArr.push({ visita_id: visitaId, comprador_id: compradorId })
+      }
+
+      return { ...sessao, visitas: visitasArr }
+    },
+    async list(colId) {
+      await delay()
+      return sessoesList
+        .filter(s => s.colecao_id === colId)
+        .map(s => {
+          const forn = fornecedoresList.find(f => f.id === s.fornecedor_id)
+          return { ...s, fornecedor_nome: forn?.nome ?? '' }
+        })
+    },
+    async byId(id) {
+      await delay()
+      const s = sessoesList.find(s => s.id === id)
+      if (!s) return null
+      const forn = fornecedoresList.find(f => f.id === s.fornecedor_id)
+      const visitas = sessaoVisitasList.filter(sv => sv.sessao_id === id)
+      return { ...s, fornecedor_nome: forn?.nome ?? '', visitas }
+    },
+  },
+
   visitas: {
     async create(d) {
       await delay()
@@ -254,3 +305,5 @@ export const mockApi = {
     async openFile() { return null },
   },
 }
+
+export default mockApi

@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useCollection } from '../contexts/CollectionContext'
-import SegmentacaoSelect from '../components/SegmentacaoSelect'
-import { GRADE_LABEL, GRADE_SIZES } from '../utils/gradeConfig'
+import { tamanhosDeTipoGrade } from '../constants/grades'
 import styles from './Compras.module.css'
 
 const fmt = n => (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -9,30 +8,28 @@ const fmtDate = iso => { if (!iso) return ''; const [y,m,d] = iso.split('-'); re
 const today = () => new Date().toISOString().slice(0, 10)
 const esc = s => (s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
 
-// ─── Phase 1: Start Visit ─────────────────────────────────────────────────
+// ─── Phase 1: Start Session ───────────────────────────────────────────────
 
-function IniciarVisita({ forns, compradores, colId, onStart }) {
-  const [fornId,      setFornId]      = useState('')
-  const [data,        setData]        = useState(today())
-  const [vendedor,    setVendedor]    = useState('')
-  const [condPag,     setCondPag]     = useState('')
-  const [frete,       setFrete]       = useState('')
-  const [presentes,   setPresentes]   = useState([])
-  const [saving,      setSaving]      = useState(false)
-  const [error,       setError]       = useState(null)
+function IniciarSessao({ forns, compradores, colId, onStart }) {
+  const [fornId,    setFornId]    = useState('')
+  const [data,      setData]      = useState(today())
+  const [vendedor,  setVendedor]  = useState('')
+  const [condPag,   setCondPag]   = useState('')
+  const [frete,     setFrete]     = useState('')
+  const [lojas,     setLojas]     = useState([])
+  const [saving,    setSaving]    = useState(false)
+  const [error,     setError]     = useState(null)
 
-  function togglePresente(id) {
-    setPresentes(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    )
+  function toggleLoja(id) {
+    setLojas(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
 
   async function handleStart() {
-    if (!fornId || presentes.length === 0) return
+    if (!fornId || lojas.length === 0) return
     setSaving(true)
     setError(null)
     try {
-      const visita = await window.api.visitas.create({
+      const sessao = await window.api.sessoes.create({
         fornecedor_id: Number(fornId),
         colecao_id: colId,
         data_visita: data,
@@ -40,21 +37,19 @@ function IniciarVisita({ forns, compradores, colId, onStart }) {
         cond_pag: condPag,
         frete,
         obs: ''
-      })
-      const compradoresPresentes = compradores.filter(c => presentes.includes(c.id))
-      onStart(visita, compradoresPresentes)
+      }, lojas)
+      const lojasPresentes = compradores.filter(c => lojas.includes(c.id))
+      onStart(sessao, lojasPresentes)
     } catch {
-      setError('Erro ao iniciar visita.')
+      setError('Erro ao iniciar sessão.')
     } finally {
       setSaving(false)
     }
   }
 
-  const canStart = fornId && presentes.length > 0 && !saving
-
   return (
     <div className={styles.phase}>
-      <h2 className={styles.phaseTitle}>Fase 1 — Iniciar Visita ao Fornecedor</h2>
+      <h2 className={styles.phaseTitle}>Fase 1 — Iniciar Sessão de Compras</h2>
 
       <div className={styles.formGrid}>
         <div className={styles.field}>
@@ -89,12 +84,11 @@ function IniciarVisita({ forns, compradores, colId, onStart }) {
       </div>
 
       <div className={styles.presentesSection}>
-        <span className={styles.label}>Compradores presentes nesta visita</span>
+        <span className={styles.label}>Lojas participantes desta sessão</span>
         <div className={styles.checkGrid}>
           {compradores.map(c => (
             <label key={c.id} className={styles.checkItem}>
-              <input type="checkbox" checked={presentes.includes(c.id)}
-                onChange={() => togglePresente(c.id)} />
+              <input type="checkbox" checked={lojas.includes(c.id)} onChange={() => toggleLoja(c.id)} />
               <span>{c.nome}</span>
               {c.cidade && <span className={styles.cidade}>{c.cidade}</span>}
             </label>
@@ -105,297 +99,322 @@ function IniciarVisita({ forns, compradores, colId, onStart }) {
       {error && <div className={styles.errorBanner}>{error}</div>}
 
       <div className={styles.phaseActions}>
-        <button className={styles.btnPrimary} disabled={!canStart} onClick={handleStart}>
-          Iniciar Visita →
+        <button className={styles.btnPrimary} disabled={!fornId || lojas.length === 0 || saving} onClick={handleStart}>
+          Iniciar Sessão →
         </button>
       </div>
     </div>
   )
 }
 
-// ─── Phase 2: Register Orders ─────────────────────────────────────────────
+// ─── Phase 2: SKU-by-SKU Order Entry ──────────────────────────────────────
 
-function RegistrarPedido({ visita, compradores, segs, colId, onFechar }) {
-  const [pedidosSalvos, setPedidosSalvos] = useState([])
-  const [compradorId,   setCompradorId]   = useState(compradores[0]?.id ?? '')
-  const [segId,         setSegId]         = useState(null)
-  const [proj,          setProj]          = useState([])
-  const [totais,        setTotais]        = useState([])
-  const [qtds,          setQtds]          = useState({})
-  const [valor,         setValor]         = useState('')
-  const [desconto,      setDesconto]      = useState('')
-  const [transportadora,setTransportadora]= useState('')
-  const [notaFiscal,    setNotaFiscal]    = useState('')
-  const [obs,           setObs]           = useState('')
-  const [saving,        setSaving]        = useState(false)
-  const [error,         setError]         = useState(null)
+function RegistrarPedidoSessao({ sessao, visitas, segs, colId, onFechar }) {
+  const [skuIdx,   setSkuIdx]   = useState(0)
+  const [lojaIdx,  setLojaIdx]  = useState(0)
+  // valor/desconto por SKU: { [segId]: { valor, desconto } }
+  const [skuConfig, setSkuConfig] = useState({})
+  // qtds: { [segId]: { [visitaId]: { [tamanho]: qty } } }
+  const [qtds, setQtds] = useState({})
+  // projecoes por segId: { [segId]: [{ tamanho, qtd_ajustada }] }
+  const [projs, setProjs] = useState({})
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
 
+  // Refs para focar o primeiro input ao trocar de loja
+  const firstInputRef = useRef(null)
+
+  const seg = segs[skuIdx]
+  const visita = visitas[lojaIdx]
+  const tamanhos = seg ? tamanhosDeTipoGrade(seg.tipo_grade) : []
+  const valorStr = skuConfig[seg?.id]?.valor ?? ''
+  const descontoStr = skuConfig[seg?.id]?.desconto ?? ''
+
+  // Load projecao for current SKU
   useEffect(() => {
-    if (!segId || !colId) { setProj([]); setTotais([]); setQtds({}); return }
-    Promise.all([
-      window.api.projecoes.get(segId, colId),
-      window.api.pedidos.totaisPorTamanho(segId, colId),
-    ]).then(([p, t]) => { setProj(p); setTotais(t); setQtds({}) })
-  }, [segId, colId])
+    if (!seg || projs[seg.id] !== undefined) return
+    window.api.projecoes.get(seg.id, colId).then(p => {
+      setProjs(prev => ({ ...prev, [seg.id]: p ?? [] }))
+    })
+  }, [seg?.id, colId])
 
-  const getComprado = t => totais.find(r => r.tamanho === t)?.total_pedido ?? 0
-  const getSaldo    = (t, pj) => Math.max(0, pj - getComprado(t))
+  // Focus first input when loja changes
+  useEffect(() => {
+    firstInputRef.current?.focus()
+  }, [lojaIdx, skuIdx])
 
-  function handleQty(tamanho, raw) {
-    const val = parseInt(raw, 10)
-    setQtds(prev => ({ ...prev, [tamanho]: isNaN(val) || val < 0 ? 0 : val }))
+  function getQtd(segId, visitaId, tam) {
+    return qtds[segId]?.[visitaId]?.[tam] ?? ''
   }
 
-  const totalQtd    = Object.values(qtds).reduce((s, q) => s + q, 0)
-  const valorNum    = parseFloat(valor.replace(',', '.')) || 0
-  const descontoNum = Math.min(100, Math.max(0, parseFloat(desconto.replace(',', '.')) || 0))
-  const valorBruto  = totalQtd * valorNum
-  const valorLiq    = valorBruto * (1 - descontoNum / 100)
+  function setQtd(segId, visitaId, tam, raw) {
+    const val = raw === '' ? '' : Math.max(0, parseInt(raw, 10) || 0)
+    setQtds(prev => ({
+      ...prev,
+      [segId]: { ...prev[segId], [visitaId]: { ...prev[segId]?.[visitaId], [tam]: val } }
+    }))
+  }
 
-  const selectedSeg = segs.find(s => s.id === segId)
-  const canAdd = !saving && compradorId && segId && totalQtd > 0 && valorNum > 0
+  function setSkuVal(segId, field, val) {
+    setSkuConfig(prev => ({ ...prev, [segId]: { ...prev[segId], [field]: val } }))
+  }
 
-  async function handleAdicionar() {
-    const itens = proj
-      .map(r => ({ tamanho: r.tamanho, qtd: qtds[r.tamanho] ?? 0 }))
-      .filter(i => i.qtd > 0)
-    if (!itens.length) return
+  function handleTabOnLastInput(e) {
+    if (e.key !== 'Tab' || e.shiftKey) return
+    e.preventDefault()
+    if (lojaIdx < visitas.length - 1) {
+      setLojaIdx(lojaIdx + 1)
+    } else if (skuIdx < segs.length - 1) {
+      setSkuIdx(skuIdx + 1)
+      setLojaIdx(0)
+    }
+  }
 
+  function totalQtdLoja(segId, visitaId) {
+    const loja = qtds[segId]?.[visitaId] ?? {}
+    return Object.values(loja).reduce((s, q) => s + (parseInt(q) || 0), 0)
+  }
+
+  function hasAnyData(segId) {
+    return visitas.some(v => totalQtdLoja(segId, v.id) > 0)
+  }
+
+  async function handleFechar() {
     setSaving(true)
     setError(null)
+    const allPedidos = []
     try {
-      const pedido = await window.api.pedidos.salvar({
-        visita_id:      visita.id,
-        comprador_id:   Number(compradorId),
-        segmentacao_id: segId,
-        valor_unitario: valorNum,
-        desconto_pct:   descontoNum,
-        transportadora,
-        nota_fiscal:    notaFiscal,
-        obs,
-        itens,
-      })
-      setPedidosSalvos(prev => [...prev, pedido])
-      const newTotais = await window.api.pedidos.totaisPorTamanho(segId, colId)
-      setTotais(newTotais)
-      setQtds({})
-      setValor('')
-      setDesconto('')
-      setTransportadora('')
-      setNotaFiscal('')
-      setObs('')
+      for (const s of segs) {
+        const conf = skuConfig[s.id] ?? {}
+        const valorNum = parseFloat((conf.valor ?? '').replace(',', '.')) || 0
+        const descontoNum = Math.min(100, Math.max(0, parseFloat((conf.desconto ?? '').replace(',', '.')) || 0))
+        for (const v of visitas) {
+          const lojaTams = qtds[s.id]?.[v.id] ?? {}
+          const itens = tamanhosDeTipoGrade(s.tipo_grade)
+            .map(tam => ({ tamanho: tam, qtd: parseInt(lojaTams[tam]) || 0 }))
+            .filter(i => i.qtd > 0)
+          if (!itens.length) continue
+          const pedido = await window.api.pedidos.salvar({
+            visita_id: v.id,
+            comprador_id: v.comprador_id,
+            segmentacao_id: s.id,
+            valor_unitario: valorNum,
+            desconto_pct: descontoNum,
+            transportadora: '',
+            nota_fiscal: '',
+            obs: '',
+            itens,
+          })
+          allPedidos.push({ ...pedido, comprador_nome: v.comprador_nome, seg: s })
+        }
+      }
+      onFechar(allPedidos)
     } catch {
-      setError('Erro ao salvar pedido.')
+      setError('Erro ao salvar pedidos. Tente novamente.')
     } finally {
       setSaving(false)
     }
   }
 
+  const skuProj = projs[seg?.id] ?? []
+  const getProjQtd = tam => skuProj.find(r => r.tamanho === tam)?.qtd_ajustada ?? 0
+  const valorNum = parseFloat(valorStr.replace(',', '.')) || 0
+  const descontoNum = Math.min(100, Math.max(0, parseFloat(descontoStr.replace(',', '.')) || 0))
+
   return (
     <div className={styles.phase}>
       <div className={styles.visitaBanner}>
-        <strong>{visita.fornecedor_nome}</strong>
+        <strong>{sessao.fornecedor_nome}</strong>
         <span className={styles.dot}>·</span>
-        <span>{fmtDate(visita.data_visita)}</span>
-        {visita.vendedor && <><span className={styles.dot}>·</span><span>Vendedor: {visita.vendedor}</span></>}
-        {visita.cond_pag && <><span className={styles.dot}>·</span><span>{visita.cond_pag}</span></>}
-        {visita.frete    && <><span className={styles.dot}>·</span><span>Frete: {visita.frete}</span></>}
+        <span>{fmtDate(sessao.data_visita)}</span>
+        {sessao.vendedor && <><span className={styles.dot}>·</span><span>Vendedor: {sessao.vendedor}</span></>}
+        {sessao.cond_pag && <><span className={styles.dot}>·</span><span>{sessao.cond_pag}</span></>}
+        {sessao.frete    && <><span className={styles.dot}>·</span><span>Frete: {sessao.frete}</span></>}
+        <span className={styles.dot}>·</span>
+        <span>{visitas.length} loja(s)</span>
       </div>
 
-      <h2 className={styles.phaseTitle}>Fase 2 — Registrar Pedidos</h2>
+      <h2 className={styles.phaseTitle}>Fase 2 — Registrar Pedidos por SKU</h2>
 
-      <div className={styles.formGrid}>
-        <div className={styles.field}>
-          <span className={styles.label}>Comprador</span>
-          <select value={compradorId} onChange={e => setCompradorId(Number(e.target.value))}>
-            {compradores.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-          </select>
+      <div className={styles.skuLayout}>
+        {/* SKU sidebar */}
+        <div className={styles.skuList}>
+          {segs.map((s, i) => (
+            <button
+              key={s.id}
+              className={`${styles.skuItem} ${i === skuIdx ? styles.skuItemActive : ''} ${hasAnyData(s.id) ? styles.skuItemHasData : ''}`}
+              onClick={() => { setSkuIdx(i); setLojaIdx(0) }}
+            >
+              <span className={styles.skuItemClass}>{s.classificacao} · {s.tipo_grade}</span>
+              <span className={styles.skuItemName}>{s.tipo_produto} · {s.classe}</span>
+              {hasAnyData(s.id) && <span className={styles.skuDot} />}
+            </button>
+          ))}
         </div>
-        <div className={styles.field}>
-          <span className={styles.label}>Segmentação</span>
-          <SegmentacaoSelect segs={segs} value={segId} onChange={setSegId} />
-        </div>
-        {selectedSeg?.tipo_grade && (
-          <div className={styles.field} style={{ alignSelf: 'flex-end' }}>
-            <span className={styles.gradeBadge}>
-              Grade: {GRADE_LABEL[selectedSeg.tipo_grade] ?? selectedSeg.tipo_grade}
-            </span>
-          </div>
-        )}
-      </div>
 
-      <div className={styles.formGrid}>
-        <div className={styles.field}>
-          <span className={styles.label}>Valor unitário (R$)</span>
-          <input type="text" placeholder="0,00" value={valor}
-            onChange={e => setValor(e.target.value)} style={{ width: 90 }} />
-        </div>
-        <div className={styles.field}>
-          <span className={styles.label}>Desconto (%)</span>
-          <input type="text" placeholder="0" value={desconto}
-            onChange={e => setDesconto(e.target.value)} style={{ width: 64 }} />
-        </div>
-        <div className={styles.field}>
-          <span className={styles.label}>Transportadora</span>
-          <input type="text" placeholder="Nome" value={transportadora}
-            onChange={e => setTransportadora(e.target.value)} style={{ width: 150 }} />
-        </div>
-        <div className={styles.field}>
-          <span className={styles.label}>Nota fiscal</span>
-          <input type="text" placeholder="Nº NF" value={notaFiscal}
-            onChange={e => setNotaFiscal(e.target.value)} style={{ width: 90 }} />
-        </div>
-        <div className={`${styles.field} ${styles.fieldGrow}`}>
-          <span className={styles.label}>Observações</span>
-          <input type="text" placeholder="Obs…" value={obs}
-            onChange={e => setObs(e.target.value)} />
-        </div>
-      </div>
-
-      {!segId && <div className={styles.placeholder}>Selecione uma segmentação para ver a grade.</div>}
-      {segId && proj.length === 0 && (
-        <div className={styles.placeholder}>Sem projeção para esta segmentação. Acesse Planejamento primeiro.</div>
-      )}
-      {segId && proj.length > 0 && (
-        <>
-          <div style={{ overflowX: 'auto' }}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Tamanho</th>
-                  <th style={{ color: 'var(--purple)' }}>Projeção</th>
-                  <th style={{ color: 'var(--green)' }}>Já comprado</th>
-                  <th style={{ color: 'var(--yellow)' }}>Saldo</th>
-                  <th>Qtd neste pedido</th>
-                </tr>
-              </thead>
-              <tbody>
-                {proj.map(r => {
-                  const comprado = getComprado(r.tamanho)
-                  const saldo    = getSaldo(r.tamanho, r.qtd_ajustada)
-                  return (
-                    <tr key={r.tamanho}>
-                      <td>{r.tamanho}</td>
-                      <td style={{ color: 'var(--purple)' }}>{r.qtd_ajustada}</td>
-                      <td style={{ color: 'var(--green)' }}>{comprado}</td>
-                      <td>{saldo === 0 ? <span className={styles.checkCell}>0 ✓</span> : <span style={{ color: 'var(--yellow)' }}>{saldo}</span>}</td>
-                      <td>
-                        <input type="number" min="0" className={styles.qtyInput}
-                          value={qtds[r.tamanho] ?? 0}
-                          onChange={e => handleQty(r.tamanho, e.target.value)} />
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td>Total</td>
-                  <td style={{ color: 'var(--purple)' }}>{proj.reduce((s,r) => s + r.qtd_ajustada, 0)}</td>
-                  <td style={{ color: 'var(--green)' }}>{totais.reduce((s,r) => s + r.total_pedido, 0)}</td>
-                  <td>{proj.reduce((s,r) => s + getSaldo(r.tamanho, r.qtd_ajustada), 0)}</td>
-                  <td>{totalQtd}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-
-          <div className={styles.tableFooter}>
-            <div className={styles.totals}>
-              <span>Bruto: <strong>R$ {fmt(valorBruto)}</strong></span>
-              {descontoNum > 0 && <span style={{ color: 'var(--text-muted)' }}>Desconto {descontoNum}%: <strong>− R$ {fmt(valorBruto - valorLiq)}</strong></span>}
-              <span>Líquido: <strong className={styles.totalValue}>R$ {fmt(valorLiq)}</strong></span>
+        {/* SKU detail */}
+        <div className={styles.skuDetail}>
+          {!seg ? (
+            <div className={styles.placeholder}>Nenhuma segmentação cadastrada.</div>
+          ) : tamanhos.length === 0 ? (
+            <div className={styles.placeholder}>
+              Grade {seg.tipo_grade} ainda sem tamanhos definidos (TBD).
             </div>
-            <div className={styles.actions}>
-              {error && <span className={styles.inlineError}>{error}</span>}
-              <button className={styles.btnPrimary} disabled={!canAdd} onClick={handleAdicionar}>
-                + Adicionar pedido
-              </button>
-            </div>
-          </div>
-        </>
-      )}
-
-      {pedidosSalvos.length > 0 && (
-        <div className={styles.pedidosSalvos}>
-          <div className={styles.pedidosSalvosTitle}>Pedidos registrados nesta visita ({pedidosSalvos.length})</div>
-          {pedidosSalvos.map((p, i) => {
-            const comp = compradores.find(c => c.id === p.comprador_id)
-            const seg  = segs.find(s => s.id === p.segmentacao_id)
-            const totalQ = p.itens.reduce((s, i) => s + i.qtd, 0)
-            const totalV = totalQ * p.valor_unitario * (1 - p.desconto_pct / 100)
-            return (
-              <div key={i} className={styles.pedidoRow}>
-                <strong>{comp?.nome ?? `Comprador #${p.comprador_id}`}</strong>
-                <span className={styles.dot}>·</span>
-                <span>{seg ? `${seg.classificacao} ${seg.tipo_produto} ${seg.classe}` : `Seg #${p.segmentacao_id}`}</span>
-                <span className={styles.dot}>·</span>
-                <span>{p.itens.map(i => `${i.tamanho}:${i.qtd}`).join(' ')}</span>
-                <span className={styles.dot}>·</span>
-                <span>R$ {fmt(totalV)}</span>
+          ) : (
+            <>
+              <div className={styles.skuHeader}>
+                <span className={styles.skuHeaderName}>{seg.tipo_produto} · {seg.classe}</span>
+                <span className={styles.skuHeaderGrade}>{seg.classificacao} · {seg.tipo_grade} · {tamanhos.join(', ')}</span>
               </div>
-            )
-          })}
+
+              {/* Valor e desconto compartilhados por SKU */}
+              <div className={styles.skuPricing}>
+                <div className={styles.field}>
+                  <span className={styles.label}>Valor unit. (R$)</span>
+                  <input
+                    type="text"
+                    placeholder="0,00"
+                    value={valorStr}
+                    onChange={e => setSkuVal(seg.id, 'valor', e.target.value)}
+                    style={{ width: 80 }}
+                  />
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Desconto (%)</span>
+                  <input
+                    type="text"
+                    placeholder="0"
+                    value={descontoStr}
+                    onChange={e => setSkuVal(seg.id, 'desconto', e.target.value)}
+                    style={{ width: 64 }}
+                  />
+                </div>
+              </div>
+
+              {/* Loja tabs */}
+              <div className={styles.lojaTabs}>
+                {visitas.map((v, i) => (
+                  <button
+                    key={v.id}
+                    className={`${styles.lojaTab} ${i === lojaIdx ? styles.lojaTabActive : ''} ${totalQtdLoja(seg.id, v.id) > 0 ? styles.lojaTabHasData : ''}`}
+                    onClick={() => setLojaIdx(i)}
+                  >
+                    {v.comprador_nome}
+                    {totalQtdLoja(seg.id, v.id) > 0 && (
+                      <span className={styles.lojaTabCount}>{totalQtdLoja(seg.id, v.id)}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Grade grid */}
+              <div className={styles.gradeGrid}>
+                <div className={styles.gradeRow}>
+                  {skuProj.length > 0 && <div className={styles.gradeRowLabel}>Projeção</div>}
+                  {skuProj.length > 0 && tamanhos.map(tam => (
+                    <div key={tam} className={styles.gradeProjCell}>{getProjQtd(tam)}</div>
+                  ))}
+                </div>
+                <div className={styles.gradeHeader}>
+                  <div className={styles.gradeHeaderLabel} />
+                  {tamanhos.map(tam => (
+                    <div key={tam} className={styles.gradeHeaderCell}>{tam}</div>
+                  ))}
+                  <div className={styles.gradeHeaderCell}>Total</div>
+                </div>
+                <div className={styles.gradeRow}>
+                  <div className={styles.gradeRowLabel}>{visita?.comprador_nome}</div>
+                  {tamanhos.map((tam, tamIdx) => (
+                    <input
+                      key={tam}
+                      ref={tamIdx === 0 ? firstInputRef : null}
+                      type="number"
+                      min="0"
+                      className={styles.qtyInput}
+                      value={getQtd(seg.id, visita?.id, tam)}
+                      onChange={e => setQtd(seg.id, visita?.id, tam, e.target.value)}
+                      onKeyDown={tamIdx === tamanhos.length - 1 ? handleTabOnLastInput : undefined}
+                      placeholder="0"
+                    />
+                  ))}
+                  <div className={styles.gradeTotal}>
+                    {totalQtdLoja(seg.id, visita?.id)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Totais por tamanho (todas as lojas) */}
+              {visitas.length > 1 && (
+                <div className={`${styles.gradeRow} ${styles.gradeTotaisRow}`}>
+                  <div className={styles.gradeRowLabel}>Total lojas</div>
+                  {tamanhos.map(tam => {
+                    const tot = visitas.reduce((s, v) => s + (parseInt(qtds[seg.id]?.[v.id]?.[tam]) || 0), 0)
+                    return <div key={tam} className={styles.gradeTotalCell}>{tot || ''}</div>
+                  })}
+                  <div className={styles.gradeTotal}>
+                    {visitas.reduce((s, v) => s + totalQtdLoja(seg.id, v.id), 0)}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
-      )}
+      </div>
+
+      {error && <div className={styles.errorBanner}>{error}</div>}
 
       <div className={styles.phaseActions}>
-        <button className={styles.btnSecondary} disabled={pedidosSalvos.length === 0}
-          onClick={() => onFechar(pedidosSalvos)}>
-          Fechar visita e gerar PDFs →
+        <button
+          className={styles.btnSecondary}
+          disabled={saving || !segs.some(s => hasAnyData(s.id))}
+          onClick={handleFechar}
+        >
+          {saving ? 'Salvando…' : 'Fechar sessão e gerar PDFs →'}
         </button>
       </div>
     </div>
   )
 }
 
-// ─── Phase 3: Close Visit + PDFs ──────────────────────────────────────────
+// ─── Phase 3: Close Session + PDFs ───────────────────────────────────────
 
-function FecharVisita({ visita, compradores, segs, pedidos, onNovaVisita }) {
+function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
   const dateStr = new Date().toLocaleDateString('pt-BR')
 
   function handleGerarPDFs() {
-    const compradoresComPedidos = compradores.filter(c =>
-      pedidos.some(p => p.comprador_id === c.id)
-    )
+    // Group pedidos by comprador (visita)
+    const visitasComPedidos = visitas.filter(v => pedidos.some(p => p.visita_id === v.id))
 
-    const ordersHtml = compradoresComPedidos.map((comp, idx) => {
-      const compPedidos = pedidos.filter(p => p.comprador_id === comp.id)
-      const isLast = idx === compradoresComPedidos.length - 1
+    const ordersHtml = visitasComPedidos.map((vis, idx) => {
+      const visPedidos = pedidos.filter(p => p.visita_id === vis.id)
+      const isLast = idx === visitasComPedidos.length - 1
 
-      const pedidosHtml = compPedidos.map(p => {
+      const pedidosHtml = visPedidos.map(p => {
         const seg = segs.find(s => s.id === p.segmentacao_id)
         const segLabel = seg
-          ? `${seg.classificacao} — ${seg.tipo_produto} — ${seg.classe} (Grade ${GRADE_LABEL[seg.tipo_grade] ?? seg.tipo_grade ?? ''})`
+          ? `${seg.classificacao} — ${seg.tipo_produto} — ${seg.classe} (Grade ${seg.tipo_grade})`
           : `Segmentação #${p.segmentacao_id}`
         const totalQ = p.itens.reduce((s, i) => s + i.qtd, 0)
         const totalV = totalQ * p.valor_unitario * (1 - p.desconto_pct / 100)
-
         const rowsHtml = p.itens.filter(i => i.qtd > 0).map(i =>
           `<tr><td style="text-align:left; padding:5px 10px;">${i.tamanho}</td><td style="text-align:right; padding:5px 10px;">${i.qtd}</td></tr>`
         ).join('')
-
         return `
           <div class="seg-block">
             <div class="seg-title">${segLabel}</div>
             <table>
               <thead><tr><th style="text-align:left;">Tamanho</th><th>Quantidade</th></tr></thead>
               <tbody>${rowsHtml}</tbody>
-              <tfoot>
-                <tr>
-                  <td style="text-align:left; font-weight:bold; border-top:2px solid #aaa; padding:5px 10px;">Total</td>
-                  <td style="font-weight:bold; border-top:2px solid #aaa; padding:5px 10px; text-align:right;">${totalQ}</td>
-                </tr>
-              </tfoot>
+              <tfoot><tr>
+                <td style="text-align:left; font-weight:bold; border-top:2px solid #aaa; padding:5px 10px;">Total</td>
+                <td style="font-weight:bold; border-top:2px solid #aaa; padding:5px 10px; text-align:right;">${totalQ}</td>
+              </tr></tfoot>
             </table>
             <div class="totals">
               <div>Valor unitário: <strong>R$ ${p.valor_unitario.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>
               ${p.desconto_pct > 0 ? `<div>Desconto: <strong>${p.desconto_pct}%</strong></div>` : ''}
               <div style="font-size:14px; margin-top:4px;">Valor líquido: <strong>R$ ${totalV.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>
             </div>
-            ${p.transportadora ? `<div class="obs-row">Transportadora: ${esc(p.transportadora)}</div>` : ''}
-            ${p.nota_fiscal    ? `<div class="obs-row">Nota fiscal: ${esc(p.nota_fiscal)}</div>` : ''}
-            ${p.obs            ? `<div class="obs-row">Obs: ${esc(p.obs)}</div>` : ''}
           </div>`
       }).join('')
 
@@ -403,25 +422,19 @@ function FecharVisita({ visita, compradores, segs, pedidos, onNovaVisita }) {
         <div class="order"${isLast ? ' style="page-break-after:avoid;"' : ''}>
           <h1>PEDIDO DE COMPRA</h1>
           <p style="font-size:10px; color:#888; margin-bottom:12px;">Gerado em: ${dateStr}</p>
-
           <div class="section">
             <div class="section-title">Fornecedor</div>
-            <div class="row"><span class="lbl">Fornecedor:</span><span>${esc(visita.fornecedor_nome)}</span></div>
-            ${visita.vendedor ? `<div class="row"><span class="lbl">Vendedor:</span><span>${esc(visita.vendedor)}</span></div>` : ''}
-            <div class="row"><span class="lbl">Data pedido:</span><span>${fmtDate(visita.data_visita)}</span></div>
-            ${visita.cond_pag ? `<div class="row"><span class="lbl">Cond. pag.:</span><span>${esc(visita.cond_pag)}</span></div>` : ''}
-            ${visita.frete    ? `<div class="row"><span class="lbl">Frete:</span><span>${esc(visita.frete)}</span></div>` : ''}
+            <div class="row"><span class="lbl">Fornecedor:</span><span>${esc(sessao.fornecedor_nome)}</span></div>
+            ${sessao.vendedor ? `<div class="row"><span class="lbl">Vendedor:</span><span>${esc(sessao.vendedor)}</span></div>` : ''}
+            <div class="row"><span class="lbl">Data pedido:</span><span>${fmtDate(sessao.data_visita)}</span></div>
+            ${sessao.cond_pag ? `<div class="row"><span class="lbl">Cond. pag.:</span><span>${esc(sessao.cond_pag)}</span></div>` : ''}
+            ${sessao.frete    ? `<div class="row"><span class="lbl">Frete:</span><span>${esc(sessao.frete)}</span></div>` : ''}
           </div>
-
           <div class="section" style="border-top:1px solid #ddd; padding-top:10px;">
             <div class="section-title">Comprador</div>
-            <div class="row"><span class="lbl">Nome:</span><span><strong>${esc(comp.nome)}</strong></span></div>
-            <div class="row"><span class="lbl">CNPJ:</span><span>${esc(comp.cnpj)}</span></div>
-            ${comp.cidade ? `<div class="row"><span class="lbl">Cidade:</span><span>${esc(comp.cidade)}</span></div>` : ''}
+            <div class="row"><span class="lbl">Nome:</span><span><strong>${esc(vis.comprador_nome)}</strong></span></div>
           </div>
-
           ${pedidosHtml}
-
           <div class="footer">Gerado por Solução Compras — ${dateStr}</div>
         </div>`
     }).join('')
@@ -430,7 +443,7 @@ function FecharVisita({ visita, compradores, segs, pedidos, onNovaVisita }) {
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Pedidos — ${visita.fornecedor_nome} — ${fmtDate(visita.data_visita)}</title>
+  <title>Pedidos — ${sessao.fornecedor_nome} — ${fmtDate(sessao.data_visita)}</title>
   <style>
     body { font-family: Arial, sans-serif; font-size: 12px; color: #000; margin: 0; }
     .order { padding: 24px; page-break-after: always; }
@@ -447,7 +460,6 @@ function FecharVisita({ visita, compradores, segs, pedidos, onNovaVisita }) {
     th:first-child, td:first-child { text-align: left; }
     th { background: #f0f0f0; font-weight: bold; }
     .totals { margin-top: 10px; text-align: right; line-height: 1.7; }
-    .obs-row { margin-top: 4px; font-size: 11px; color: #555; }
     .footer { margin-top: 24px; font-size: 10px; color: #888; text-align: center; border-top: 1px solid #ddd; padding-top: 8px; }
     @media print { @page { margin: 15mm; } }
   </style>
@@ -463,7 +475,7 @@ function FecharVisita({ visita, compradores, segs, pedidos, onNovaVisita }) {
     win.addEventListener('load', () => win.print())
   }
 
-  const compradoresComPedidos = compradores.filter(c => pedidos.some(p => p.comprador_id === c.id))
+  const visitasComPedidos = visitas.filter(v => pedidos.some(p => p.visita_id === v.id))
   const totalGeral = pedidos.reduce((s, p) => {
     const q = p.itens.reduce((s2, i) => s2 + i.qtd, 0)
     return s + q * p.valor_unitario * (1 - p.desconto_pct / 100)
@@ -472,26 +484,26 @@ function FecharVisita({ visita, compradores, segs, pedidos, onNovaVisita }) {
   return (
     <div className={styles.phase}>
       <div className={styles.visitaBanner}>
-        <strong>{visita.fornecedor_nome}</strong>
+        <strong>{sessao.fornecedor_nome}</strong>
         <span className={styles.dot}>·</span>
-        <span>{fmtDate(visita.data_visita)}</span>
+        <span>{fmtDate(sessao.data_visita)}</span>
         <span className={styles.dot}>·</span>
-        <span>{pedidos.length} pedido(s) · {compradoresComPedidos.length} comprador(es)</span>
+        <span>{pedidos.length} pedido(s) · {visitasComPedidos.length} loja(s)</span>
       </div>
 
-      <h2 className={styles.phaseTitle}>Fase 3 — Resumo da Visita</h2>
+      <h2 className={styles.phaseTitle}>Fase 3 — Resumo da Sessão</h2>
 
       <div className={styles.resumoGrid}>
-        {compradoresComPedidos.map(comp => {
-          const compPedidos = pedidos.filter(p => p.comprador_id === comp.id)
-          const totalComp = compPedidos.reduce((s, p) => {
+        {visitasComPedidos.map(vis => {
+          const visPedidos = pedidos.filter(p => p.visita_id === vis.id)
+          const totalComp = visPedidos.reduce((s, p) => {
             const q = p.itens.reduce((s2, i) => s2 + i.qtd, 0)
             return s + q * p.valor_unitario * (1 - p.desconto_pct / 100)
           }, 0)
           return (
-            <div key={comp.id} className={styles.resumoCard}>
-              <div className={styles.resumoCardHeader}>{comp.nome}</div>
-              {compPedidos.map((p, i) => {
+            <div key={vis.id} className={styles.resumoCard}>
+              <div className={styles.resumoCardHeader}>{vis.comprador_nome}</div>
+              {visPedidos.map((p, i) => {
                 const seg = segs.find(s => s.id === p.segmentacao_id)
                 const totalQ = p.itens.reduce((s, i) => s + i.qtd, 0)
                 return (
@@ -512,11 +524,9 @@ function FecharVisita({ visita, compradores, segs, pedidos, onNovaVisita }) {
       </div>
 
       <div className={styles.phaseActions}>
-        <button className={styles.btnSecondary} onClick={onNovaVisita}>
-          ← Nova visita
-        </button>
+        <button className={styles.btnSecondary} onClick={onNovaSessao}>← Nova sessão</button>
         <button className={styles.btnPrimary} onClick={handleGerarPDFs}>
-          Gerar PDFs ({compradoresComPedidos.length})
+          Gerar PDFs ({visitasComPedidos.length})
         </button>
       </div>
     </div>
@@ -531,8 +541,8 @@ export default function Compras() {
   const [forns,       setForns]       = useState([])
   const [compradores, setCompradores] = useState([])
   const [phase,       setPhase]       = useState(1)
-  const [visita,      setVisita]      = useState(null)
-  const [compPresentes, setCompPresentes] = useState([])
+  const [sessao,      setSessao]      = useState(null)
+  const [visitas,     setVisitas]     = useState([])
   const [pedidosFechados, setPedidosFechados] = useState([])
 
   useEffect(() => {
@@ -543,9 +553,15 @@ export default function Compras() {
     ]).then(([s, f, c]) => { setSegs(s); setForns(f); setCompradores(c) })
   }, [])
 
-  function handleStart(novaVisita, presentes) {
-    setVisita(novaVisita)
-    setCompPresentes(presentes)
+  function handleStart(novaSessao, lojas) {
+    // novaSessao = { id, fornecedor_id, fornecedor_nome, data_visita, ..., visitas: [{ visita_id, comprador_id }] }
+    const visitasEnriquecidas = novaSessao.visitas.map(v => ({
+      id: v.visita_id,
+      comprador_id: v.comprador_id,
+      comprador_nome: lojas.find(l => l.id === v.comprador_id)?.nome ?? `Loja #${v.comprador_id}`
+    }))
+    setSessao(novaSessao)
+    setVisitas(visitasEnriquecidas)
     setPhase(2)
   }
 
@@ -554,12 +570,15 @@ export default function Compras() {
     setPhase(3)
   }
 
-  function handleNovaVisita() {
-    setVisita(null)
-    setCompPresentes([])
+  function handleNovaSessao() {
+    setSessao(null)
+    setVisitas([])
     setPedidosFechados([])
     setPhase(1)
   }
+
+  // sessao already includes fornecedor_nome (from DB join in sessoes.create)
+  const sessaoDisplay = sessao ?? null
 
   if (!active) {
     return (
@@ -574,7 +593,7 @@ export default function Compras() {
     <div className={styles.page}>
       <h1 className={styles.title}>Compras — {active.nome}</h1>
       <div className={styles.stepBar}>
-        {['Iniciar visita', 'Registrar pedidos', 'Gerar PDFs'].map((label, i) => (
+        {['Iniciar sessão', 'Registrar pedidos', 'Gerar PDFs'].map((label, i) => (
           <div key={i} className={`${styles.step} ${phase === i + 1 ? styles.stepActive : ''} ${phase > i + 1 ? styles.stepDone : ''}`}>
             <span className={styles.stepNum}>{i + 1}</span>
             <span>{label}</span>
@@ -583,29 +602,29 @@ export default function Compras() {
       </div>
 
       {phase === 1 && (
-        <IniciarVisita
+        <IniciarSessao
           forns={forns}
           compradores={compradores}
           colId={active.id}
           onStart={handleStart}
         />
       )}
-      {phase === 2 && visita && (
-        <RegistrarPedido
-          visita={visita}
-          compradores={compPresentes}
+      {phase === 2 && sessao && (
+        <RegistrarPedidoSessao
+          sessao={sessaoDisplay}
+          visitas={visitas}
           segs={segs}
           colId={active.id}
           onFechar={handleFechar}
         />
       )}
-      {phase === 3 && visita && (
-        <FecharVisita
-          visita={visita}
-          compradores={compPresentes}
+      {phase === 3 && sessao && (
+        <FecharSessao
+          sessao={sessaoDisplay}
+          visitas={visitas}
           segs={segs}
           pedidos={pedidosFechados}
-          onNovaVisita={handleNovaVisita}
+          onNovaSessao={handleNovaSessao}
         />
       )}
     </div>

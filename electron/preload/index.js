@@ -37,6 +37,11 @@ contextBridge.exposeInMainWorld('api', {
     update: (id, d)  => ipcRenderer.invoke('compradores:update', id, d),
     remove: (id)     => ipcRenderer.invoke('compradores:remove', id),
   },
+  sessoes: {
+    create: (d, lojaIds) => ipcRenderer.invoke('sessoes:create', d, lojaIds),
+    list:   (colId)      => ipcRenderer.invoke('sessoes:list', colId),
+    byId:   (id)         => ipcRenderer.invoke('sessoes:byId', id),
+  },
   visitas: {
     create: (d)     => ipcRenderer.invoke('visitas:create', d),
     list:   (colId) => ipcRenderer.invoke('visitas:list', colId),

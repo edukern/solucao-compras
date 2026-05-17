@@ -142,4 +142,24 @@ export function runMigrations(db) {
   try {
     db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_fornecedores_nome ON fornecedores(nome)`)
   } catch {}
+
+  // Sessoes: groups multiple lojas into a single buying session
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS sessoes (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      fornecedor_id INTEGER NOT NULL REFERENCES fornecedores(id),
+      colecao_id    INTEGER NOT NULL REFERENCES colecoes(id),
+      data_visita   TEXT NOT NULL,
+      vendedor      TEXT,
+      cond_pag      TEXT,
+      frete         TEXT,
+      obs           TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_sessoes_col ON sessoes(colecao_id);
+  `)
+
+  // Link visitas to a sessao (nullable — old records unaffected)
+  try { db.exec(`ALTER TABLE visitas ADD COLUMN sessao_id INTEGER REFERENCES sessoes(id)`) } catch {}
+  // Link visitas to a comprador for per-loja sessions (nullable — old records unaffected)
+  try { db.exec(`ALTER TABLE visitas ADD COLUMN comprador_id INTEGER REFERENCES compradores(id)`) } catch {}
 }

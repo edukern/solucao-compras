@@ -11,8 +11,9 @@ import { makeFornecedores } from './db/fornecedores.js'
 import { makeCompradores } from './db/compradores.js'
 import { makeVisitas } from './db/visitas.js'
 import { makePedidos } from './db/pedidos.js'
+import { makeSessoes } from './db/sessoes.js'
 import fs from 'fs'
-import XLSX from 'xlsx'
+import * as XLSX from 'xlsx'
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -46,6 +47,7 @@ app.whenReady().then(() => {
   const comp = makeCompradores(db)
   const vis  = makeVisitas(db)
   const ped  = makePedidos(db)
+  const sess = makeSessoes(db)
 
   // Colecoes
   ipcMain.handle('colecoes:list',      () => col.list())
@@ -101,6 +103,11 @@ app.whenReady().then(() => {
   ipcMain.handle('compradores:create', (_, d) => comp.create(d))
   ipcMain.handle('compradores:update', (_, id, d) => comp.update(id, d))
   ipcMain.handle('compradores:remove', (_, id) => comp.remove(id))
+
+  // Sessoes
+  ipcMain.handle('sessoes:create', (_, d, lojaIds) => sess.create(d, lojaIds))
+  ipcMain.handle('sessoes:list',   (_, colId)      => sess.list(colId))
+  ipcMain.handle('sessoes:byId',   (_, id)          => sess.getById(id))
 
   // Visitas
   ipcMain.handle('visitas:create', (_, d)     => vis.create(d))
