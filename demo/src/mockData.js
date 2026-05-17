@@ -160,71 +160,71 @@ export const projecoes = [
 // Pedidos raw: ~60% of projeção comprado, distribuídos entre 15 fornecedores
 // { fornecedor_id, colecao_id, segmentacao_id, data_pedido, tamanho, qtd_pedida, valor_unitario }
 export const pedidosBase = [
-  // --- GANGSTER → seg1 (AD CALCA MASC) PP+P+M+G
+  // --- APPLICATO → seg1 (AD CALCA MASC) PP+P+M+G
   { fornecedor_id:1, colecao_id:1, segmentacao_id:1, data_pedido:'2026-04-08', tamanho:'PP', qtd_pedida:35,  valor_unitario:89.90 },
   { fornecedor_id:1, colecao_id:1, segmentacao_id:1, data_pedido:'2026-04-08', tamanho:'P',  qtd_pedida:70,  valor_unitario:89.90 },
   { fornecedor_id:1, colecao_id:1, segmentacao_id:1, data_pedido:'2026-04-08', tamanho:'M',  qtd_pedida:90,  valor_unitario:89.90 },
   { fornecedor_id:1, colecao_id:1, segmentacao_id:1, data_pedido:'2026-04-08', tamanho:'G',  qtd_pedida:70,  valor_unitario:89.90 },
-  // --- GANGSTER → seg6 (EX CALCA MASC) G1+G2+G3
+  // --- APPLICATO → seg6 (EX CALCA MASC) G1+G2+G3
   { fornecedor_id:1, colecao_id:1, segmentacao_id:6, data_pedido:'2026-04-08', tamanho:'G1', qtd_pedida:24,  valor_unitario:79.90 },
   { fornecedor_id:1, colecao_id:1, segmentacao_id:6, data_pedido:'2026-04-08', tamanho:'G2', qtd_pedida:42,  valor_unitario:79.90 },
   { fornecedor_id:1, colecao_id:1, segmentacao_id:6, data_pedido:'2026-04-08', tamanho:'G3', qtd_pedida:54,  valor_unitario:79.90 },
-  // --- CROCKER → seg1 GG
+  // --- BLUE MACAW → seg1 GG
   { fornecedor_id:7, colecao_id:1, segmentacao_id:1, data_pedido:'2026-04-12', tamanho:'GG', qtd_pedida:36,  valor_unitario:92.00 },
-  // --- DECIZAO → seg6 G4+G5
+  // --- DANKA → seg6 G4+G5
   { fornecedor_id:14,colecao_id:1, segmentacao_id:6, data_pedido:'2026-04-15', tamanho:'G4', qtd_pedida:42,  valor_unitario:82.00 },
   { fornecedor_id:14,colecao_id:1, segmentacao_id:6, data_pedido:'2026-04-15', tamanho:'G5', qtd_pedida:24,  valor_unitario:82.00 },
-  // --- LUNENDER → seg2 (AD CALCA FEM) todos os tamanhos
+  // --- AQUECCE → seg2 (AD CALCA FEM) todos os tamanhos
   { fornecedor_id:2, colecao_id:1, segmentacao_id:2, data_pedido:'2026-04-10', tamanho:'PP', qtd_pedida:30,  valor_unitario:94.90 },
   { fornecedor_id:2, colecao_id:1, segmentacao_id:2, data_pedido:'2026-04-10', tamanho:'P',  qtd_pedida:60,  valor_unitario:94.90 },
   { fornecedor_id:2, colecao_id:1, segmentacao_id:2, data_pedido:'2026-04-10', tamanho:'M',  qtd_pedida:78,  valor_unitario:94.90 },
   { fornecedor_id:2, colecao_id:1, segmentacao_id:2, data_pedido:'2026-04-10', tamanho:'G',  qtd_pedida:60,  valor_unitario:94.90 },
   { fornecedor_id:2, colecao_id:1, segmentacao_id:2, data_pedido:'2026-04-10', tamanho:'GG', qtd_pedida:30,  valor_unitario:94.90 },
-  // --- LUNENDER → seg7 (EX BLUSINHA FEM) G1+G2+G3
+  // --- AQUECCE → seg7 (EX BLUSINHA FEM) G1+G2+G3
   { fornecedor_id:2, colecao_id:1, segmentacao_id:7, data_pedido:'2026-04-10', tamanho:'G1', qtd_pedida:30,  valor_unitario:88.00 },
   { fornecedor_id:2, colecao_id:1, segmentacao_id:7, data_pedido:'2026-04-10', tamanho:'G2', qtd_pedida:54,  valor_unitario:88.00 },
   { fornecedor_id:2, colecao_id:1, segmentacao_id:7, data_pedido:'2026-04-10', tamanho:'G3', qtd_pedida:66,  valor_unitario:88.00 },
-  // --- TEEZZ → seg2 complemento M
+  // --- CAW → seg2 complemento M
   { fornecedor_id:10,colecao_id:1, segmentacao_id:2, data_pedido:'2026-04-25', tamanho:'M',  qtd_pedida:30,  valor_unitario:96.00 },
-  // --- FATTALY → seg3 (AD BLUSINHA FEM) PP+P+M+G
+  // --- CIA CORPO → seg3 (AD BLUSINHA FEM) PP+P+M+G
   { fornecedor_id:11,colecao_id:1, segmentacao_id:3, data_pedido:'2026-04-14', tamanho:'PP', qtd_pedida:42,  valor_unitario:76.90 },
   { fornecedor_id:11,colecao_id:1, segmentacao_id:3, data_pedido:'2026-04-14', tamanho:'P',  qtd_pedida:78,  valor_unitario:76.90 },
   { fornecedor_id:11,colecao_id:1, segmentacao_id:3, data_pedido:'2026-04-14', tamanho:'M',  qtd_pedida:96,  valor_unitario:76.90 },
   { fornecedor_id:11,colecao_id:1, segmentacao_id:3, data_pedido:'2026-04-14', tamanho:'G',  qtd_pedida:78,  valor_unitario:76.90 },
-  // --- ALTENBURG → seg3 GG
-  { fornecedor_id:9, colecao_id:1, segmentacao_id:3, data_pedido:'2026-04-18', tamanho:'GG', qtd_pedida:42,  valor_unitario:79.00 },
-  // --- RITA MODAS → seg7 G4+G5
+  // --- AUTENTICADA → seg3 GG
+  { fornecedor_id:3, colecao_id:1, segmentacao_id:3, data_pedido:'2026-04-18', tamanho:'GG', qtd_pedida:42,  valor_unitario:79.00 },
+  // --- COTTON E COTTON → seg7 G4+G5
   { fornecedor_id:15,colecao_id:1, segmentacao_id:7, data_pedido:'2026-04-20', tamanho:'G4', qtd_pedida:54,  valor_unitario:91.00 },
   { fornecedor_id:15,colecao_id:1, segmentacao_id:7, data_pedido:'2026-04-20', tamanho:'G5', qtd_pedida:30,  valor_unitario:91.00 },
-  // --- BEIRA RIO → seg7 G2 complemento
+  // --- BIOGAS → seg7 G2 complemento
   { fornecedor_id:6, colecao_id:1, segmentacao_id:7, data_pedido:'2026-04-22', tamanho:'G2', qtd_pedida:36,  valor_unitario:86.00 },
-  // --- JEITO FASHION → seg7 G3 complemento
-  { fornecedor_id:12,colecao_id:1, segmentacao_id:7, data_pedido:'2026-04-23', tamanho:'G3', qtd_pedida:44,  valor_unitario:93.00 },
-  // --- MOLEKINHO → seg9 (INF BLUSINHA UNI)
+  // --- BRUNA → seg7 G3 complemento
+  { fornecedor_id:8, colecao_id:1, segmentacao_id:7, data_pedido:'2026-04-23', tamanho:'G3', qtd_pedida:44,  valor_unitario:93.00 },
+  // --- BALBOA → seg9 (INF BLUSINHA UNI)
   { fornecedor_id:4, colecao_id:1, segmentacao_id:9, data_pedido:'2026-04-13', tamanho:'4',  qtd_pedida:24, valor_unitario:49.90 },
   { fornecedor_id:4, colecao_id:1, segmentacao_id:9, data_pedido:'2026-04-13', tamanho:'6',  qtd_pedida:30, valor_unitario:49.90 },
   { fornecedor_id:4, colecao_id:1, segmentacao_id:9, data_pedido:'2026-04-13', tamanho:'8',  qtd_pedida:33, valor_unitario:49.90 },
-  // --- HAVAIANAS → seg4 (AD CALCADO MASC) 37-42
-  { fornecedor_id:3, colecao_id:1, segmentacao_id:4, data_pedido:'2026-04-09', tamanho:'37', qtd_pedida:24,  valor_unitario:149.90 },
-  { fornecedor_id:3, colecao_id:1, segmentacao_id:4, data_pedido:'2026-04-09', tamanho:'38', qtd_pedida:36,  valor_unitario:149.90 },
-  { fornecedor_id:3, colecao_id:1, segmentacao_id:4, data_pedido:'2026-04-09', tamanho:'39', qtd_pedida:42,  valor_unitario:149.90 },
-  { fornecedor_id:3, colecao_id:1, segmentacao_id:4, data_pedido:'2026-04-09', tamanho:'40', qtd_pedida:42,  valor_unitario:149.90 },
-  { fornecedor_id:3, colecao_id:1, segmentacao_id:4, data_pedido:'2026-04-09', tamanho:'41', qtd_pedida:36,  valor_unitario:149.90 },
-  { fornecedor_id:3, colecao_id:1, segmentacao_id:4, data_pedido:'2026-04-09', tamanho:'42', qtd_pedida:24,  valor_unitario:149.90 },
-  // --- FATAL SUL → seg4 tamanho 43
+  // --- BICHO BAGUNCA → seg4 (AD CALCADO MASC) 37-42
+  { fornecedor_id:5, colecao_id:1, segmentacao_id:4, data_pedido:'2026-04-09', tamanho:'37', qtd_pedida:24,  valor_unitario:149.90 },
+  { fornecedor_id:5, colecao_id:1, segmentacao_id:4, data_pedido:'2026-04-09', tamanho:'38', qtd_pedida:36,  valor_unitario:149.90 },
+  { fornecedor_id:5, colecao_id:1, segmentacao_id:4, data_pedido:'2026-04-09', tamanho:'39', qtd_pedida:42,  valor_unitario:149.90 },
+  { fornecedor_id:5, colecao_id:1, segmentacao_id:4, data_pedido:'2026-04-09', tamanho:'40', qtd_pedida:42,  valor_unitario:149.90 },
+  { fornecedor_id:5, colecao_id:1, segmentacao_id:4, data_pedido:'2026-04-09', tamanho:'41', qtd_pedida:36,  valor_unitario:149.90 },
+  { fornecedor_id:5, colecao_id:1, segmentacao_id:4, data_pedido:'2026-04-09', tamanho:'42', qtd_pedida:24,  valor_unitario:149.90 },
+  // --- COSTAO → seg4 tamanho 43
   { fornecedor_id:13,colecao_id:1, segmentacao_id:4, data_pedido:'2026-04-16', tamanho:'43', qtd_pedida:12,  valor_unitario:155.00 },
-  // --- HAVAIANAS → seg5 (AD CALCADO FEM) 35-38
-  { fornecedor_id:3, colecao_id:1, segmentacao_id:5, data_pedido:'2026-04-09', tamanho:'35', qtd_pedida:24,  valor_unitario:139.90 },
-  { fornecedor_id:3, colecao_id:1, segmentacao_id:5, data_pedido:'2026-04-09', tamanho:'36', qtd_pedida:36,  valor_unitario:139.90 },
-  { fornecedor_id:3, colecao_id:1, segmentacao_id:5, data_pedido:'2026-04-09', tamanho:'37', qtd_pedida:42,  valor_unitario:139.90 },
-  { fornecedor_id:3, colecao_id:1, segmentacao_id:5, data_pedido:'2026-04-09', tamanho:'38', qtd_pedida:36,  valor_unitario:139.90 },
-  // --- PEGADA → seg5 34+39
+  // --- BICHO BAGUNCA → seg5 (AD CALCADO FEM) 35-38
+  { fornecedor_id:5, colecao_id:1, segmentacao_id:5, data_pedido:'2026-04-09', tamanho:'35', qtd_pedida:24,  valor_unitario:139.90 },
+  { fornecedor_id:5, colecao_id:1, segmentacao_id:5, data_pedido:'2026-04-09', tamanho:'36', qtd_pedida:36,  valor_unitario:139.90 },
+  { fornecedor_id:5, colecao_id:1, segmentacao_id:5, data_pedido:'2026-04-09', tamanho:'37', qtd_pedida:42,  valor_unitario:139.90 },
+  { fornecedor_id:5, colecao_id:1, segmentacao_id:5, data_pedido:'2026-04-09', tamanho:'38', qtd_pedida:36,  valor_unitario:139.90 },
+  // --- BRUNA → seg5 34+39
   { fornecedor_id:8, colecao_id:1, segmentacao_id:5, data_pedido:'2026-04-17', tamanho:'34', qtd_pedida:12,  valor_unitario:135.00 },
   { fornecedor_id:8, colecao_id:1, segmentacao_id:5, data_pedido:'2026-04-17', tamanho:'39', qtd_pedida:24,  valor_unitario:135.00 },
   // --- MORMAII → seg6 G1+G2 complemento
-  { fornecedor_id:5, colecao_id:1, segmentacao_id:6, data_pedido:'2026-04-11', tamanho:'G1', qtd_pedida:16,  valor_unitario:99.90 },
-  { fornecedor_id:5, colecao_id:1, segmentacao_id:6, data_pedido:'2026-04-11', tamanho:'G2', qtd_pedida:28,  valor_unitario:99.90 },
-  // --- MOLEKINHO → seg8 (INF CALCA INF) todos os tamanhos
+  { fornecedor_id:63,colecao_id:1, segmentacao_id:6, data_pedido:'2026-04-11', tamanho:'G1', qtd_pedida:16,  valor_unitario:99.90 },
+  { fornecedor_id:63,colecao_id:1, segmentacao_id:6, data_pedido:'2026-04-11', tamanho:'G2', qtd_pedida:28,  valor_unitario:99.90 },
+  // --- BALBOA → seg8 (INF CALCA UNI) todos os tamanhos
   { fornecedor_id:4, colecao_id:1, segmentacao_id:8, data_pedido:'2026-04-13', tamanho:'6',  qtd_pedida:24, valor_unitario:59.90 },
   { fornecedor_id:4, colecao_id:1, segmentacao_id:8, data_pedido:'2026-04-13', tamanho:'8',  qtd_pedida:36, valor_unitario:59.90 },
   { fornecedor_id:4, colecao_id:1, segmentacao_id:8, data_pedido:'2026-04-13', tamanho:'10', qtd_pedida:42, valor_unitario:59.90 },
