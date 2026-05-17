@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { id: 'planejamento', label: 'Planejamento', icon: '🎯' },
   { id: 'compras',      label: 'Compras',      icon: '🛍️' },
   { id: 'relatorios',   label: 'Relatórios',   icon: '📊' },
+  { id: 'pendencias',   label: 'Pendências',   icon: '📋' },
 ]
 
 export default function Sidebar({ current, onNavigate }) {
