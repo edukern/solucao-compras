@@ -182,8 +182,10 @@ function RegistrarPedidoSessao({ sessao, visitas, segs, colId, onFechar }) {
   async function handleFechar() {
     setSaving(true)
     setError(null)
-    const allPedidos = []
     try {
+      // Monta lista de pedidos para salvar em uma única transação
+      const batch = []
+      const meta = [] // { comprador_nome, comprador_cnpj, comprador_cidade, classificacao, tipo_produto, classe, tipo_grade }
       for (const s of segs) {
         const conf = skuConfig[s.id] ?? {}
         const valorNum = parseFloat((conf.valor ?? '').replace(',', '.')) || 0
@@ -194,20 +196,17 @@ function RegistrarPedidoSessao({ sessao, visitas, segs, colId, onFechar }) {
             .map(tam => ({ tamanho: tam, qtd: parseInt(lojaTams[tam]) || 0 }))
             .filter(i => i.qtd > 0)
           if (!itens.length) continue
-          const pedido = await window.api.pedidos.salvar({
-            visita_id: v.id,
-            comprador_id: v.comprador_id,
-            segmentacao_id: s.id,
-            valor_unitario: valorNum,
-            desconto_pct: descontoNum,
-            transportadora: '',
-            nota_fiscal: '',
-            obs: '',
-            itens,
-          })
-          allPedidos.push({ ...pedido, comprador_nome: v.comprador_nome, seg: s })
+          batch.push({ visita_id: v.id, comprador_id: v.comprador_id, segmentacao_id: s.id,
+                       valor_unitario: valorNum, desconto_pct: descontoNum,
+                       transportadora: '', nota_fiscal: '', obs: '', itens })
+          meta.push({ comprador_nome: v.comprador_nome, comprador_cnpj: v.comprador_cnpj ?? '',
+                      comprador_cidade: v.comprador_cidade ?? '',
+                      classificacao: s.classificacao, tipo_produto: s.tipo_produto,
+                      classe: s.classe, tipo_grade: s.tipo_grade })
         }
       }
+      const salvos = await window.api.pedidos.salvarBatch(batch)
+      const allPedidos = salvos.map((p, i) => ({ ...p, ...meta[i] }))
       onFechar(allPedidos)
     } catch {
       setError('Erro ao salvar pedidos. Tente novamente.')
@@ -376,86 +375,89 @@ function RegistrarPedidoSessao({ sessao, visitas, segs, colId, onFechar }) {
   )
 }
 
-// ─── Phase 3: Close Session + PDFs ───────────────────────────────────────
+// ─── PDF generation (shared between FecharSessao and Historico) ──────────
+//
+// sessao:          { fornecedor_nome, data_visita, vendedor, cond_pag, frete }
+// visitas:         [{ id, comprador_nome, comprador_cnpj, comprador_cidade }]
+// pedidosPorVisita: { [visitaId]: pedido[] }  — each pedido has
+//                  { visita_id, itens, valor_unitario, desconto_pct,
+//                    classificacao, tipo_produto, classe, tipo_grade }
 
-function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
+function gerarPDFSessao(sessao, visitas, pedidosPorVisita) {
   const dateStr = new Date().toLocaleDateString('pt-BR')
+  const visitasComPedidos = visitas.filter(v => (pedidosPorVisita[v.id] ?? []).length > 0)
+  if (!visitasComPedidos.length) { alert('Nenhum pedido para gerar PDF.'); return }
 
-  function handleGerarPDFs() {
-    // Group pedidos by comprador (visita)
-    const visitasComPedidos = visitas.filter(v => pedidos.some(p => p.visita_id === v.id))
+  const ordersHtml = visitasComPedidos.map((vis, idx) => {
+    const visPedidos = pedidosPorVisita[vis.id] ?? []
+    const isLast = idx === visitasComPedidos.length - 1
 
-    const ordersHtml = visitasComPedidos.map((vis, idx) => {
-      const visPedidos = pedidos.filter(p => p.visita_id === vis.id)
-      const isLast = idx === visitasComPedidos.length - 1
+    const totalGeralComprador = visPedidos.reduce((s, p) => {
+      const q = p.itens.reduce((s2, i) => s2 + i.qtd, 0)
+      return s + q * p.valor_unitario * (1 - p.desconto_pct / 100)
+    }, 0)
+    const totalPecasComprador = visPedidos.reduce((s, p) => s + p.itens.reduce((s2, i) => s2 + i.qtd, 0), 0)
 
-      const totalGeralComprador = visPedidos.reduce((s, p) => {
-        const q = p.itens.reduce((s2, i) => s2 + i.qtd, 0)
-        return s + q * p.valor_unitario * (1 - p.desconto_pct / 100)
-      }, 0)
-      const totalPecasComprador = visPedidos.reduce((s, p) => s + p.itens.reduce((s2, i) => s2 + i.qtd, 0), 0)
-
-      const pedidosHtml = visPedidos.map(p => {
-        const seg = segs.find(s => s.id === p.segmentacao_id)
-        const segLabel = seg
-          ? `${seg.classificacao} — ${seg.tipo_produto} — ${seg.classe} (Grade ${seg.tipo_grade})`
-          : `Segmentação #${p.segmentacao_id}`
-        const totalQ = p.itens.reduce((s, i) => s + i.qtd, 0)
-        const totalV = totalQ * p.valor_unitario * (1 - p.desconto_pct / 100)
-        const rowsHtml = p.itens.filter(i => i.qtd > 0).map(i =>
-          `<tr><td style="text-align:left; padding:5px 10px;">${i.tamanho}</td><td style="text-align:right; padding:5px 10px;">${i.qtd}</td></tr>`
-        ).join('')
-        return `
-          <div class="seg-block">
-            <div class="seg-title">${segLabel}</div>
-            <table>
-              <thead><tr><th style="text-align:left;">Tamanho</th><th>Quantidade</th></tr></thead>
-              <tbody>${rowsHtml}</tbody>
-              <tfoot><tr>
-                <td style="text-align:left; font-weight:bold; border-top:2px solid #aaa; padding:5px 10px;">Total</td>
-                <td style="font-weight:bold; border-top:2px solid #aaa; padding:5px 10px; text-align:right;">${totalQ}</td>
-              </tr></tfoot>
-            </table>
-            <div class="totals">
-              <div>Valor unitário: <strong>R$ ${p.valor_unitario.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>
-              ${p.desconto_pct > 0 ? `<div>Desconto: <strong>${p.desconto_pct}%</strong></div>` : ''}
-              <div style="font-size:14px; margin-top:4px;">Valor líquido: <strong>R$ ${totalV.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>
-            </div>
-          </div>`
-      }).join('')
-
+    const pedidosHtml = visPedidos.map(p => {
+      const segLabel = p.classificacao
+        ? `${p.classificacao} — ${p.tipo_produto} — ${p.classe} (Grade ${p.tipo_grade})`
+        : `Segmentação #${p.segmentacao_id}`
+      const totalQ = p.itens.reduce((s, i) => s + i.qtd, 0)
+      const totalV = totalQ * p.valor_unitario * (1 - p.desconto_pct / 100)
+      const rowsHtml = p.itens.filter(i => i.qtd > 0).map(i =>
+        `<tr><td style="text-align:left; padding:5px 10px;">${i.tamanho}</td><td style="text-align:right; padding:5px 10px;">${i.qtd}</td></tr>`
+      ).join('')
       return `
-        <div class="order"${isLast ? ' style="page-break-after:avoid;"' : ''}>
-          <h1>PEDIDO DE COMPRA</h1>
-          <p style="font-size:10px; color:#888; margin-bottom:12px;">Gerado em: ${dateStr}</p>
-          <div class="section">
-            <div class="section-title">Fornecedor</div>
-            <div class="row"><span class="lbl">Fornecedor:</span><span>${esc(sessao.fornecedor_nome)}</span></div>
-            ${sessao.vendedor ? `<div class="row"><span class="lbl">Vendedor:</span><span>${esc(sessao.vendedor)}</span></div>` : ''}
-            <div class="row"><span class="lbl">Data pedido:</span><span>${fmtDate(sessao.data_visita)}</span></div>
-            ${sessao.cond_pag ? `<div class="row"><span class="lbl">Cond. pag.:</span><span>${esc(sessao.cond_pag)}</span></div>` : ''}
-            ${sessao.frete    ? `<div class="row"><span class="lbl">Frete:</span><span>${esc(sessao.frete)}</span></div>` : ''}
+        <div class="seg-block">
+          <div class="seg-title">${segLabel}</div>
+          <table>
+            <thead><tr><th style="text-align:left;">Tamanho</th><th>Quantidade</th></tr></thead>
+            <tbody>${rowsHtml}</tbody>
+            <tfoot><tr>
+              <td style="text-align:left; font-weight:bold; border-top:2px solid #aaa; padding:5px 10px;">Total</td>
+              <td style="font-weight:bold; border-top:2px solid #aaa; padding:5px 10px; text-align:right;">${totalQ}</td>
+            </tr></tfoot>
+          </table>
+          <div class="totals">
+            <div>Valor unitário: <strong>R$ ${p.valor_unitario.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>
+            ${p.desconto_pct > 0 ? `<div>Desconto: <strong>${p.desconto_pct}%</strong></div>` : ''}
+            <div style="font-size:14px; margin-top:4px;">Valor líquido: <strong>R$ ${totalV.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>
           </div>
-          <div class="section" style="border-top:1px solid #ddd; padding-top:10px;">
-            <div class="section-title">Comprador</div>
-            <div class="row"><span class="lbl">Nome:</span><span><strong>${esc(vis.comprador_nome)}</strong></span></div>
-            ${vis.comprador_cnpj   ? `<div class="row"><span class="lbl">CNPJ:</span><span>${esc(vis.comprador_cnpj)}</span></div>`   : ''}
-            ${vis.comprador_cidade ? `<div class="row"><span class="lbl">Cidade:</span><span>${esc(vis.comprador_cidade)}</span></div>` : ''}
-          </div>
-          ${pedidosHtml}
-          <div class="total-geral">
-            <span>${totalPecasComprador} peça(s)</span>
-            <span>Total do pedido: <strong>R$ ${totalGeralComprador.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></span>
-          </div>
-          <div class="footer">Gerado por Solução Compras — ${dateStr}</div>
         </div>`
     }).join('')
 
-    const html = `<!DOCTYPE html>
+    return `
+      <div class="order"${isLast ? ' style="page-break-after:avoid;"' : ''}>
+        <h1>PEDIDO DE COMPRA</h1>
+        <p style="font-size:10px; color:#888; margin-bottom:12px;">Gerado em: ${dateStr}</p>
+        <div class="section">
+          <div class="section-title">Fornecedor</div>
+          <div class="row"><span class="lbl">Fornecedor:</span><span>${esc(sessao.fornecedor_nome)}</span></div>
+          ${sessao.vendedor ? `<div class="row"><span class="lbl">Vendedor:</span><span>${esc(sessao.vendedor)}</span></div>` : ''}
+          <div class="row"><span class="lbl">Data pedido:</span><span>${fmtDate(sessao.data_visita)}</span></div>
+          ${sessao.cond_pag ? `<div class="row"><span class="lbl">Cond. pag.:</span><span>${esc(sessao.cond_pag)}</span></div>` : ''}
+          ${sessao.frete    ? `<div class="row"><span class="lbl">Frete:</span><span>${esc(sessao.frete)}</span></div>` : ''}
+        </div>
+        <div class="section" style="border-top:1px solid #ddd; padding-top:10px;">
+          <div class="section-title">Comprador</div>
+          <div class="row"><span class="lbl">Nome:</span><span><strong>${esc(vis.comprador_nome)}</strong></span></div>
+          ${vis.comprador_cnpj   ? `<div class="row"><span class="lbl">CNPJ:</span><span>${esc(vis.comprador_cnpj)}</span></div>`   : ''}
+          ${vis.comprador_cidade ? `<div class="row"><span class="lbl">Cidade:</span><span>${esc(vis.comprador_cidade)}</span></div>` : ''}
+        </div>
+        ${pedidosHtml}
+        <div class="total-geral">
+          <span>${totalPecasComprador} peça(s)</span>
+          <span>Total do pedido: <strong>R$ ${totalGeralComprador.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></span>
+        </div>
+        <div class="footer">Gerado por Solução Compras — ${dateStr}</div>
+      </div>`
+  }).join('')
+
+  const html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Pedidos — ${sessao.fornecedor_nome} — ${fmtDate(sessao.data_visita)}</title>
+  <title>Pedidos — ${esc(sessao.fornecedor_nome)} — ${fmtDate(sessao.data_visita)}</title>
   <style>
     body { font-family: Arial, sans-serif; font-size: 12px; color: #000; margin: 0; }
     .order { padding: 24px; page-break-after: always; }
@@ -480,14 +482,25 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
 <body>${ordersHtml}</body>
 </html>`
 
-    const win = window.open('', '_blank')
-    if (!win) { alert('Bloqueador de pop-ups ativo. Permita pop-ups para este site.'); return }
-    win.onload = () => win.print()
-    win.document.write(html)
-    win.document.close()
-    win.focus()
-    // fallback: se o load já disparou antes do listener ser registrado
-    if (win.document.readyState === 'complete') win.print()
+  const win = window.open('', '_blank')
+  if (!win) { alert('Bloqueador de pop-ups ativo. Permita pop-ups para este site.'); return }
+  win.onload = () => win.print()
+  win.document.write(html)
+  win.document.close()
+  win.focus()
+  if (win.document.readyState === 'complete') win.print()
+}
+
+// ─── Phase 3: Close Session + PDFs ───────────────────────────────────────
+
+function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
+  function handleGerarPDFs() {
+    const pedMap = {}
+    for (const p of pedidos) {
+      if (!pedMap[p.visita_id]) pedMap[p.visita_id] = []
+      pedMap[p.visita_id].push(p)
+    }
+    gerarPDFSessao(sessao, visitas, pedMap)
   }
 
   const visitasComPedidos = visitas.filter(v => pedidos.some(p => p.visita_id === v.id))
@@ -556,6 +569,7 @@ function Historico({ colId }) {
   const [expandedSessao,   setExpandedSessao]   = useState(null)
   const [expandedVisita,   setExpandedVisita]   = useState(null)
   const [pedidosPorVisita, setPedidosPorVisita] = useState({})
+  const [reimprimindo,     setReimprimindo]     = useState(null) // sessao.id em andamento
 
   useEffect(() => {
     window.api.sessoes.list(colId).then(list => {
@@ -582,6 +596,31 @@ function Historico({ colId }) {
     }))
   }
 
+  async function handleReimprimir(ses) {
+    setReimprimindo(ses.id)
+    try {
+      // Carrega pedidos de todas as visitas que ainda não foram abertas
+      const toLoad = ses.visitas.filter(v => !pedidosPorVisita[v.visita_id])
+      let allPeds = pedidosPorVisita
+      if (toLoad.length > 0) {
+        const loaded = await Promise.all(
+          toLoad.map(v => window.api.pedidos.byVisita(v.visita_id).then(peds => [v.visita_id, peds]))
+        )
+        allPeds = { ...pedidosPorVisita, ...Object.fromEntries(loaded) }
+        setPedidosPorVisita(allPeds)
+      }
+      const visitasForPDF = ses.visitas.map(v => ({
+        id: v.visita_id,
+        comprador_nome:   v.comprador_nome,
+        comprador_cnpj:   v.comprador_cnpj   ?? '',
+        comprador_cidade: v.comprador_cidade  ?? '',
+      }))
+      gerarPDFSessao(ses, visitasForPDF, allPeds)
+    } finally {
+      setReimprimindo(null)
+    }
+  }
+
   if (loading) return <p className={styles.muted}>Carregando histórico…</p>
   if (sessoesList.length === 0) return <p className={styles.muted}>Nenhuma sessão registrada nesta coleção.</p>
 
@@ -589,16 +628,26 @@ function Historico({ colId }) {
     <div className={styles.historico}>
       {sessoesList.map(ses => (
         <div key={ses.id} className={styles.histSessao}>
-          <button
-            className={styles.histSessaoHeader}
-            onClick={() => setExpandedSessao(expandedSessao === ses.id ? null : ses.id)}
-          >
-            <strong>{ses.fornecedor_nome}</strong>
-            <span className={styles.dot}>·</span>
-            <span>{fmtDate(ses.data_visita)}</span>
-            {ses.vendedor && <><span className={styles.dot}>·</span><span>{ses.vendedor}</span></>}
-            <span className={styles.histChevron}>{expandedSessao === ses.id ? '▲' : '▼'}</span>
-          </button>
+          <div className={styles.histSessaoHeader}>
+            <button
+              className={styles.histSessaoToggle}
+              onClick={() => setExpandedSessao(expandedSessao === ses.id ? null : ses.id)}
+            >
+              <strong>{ses.fornecedor_nome}</strong>
+              <span className={styles.dot}>·</span>
+              <span>{fmtDate(ses.data_visita)}</span>
+              {ses.vendedor && <><span className={styles.dot}>·</span><span>{ses.vendedor}</span></>}
+              <span className={styles.histChevron}>{expandedSessao === ses.id ? '▲' : '▼'}</span>
+            </button>
+            <button
+              className={styles.btnReimprimir}
+              onClick={() => handleReimprimir(ses)}
+              disabled={reimprimindo === ses.id}
+              title="Reimprimir PDFs desta sessão"
+            >
+              {reimprimindo === ses.id ? '…' : '🖨'}
+            </button>
+          </div>
 
           {expandedSessao === ses.id && (
             <div className={styles.histSessaoBody}>

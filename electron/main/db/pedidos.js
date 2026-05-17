@@ -20,6 +20,20 @@ export function makePedidos(db) {
     return id
   })
 
+  const salvarBatchTx = db.transaction((pedidosData) => {
+    const results = []
+    for (const { visita_id, comprador_id, segmentacao_id, valor_unitario,
+                  desconto_pct = 0, transportadora = '', nota_fiscal = '', obs = '', itens } of pedidosData) {
+      const id = insertHeader.run({ visita_id, comprador_id, segmentacao_id, valor_unitario,
+                                    desconto_pct, transportadora, nota_fiscal, obs }).lastInsertRowid
+      for (const item of itens) {
+        insertItem.run(id, item.tamanho, item.qtd)
+      }
+      results.push({ ...byId.get(id), itens: itensByPedido.all(id) })
+    }
+    return results
+  })
+
   const delPedido = db.prepare(`DELETE FROM pedidos WHERE id = ?`)
   const byId = db.prepare(`SELECT * FROM pedidos WHERE id = ?`)
   const itensByPedido = db.prepare(`SELECT * FROM pedido_itens WHERE pedido_id = ? ORDER BY tamanho`)
@@ -72,6 +86,25 @@ export function makePedidos(db) {
     ORDER BY f.nome
   `)
 
+  const dashboardAgg = db.prepare(`
+    SELECT
+      s.id AS seg_id, s.classificacao, s.tipo_produto, s.classe, s.tipo_grade, s.estacao,
+      p.tamanho, p.ordem, p.qtd_ajustada,
+      COALESCE(agg.total_pedido, 0) AS total_pedido
+    FROM projecoes p
+    JOIN segmentacoes s ON s.id = p.segmentacao_id
+    LEFT JOIN (
+      SELECT pi.tamanho, ped.segmentacao_id, SUM(pi.qtd) AS total_pedido
+      FROM pedido_itens pi
+      JOIN pedidos ped ON ped.id = pi.pedido_id
+      JOIN visitas v ON v.id = ped.visita_id
+      WHERE v.colecao_id = @colId
+      GROUP BY ped.segmentacao_id, pi.tamanho
+    ) agg ON agg.segmentacao_id = p.segmentacao_id AND agg.tamanho = p.tamanho
+    WHERE p.colecao_id = @colId AND p.qtd_ajustada > 0
+    ORDER BY s.classificacao, s.tipo_produto, s.classe, p.ordem
+  `)
+
   const itensPorFornecedor = db.prepare(`
     SELECT s.id AS segmentacao_id, s.classificacao, s.tipo_produto, s.classe, s.tipo_grade,
            SUM(pi.qtd) AS total_comprado
@@ -111,6 +144,12 @@ export function makePedidos(db) {
     },
     cancelar(id) {
       delPedido.run(id)
+    },
+    salvarBatch(pedidosData) {
+      return salvarBatchTx(pedidosData)
+    },
+    dashboardData(colId) {
+      return dashboardAgg.all({ colId })
     }
   }
 }

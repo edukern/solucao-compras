@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 .DS_Store
 dist
+dist-electron
 out
 *.suo
 *.ntvs*
@@ -18,7 +19,8 @@ out
 *.sw?
 
 # Claude Code runtime files
-.superpowers/brainstorm/*/state/server.pid
+.claude/
+.superpowers/
 
 # SQLite database (dados locais, não vão pro repositório)
 *.db

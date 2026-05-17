@@ -122,6 +122,8 @@ app.whenReady().then(() => {
   ipcMain.handle('pedidos:totaisPorFornecedor',(_, colId, segId) => ped.totaisPorFornecedor(colId, segId))
   ipcMain.handle('pedidos:itensPorFornecedor', (_, fornId, colId)=> ped.itensPorFornecedor(fornId, colId))
   ipcMain.handle('pedidos:cancelar',           (_, id)           => ped.cancelar(id))
+  ipcMain.handle('pedidos:salvarBatch',        (_, data)         => ped.salvarBatch(data))
+  ipcMain.handle('dashboard:data',             (_, colId)        => ped.dashboardData(colId))
 
   // Backup / Restore
   ipcMain.handle('backup:export', async () => {

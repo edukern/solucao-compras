@@ -37,16 +37,26 @@ export default function Dashboard() {
   }, [active?.id])
 
   async function loadData(colId) {
-    const segs = await window.api.segmentacoes.list()
-    const rowData = await Promise.all(
-      segs.map(async seg => {
-        const [proj, totais] = await Promise.all([
-          window.api.projecoes.get(seg.id, colId),
-          window.api.pedidos.totaisPorTamanho(seg.id, colId),
-        ])
-        return { seg, proj: proj ?? [], totais: totais ?? [], ...aggregateSegmentacao(proj, totais) }
-      })
-    )
+    const flatRows = await window.api.dashboard.data(colId)
+    // Group flat rows (one per seg+tamanho) into per-seg structure
+    const bySegId = {}
+    for (const r of flatRows) {
+      if (!bySegId[r.seg_id]) {
+        bySegId[r.seg_id] = {
+          seg: { id: r.seg_id, classificacao: r.classificacao, tipo_produto: r.tipo_produto,
+                 classe: r.classe, tipo_grade: r.tipo_grade, estacao: r.estacao },
+          proj: [],
+          totais: [],
+        }
+      }
+      bySegId[r.seg_id].proj.push({ tamanho: r.tamanho, qtd_ajustada: r.qtd_ajustada, ordem: r.ordem })
+      if (r.total_pedido > 0) {
+        bySegId[r.seg_id].totais.push({ tamanho: r.tamanho, total_pedido: r.total_pedido })
+      }
+    }
+    const rowData = Object.values(bySegId).map(({ seg, proj, totais }) => ({
+      seg, proj, totais, ...aggregateSegmentacao(proj, totais)
+    }))
     setRows(rowData.filter(r => r.projecao > 0))
   }
 

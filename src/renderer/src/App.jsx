@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { CollectionProvider } from './contexts/CollectionContext'
+import ErrorBoundary from './components/ErrorBoundary'
 import Sidebar from './components/Sidebar'
 import Dashboard from './screens/Dashboard'
 import Planejamento from './screens/Planejamento'
@@ -35,7 +36,9 @@ export default function App() {
           onToggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
         />
         <main style={{ flex: 1, overflow: 'auto', background: 'var(--bg-primary)' }}>
-          <Screen />
+          <ErrorBoundary key={screen}>
+            <Screen />
+          </ErrorBoundary>
         </main>
       </div>
     </CollectionProvider>

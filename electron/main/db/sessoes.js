@@ -17,7 +17,8 @@ export function makeSessoes(db) {
   `)
 
   const selectVisitasBySessao = db.prepare(`
-    SELECT v.id AS visita_id, v.comprador_id, c.nome AS comprador_nome
+    SELECT v.id AS visita_id, v.comprador_id,
+           c.nome AS comprador_nome, c.cnpj AS comprador_cnpj, c.cidade AS comprador_cidade
     FROM visitas v
     JOIN compradores c ON c.id = v.comprador_id
     WHERE v.sessao_id = ?

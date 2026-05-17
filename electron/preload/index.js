@@ -55,6 +55,10 @@ contextBridge.exposeInMainWorld('api', {
     totaisPorFornecedor:(colId, segId)  => ipcRenderer.invoke('pedidos:totaisPorFornecedor', colId, segId),
     itensPorFornecedor: (fornId, colId) => ipcRenderer.invoke('pedidos:itensPorFornecedor', fornId, colId),
     cancelar:           (id)            => ipcRenderer.invoke('pedidos:cancelar', id),
+    salvarBatch:        (data)          => ipcRenderer.invoke('pedidos:salvarBatch', data),
+  },
+  dashboard: {
+    data: (colId) => ipcRenderer.invoke('dashboard:data', colId),
   },
   backup: {
     export: () => ipcRenderer.invoke('backup:export'),
