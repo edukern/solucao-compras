@@ -5,6 +5,7 @@ import mockApi from './mockApi.js'
 import './styles/globals.css'
 import Landing from './Landing.jsx'
 import AppShell from './AppShell.jsx'
+import Pendencias from './screens/Pendencias.jsx'
 
 window.api = mockApi
 
@@ -15,6 +16,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/" element={<Landing />} />
         <Route path="/app" element={<AppShell />} />
         <Route path="/app/*" element={<AppShell />} />
+        <Route path="/pendencias" element={<Pendencias />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>

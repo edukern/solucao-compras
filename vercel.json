@@ -1,6 +1,5 @@
 {
-  "installCommand": "npm install && npm install --prefix demo",
-  "buildCommand": "demo/node_modules/.bin/vite build demo --config demo/vite.config.js",
-  "outputDirectory": "demo-out",
+  "buildCommand": "npm run build:web",
+  "outputDirectory": "dist/web",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }

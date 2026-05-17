@@ -5,7 +5,6 @@ import Dashboard from './screens/Dashboard'
 import Planejamento from './screens/Planejamento'
 import Compras from './screens/Compras'
 import Relatorios from './screens/Relatorios'
-import Pendencias from './screens/Pendencias'
 import styles from './AppShell.module.css'
 
 const SCREENS = {
@@ -13,7 +12,6 @@ const SCREENS = {
   planejamento: () => <Planejamento />,
   compras:      () => <Compras />,
   relatorios:   () => <Relatorios />,
-  pendencias:   () => <Pendencias />,
 }
 
 export default function AppShell() {

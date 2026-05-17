@@ -96,6 +96,18 @@
   border-top: 1px solid var(--border);
 }
 
+.pendenciasLink {
+  display: block;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.4rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: background 0.12s, color 0.12s;
+}
+.pendenciasLink:hover { background: var(--bg-hover); color: var(--text-primary); }
+
 .demoTag {
   display: block;
   font-size: 0.72rem;

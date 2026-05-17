@@ -35,3 +35,5 @@ tests/native/bs3.tar.gz
 check-db.py
 seed-test.py
 SPEC-compras-redesign.md
+
+.vercel
