@@ -171,7 +171,10 @@ function AbaSegmentacoes() {
   const [segmentacoes, setSegmentacoes] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
   const [erro, setErro] = useState(null)
+  const [editId, setEditId] = useState(null)
+  const [editForm, setEditForm] = useState({ tipo_produto: '', classe: 'MASC', tipo_grade: '', estacao: 'verao' })
 
   function makeDefaultForm(classificacao = 'AD') {
     const grades = gradesPorClassificacao(classificacao)
@@ -233,6 +236,25 @@ function AbaSegmentacoes() {
       setSegmentacoes(prev => prev.filter(s => s.id !== id))
     } catch {
       setErro('Erro ao remover segmentação.')
+    }
+  }
+
+  function handleStartEdit(s) {
+    setEditId(s.id)
+    setEditForm({ tipo_produto: s.tipo_produto, classe: s.classe, tipo_grade: s.tipo_grade, estacao: s.estacao })
+  }
+
+  async function handleSaveEdit(id) {
+    setErro(null)
+    setSavingEdit(true)
+    try {
+      await window.api.segmentacoes.update(id, editForm)
+      setEditId(null)
+      await carregar()
+    } catch {
+      setErro('Erro ao salvar edição.')
+    } finally {
+      setSavingEdit(false)
     }
   }
 
@@ -319,14 +341,72 @@ function AbaSegmentacoes() {
                 <div className={styles.list}>
                   {agrupado[g].map(s => (
                     <div key={s.id} className={styles.listItem}>
-                      <span className={styles.listItemLabel}>
-                        {s.tipo_produto} — {s.classe} — {s.tipo_grade} — {s.estacao === 'verao' ? 'Verão' : 'Inverno'}
-                      </span>
-                      <div className={styles.listItemActions}>
-                        <button className={styles.btnDanger} onClick={() => handleRemover(s.id)}>
-                          Remover
-                        </button>
-                      </div>
+                      {editId === s.id ? (
+                        <div className={styles.inlineEdit}>
+                          <datalist id="tipos-produto-edit">
+                            {TIPOS_PRODUTO.map(t => <option key={t} value={t} />)}
+                          </datalist>
+                          <span className={styles.listItemLabel} style={{fontWeight:'bold',marginBottom:4}}>{s.classificacao}</span>
+                          <div className={styles.formRow}>
+                            <div className={styles.field}>
+                              <label className={styles.label}>Tipo de Produto</label>
+                              <input className={styles.input} type="text" list="tipos-produto-edit" autoComplete="off"
+                                value={editForm.tipo_produto}
+                                onChange={e => setEditForm(prev => ({ ...prev, tipo_produto: e.target.value }))} />
+                            </div>
+                            <div className={styles.field}>
+                              <label className={styles.label}>Classe</label>
+                              <select className={styles.select} value={editForm.classe}
+                                onChange={e => setEditForm(prev => ({ ...prev, classe: e.target.value }))}>
+                                <option value="MASC">MASC</option>
+                                <option value="FEM">FEM</option>
+                                <option value="UNI">UNI</option>
+                              </select>
+                            </div>
+                            {gradesPorClassificacao(s.classificacao).length > 1 && (
+                              <div className={styles.field}>
+                                <label className={styles.label}>Tipo de Grade</label>
+                                <select className={styles.select} value={editForm.tipo_grade}
+                                  onChange={e => setEditForm(prev => ({ ...prev, tipo_grade: e.target.value }))}>
+                                  {gradesPorClassificacao(s.classificacao).map(g => (
+                                    <option key={g.tipo_grade} value={g.tipo_grade}>{g.tipo_grade} ({g.tamanhos.join(', ')})</option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+                            <div className={styles.field}>
+                              <label className={styles.label}>Estação</label>
+                              <select className={styles.select} value={editForm.estacao}
+                                onChange={e => setEditForm(prev => ({ ...prev, estacao: e.target.value }))}>
+                                <option value="verao">Verão</option>
+                                <option value="inverno">Inverno</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div className={styles.listItemActions}>
+                            <button className={styles.btnPrimary} onClick={() => handleSaveEdit(s.id)} disabled={savingEdit}>
+                              {savingEdit ? 'Salvando…' : 'Salvar'}
+                            </button>
+                            <button className={styles.btnSecondary} onClick={() => setEditId(null)} disabled={savingEdit}>
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <span className={styles.listItemLabel}>
+                            {s.tipo_produto} — {s.classe} — {s.tipo_grade} — {s.estacao === 'verao' ? 'Verão' : 'Inverno'}
+                          </span>
+                          <div className={styles.listItemActions}>
+                            <button className={styles.btnSecondary} onClick={() => handleStartEdit(s)} disabled={editId !== null}>
+                              Editar
+                            </button>
+                            <button className={styles.btnDanger} onClick={() => handleRemover(s.id)} disabled={editId !== null}>
+                              Remover
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>

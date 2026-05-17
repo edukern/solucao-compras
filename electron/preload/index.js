@@ -8,10 +8,11 @@ contextBridge.exposeInMainWorld('api', {
     setStatus: (id, status) => ipcRenderer.invoke('colecoes:setStatus', id, status),
   },
   segmentacoes: {
-    list:   ()    => ipcRenderer.invoke('segmentacoes:list'),
-    create: (d)   => ipcRenderer.invoke('segmentacoes:create', d),
-    upsert: (d)   => ipcRenderer.invoke('segmentacoes:upsert', d),
-    remove: (id)  => ipcRenderer.invoke('segmentacoes:remove', id),
+    list:   ()        => ipcRenderer.invoke('segmentacoes:list'),
+    create: (d)       => ipcRenderer.invoke('segmentacoes:create', d),
+    upsert: (d)       => ipcRenderer.invoke('segmentacoes:upsert', d),
+    update: (id, d)   => ipcRenderer.invoke('segmentacoes:update', id, d),
+    remove: (id)      => ipcRenderer.invoke('segmentacoes:remove', id),
   },
   grades: {
     save: (segId, colId, rows) => ipcRenderer.invoke('grades:save', segId, colId, rows),
@@ -53,6 +54,7 @@ contextBridge.exposeInMainWorld('api', {
     totaisPorTamanho:   (segId, colId)  => ipcRenderer.invoke('pedidos:totaisPorTamanho', segId, colId),
     totaisPorFornecedor:(colId, segId)  => ipcRenderer.invoke('pedidos:totaisPorFornecedor', colId, segId),
     itensPorFornecedor: (fornId, colId) => ipcRenderer.invoke('pedidos:itensPorFornecedor', fornId, colId),
+    cancelar:           (id)            => ipcRenderer.invoke('pedidos:cancelar', id),
   },
   backup: {
     export: () => ipcRenderer.invoke('backup:export'),

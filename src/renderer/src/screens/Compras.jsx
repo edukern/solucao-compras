@@ -533,6 +533,125 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
   )
 }
 
+// ─── Historico ────────────────────────────────────────────────────────────
+
+function Historico({ colId }) {
+  const [sessoesList,      setSessoesList]      = useState([])
+  const [loading,          setLoading]          = useState(true)
+  const [expandedSessao,   setExpandedSessao]   = useState(null)
+  const [expandedVisita,   setExpandedVisita]   = useState(null)
+  const [pedidosPorVisita, setPedidosPorVisita] = useState({})
+
+  useEffect(() => {
+    window.api.sessoes.list(colId).then(list => {
+      setSessoesList(list)
+      setLoading(false)
+    })
+  }, [colId])
+
+  async function handleExpandVisita(visitaId) {
+    if (expandedVisita === visitaId) { setExpandedVisita(null); return }
+    setExpandedVisita(visitaId)
+    if (!pedidosPorVisita[visitaId]) {
+      const peds = await window.api.pedidos.byVisita(visitaId)
+      setPedidosPorVisita(prev => ({ ...prev, [visitaId]: peds }))
+    }
+  }
+
+  async function handleCancelarPedido(pedidoId, visitaId) {
+    if (!window.confirm('Cancelar este pedido? Essa ação não pode ser desfeita.')) return
+    await window.api.pedidos.cancelar(pedidoId)
+    setPedidosPorVisita(prev => ({
+      ...prev,
+      [visitaId]: (prev[visitaId] ?? []).filter(p => p.id !== pedidoId)
+    }))
+  }
+
+  if (loading) return <p className={styles.muted}>Carregando histórico…</p>
+  if (sessoesList.length === 0) return <p className={styles.muted}>Nenhuma sessão registrada nesta coleção.</p>
+
+  return (
+    <div className={styles.historico}>
+      {sessoesList.map(ses => (
+        <div key={ses.id} className={styles.histSessao}>
+          <button
+            className={styles.histSessaoHeader}
+            onClick={() => setExpandedSessao(expandedSessao === ses.id ? null : ses.id)}
+          >
+            <strong>{ses.fornecedor_nome}</strong>
+            <span className={styles.dot}>·</span>
+            <span>{fmtDate(ses.data_visita)}</span>
+            {ses.vendedor && <><span className={styles.dot}>·</span><span>{ses.vendedor}</span></>}
+            <span className={styles.histChevron}>{expandedSessao === ses.id ? '▲' : '▼'}</span>
+          </button>
+
+          {expandedSessao === ses.id && (
+            <div className={styles.histSessaoBody}>
+              {(ses.visitas ?? []).length === 0 ? (
+                <p className={styles.muted}>Nenhuma loja nesta sessão.</p>
+              ) : (ses.visitas ?? []).map(vis => (
+                <div key={vis.visita_id} className={styles.histVisita}>
+                  <button
+                    className={styles.histVisitaHeader}
+                    onClick={() => handleExpandVisita(vis.visita_id)}
+                  >
+                    <span>{vis.comprador_nome}</span>
+                    <span className={styles.histChevron}>{expandedVisita === vis.visita_id ? '▲' : '▼'}</span>
+                  </button>
+
+                  {expandedVisita === vis.visita_id && (
+                    <div className={styles.histPedidos}>
+                      {!(pedidosPorVisita[vis.visita_id]) ? (
+                        <p className={styles.muted}>Carregando…</p>
+                      ) : pedidosPorVisita[vis.visita_id].length === 0 ? (
+                        <p className={styles.muted}>Nenhum pedido.</p>
+                      ) : (
+                        <table className={styles.histTable}>
+                          <thead>
+                            <tr>
+                              <th>Segmentação</th>
+                              <th>Peças</th>
+                              <th>Valor unit.</th>
+                              <th>Total</th>
+                              <th></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {pedidosPorVisita[vis.visita_id].map(p => {
+                              const pecas = p.itens.reduce((s, i) => s + i.qtd, 0)
+                              const total = pecas * p.valor_unitario * (1 - p.desconto_pct / 100)
+                              return (
+                                <tr key={p.id}>
+                                  <td>{p.classificacao} · {p.tipo_produto} · {p.classe}</td>
+                                  <td>{pecas}</td>
+                                  <td>R$ {fmt(p.valor_unitario)}</td>
+                                  <td>R$ {fmt(total)}</td>
+                                  <td>
+                                    <button
+                                      className={styles.btnCancelar}
+                                      onClick={() => handleCancelarPedido(p.id, vis.visita_id)}
+                                    >
+                                      Cancelar
+                                    </button>
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ─── Orchestrator ─────────────────────────────────────────────────────────
 
 export default function Compras() {
@@ -544,6 +663,7 @@ export default function Compras() {
   const [sessao,      setSessao]      = useState(null)
   const [visitas,     setVisitas]     = useState([])
   const [pedidosFechados, setPedidosFechados] = useState([])
+  const [view,        setView]        = useState('nova') // 'nova' | 'historico'
 
   useEffect(() => {
     Promise.all([
@@ -554,7 +674,6 @@ export default function Compras() {
   }, [])
 
   function handleStart(novaSessao, lojas) {
-    // novaSessao = { id, fornecedor_id, fornecedor_nome, data_visita, ..., visitas: [{ visita_id, comprador_id }] }
     const visitasEnriquecidas = novaSessao.visitas.map(v => ({
       id: v.visita_id,
       comprador_id: v.comprador_id,
@@ -577,8 +696,8 @@ export default function Compras() {
     setPhase(1)
   }
 
-  // sessao already includes fornecedor_nome (from DB join in sessoes.create)
   const sessaoDisplay = sessao ?? null
+  const inSession = phase > 1
 
   if (!active) {
     return (
@@ -592,16 +711,36 @@ export default function Compras() {
   return (
     <div className={styles.page}>
       <h1 className={styles.title}>Compras — {active.nome}</h1>
-      <div className={styles.stepBar}>
-        {['Iniciar sessão', 'Registrar pedidos', 'Gerar PDFs'].map((label, i) => (
-          <div key={i} className={`${styles.step} ${phase === i + 1 ? styles.stepActive : ''} ${phase > i + 1 ? styles.stepDone : ''}`}>
-            <span className={styles.stepNum}>{i + 1}</span>
-            <span>{label}</span>
-          </div>
-        ))}
-      </div>
 
-      {phase === 1 && (
+      {!inSession && (
+        <div className={styles.viewToggle}>
+          <button
+            className={`${styles.toggleBtn} ${view === 'nova' ? styles.toggleActive : ''}`}
+            onClick={() => setView('nova')}
+          >
+            Nova sessão
+          </button>
+          <button
+            className={`${styles.toggleBtn} ${view === 'historico' ? styles.toggleActive : ''}`}
+            onClick={() => setView('historico')}
+          >
+            Histórico
+          </button>
+        </div>
+      )}
+
+      {(inSession || view === 'nova') && (
+        <div className={styles.stepBar}>
+          {['Iniciar sessão', 'Registrar pedidos', 'Gerar PDFs'].map((label, i) => (
+            <div key={i} className={`${styles.step} ${phase === i + 1 ? styles.stepActive : ''} ${phase > i + 1 ? styles.stepDone : ''}`}>
+              <span className={styles.stepNum}>{i + 1}</span>
+              <span>{label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {view === 'nova' && phase === 1 && (
         <IniciarSessao
           forns={forns}
           compradores={compradores}
@@ -626,6 +765,10 @@ export default function Compras() {
           pedidos={pedidosFechados}
           onNovaSessao={handleNovaSessao}
         />
+      )}
+
+      {view === 'historico' && !inSession && (
+        <Historico colId={active.id} />
       )}
     </div>
   )

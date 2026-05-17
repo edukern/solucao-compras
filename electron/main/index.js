@@ -58,6 +58,7 @@ app.whenReady().then(() => {
   ipcMain.handle('segmentacoes:list',    () => seg.list())
   ipcMain.handle('segmentacoes:create',  (_, d) => seg.create(d))
   ipcMain.handle('segmentacoes:upsert',  (_, d) => seg.upsert(d))
+  ipcMain.handle('segmentacoes:update',  (_, id, d) => seg.update(id, d))
   ipcMain.handle('segmentacoes:remove',  (_, id) => seg.remove(id))
 
   // Grades
@@ -120,6 +121,7 @@ app.whenReady().then(() => {
   ipcMain.handle('pedidos:totaisPorTamanho',   (_, segId, colId) => ped.totaisPorTamanho(segId, colId))
   ipcMain.handle('pedidos:totaisPorFornecedor',(_, colId, segId) => ped.totaisPorFornecedor(colId, segId))
   ipcMain.handle('pedidos:itensPorFornecedor', (_, fornId, colId)=> ped.itensPorFornecedor(fornId, colId))
+  ipcMain.handle('pedidos:cancelar',           (_, id)           => ped.cancelar(id))
 
   // Backup / Restore
   ipcMain.handle('backup:export', async () => {

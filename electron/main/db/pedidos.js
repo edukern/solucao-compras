@@ -20,6 +20,7 @@ export function makePedidos(db) {
     return id
   })
 
+  const delPedido = db.prepare(`DELETE FROM pedidos WHERE id = ?`)
   const byId = db.prepare(`SELECT * FROM pedidos WHERE id = ?`)
   const itensByPedido = db.prepare(`SELECT * FROM pedido_itens WHERE pedido_id = ? ORDER BY tamanho`)
 
@@ -107,6 +108,9 @@ export function makePedidos(db) {
     },
     itensPorFornecedor(fornId, colId) {
       return itensPorFornecedor.all(fornId, colId)
+    },
+    cancelar(id) {
+      delPedido.run(id)
     }
   }
 }

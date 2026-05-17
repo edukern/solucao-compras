@@ -755,3 +755,113 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
+
+/* ─── View Toggle (Nova sessão / Histórico) ─────────────────────────────── */
+.viewToggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.toggleBtn {
+  padding: 0.45rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.toggleBtn:hover { border-color: var(--accent); color: var(--accent-light); }
+.toggleActive {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 500;
+}
+
+/* ─── Histórico ──────────────────────────────────────────────────────────── */
+.historico { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.histSessao {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-card);
+}
+
+.histSessaoHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-secondary);
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  text-align: left;
+}
+.histSessaoHeader:hover { background: rgba(var(--accent-rgb), 0.06); }
+
+.histChevron { margin-left: auto; color: var(--text-muted); font-size: 0.75rem; }
+
+.histSessaoBody { padding: 0.5rem; display: flex; flex-direction: column; gap: 0.4rem; }
+
+.histVisita { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+
+.histVisitaHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  text-align: left;
+  gap: 0.5rem;
+}
+.histVisitaHeader:hover { background: rgba(var(--accent-rgb), 0.04); color: var(--text-primary); }
+
+.histPedidos { padding: 0.5rem 0.75rem; }
+
+.histTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.histTable th {
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+}
+.histTable td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid rgba(var(--border-rgb, 255,255,255), 0.1);
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+.histTable tr:last-child td { border-bottom: none; }
+
+.btnCancelar {
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--red, #e05252);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--red, #e05252);
+  font-size: 0.78rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btnCancelar:hover { background: var(--red, #e05252); color: #fff; }
+
+.muted { color: var(--text-muted); font-size: 0.875rem; padding: 0.5rem 0; }
