@@ -8,6 +8,7 @@ import { makeSegmentacoes } from './db/segmentacoes.js'
 import { makeGrades } from './db/grades.js'
 import { makeProjecoes } from './db/projecoes.js'
 import { makeFornecedores } from './db/fornecedores.js'
+import { makeCompradores } from './db/compradores.js'
 import { makePedidos } from './db/pedidos.js'
 import fs from 'fs'
 
@@ -40,6 +41,7 @@ app.whenReady().then(() => {
   const gr   = makeGrades(db)
   const proj = makeProjecoes(db)
   const forn = makeFornecedores(db)
+  const comp = makeCompradores(db)
   const ped  = makePedidos(db)
 
   // Colecoes
@@ -67,6 +69,10 @@ app.whenReady().then(() => {
   ipcMain.handle('fornecedores:list',   () => forn.list())
   ipcMain.handle('fornecedores:create', (_, d) => forn.create(d))
   ipcMain.handle('fornecedores:update', (_, id, d) => forn.update(id, d))
+
+  // Compradores
+  ipcMain.handle('compradores:list',   () => comp.list())
+  ipcMain.handle('compradores:create', (_, d) => comp.create(d))
 
   // Pedidos
   ipcMain.handle('pedidos:salvar',           (_, d) => ped.salvar(d))

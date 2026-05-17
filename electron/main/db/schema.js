@@ -45,9 +45,17 @@ export function runMigrations(db) {
     );
 
     CREATE TABLE IF NOT EXISTS fornecedores (
+      id        INTEGER PRIMARY KEY AUTOINCREMENT,
+      nome      TEXT NOT NULL,
+      contato   TEXT,
+      categoria TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS compradores (
       id      INTEGER PRIMARY KEY AUTOINCREMENT,
       nome    TEXT NOT NULL,
-      contato TEXT
+      cnpj    TEXT,
+      cidade  TEXT
     );
 
     CREATE TABLE IF NOT EXISTS pedidos (
@@ -70,4 +78,9 @@ export function runMigrations(db) {
     CREATE INDEX IF NOT EXISTS idx_pedidos_seg_col
       ON pedidos(segmentacao_id, colecao_id);
   `)
+
+  // Add categoria to fornecedores if upgrading from older schema
+  try {
+    db.exec(`ALTER TABLE fornecedores ADD COLUMN categoria TEXT`)
+  } catch {}
 }

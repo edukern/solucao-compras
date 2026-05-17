@@ -28,6 +28,10 @@ contextBridge.exposeInMainWorld('api', {
     create: (d)      => ipcRenderer.invoke('fornecedores:create', d),
     update: (id, d)  => ipcRenderer.invoke('fornecedores:update', id, d),
   },
+  compradores: {
+    list:   ()  => ipcRenderer.invoke('compradores:list'),
+    create: (d) => ipcRenderer.invoke('compradores:create', d),
+  },
   pedidos: {
     salvar:           (d)            => ipcRenderer.invoke('pedidos:salvar', d),
     totaisPorTamanho: (segId, colId) => ipcRenderer.invoke('pedidos:totaisPorTamanho', segId, colId),
