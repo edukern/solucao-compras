@@ -82,9 +82,11 @@ app.whenReady().then(() => {
   ipcMain.handle('visitas:byId',   (_, id)    => vis.getById(id))
 
   // Pedidos
-  ipcMain.handle('pedidos:salvar',          (_, d)            => ped.salvar(d))
-  ipcMain.handle('pedidos:byVisita',        (_, visitaId)     => ped.byVisita(visitaId))
-  ipcMain.handle('pedidos:totaisPorTamanho',(_, segId, colId) => ped.totaisPorTamanho(segId, colId))
+  ipcMain.handle('pedidos:salvar',             (_, d)            => ped.salvar(d))
+  ipcMain.handle('pedidos:byVisita',           (_, visitaId)     => ped.byVisita(visitaId))
+  ipcMain.handle('pedidos:totaisPorTamanho',   (_, segId, colId) => ped.totaisPorTamanho(segId, colId))
+  ipcMain.handle('pedidos:totaisPorFornecedor',(_, colId, segId) => ped.totaisPorFornecedor(colId, segId))
+  ipcMain.handle('pedidos:itensPorFornecedor', (_, fornId, colId)=> ped.itensPorFornecedor(fornId, colId))
 
   // Backup / Restore
   ipcMain.handle('backup:export', async () => {

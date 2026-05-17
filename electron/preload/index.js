@@ -38,9 +38,11 @@ contextBridge.exposeInMainWorld('api', {
     byId:   (id)    => ipcRenderer.invoke('visitas:byId', id),
   },
   pedidos: {
-    salvar:          (d)            => ipcRenderer.invoke('pedidos:salvar', d),
-    byVisita:        (visitaId)     => ipcRenderer.invoke('pedidos:byVisita', visitaId),
-    totaisPorTamanho:(segId, colId) => ipcRenderer.invoke('pedidos:totaisPorTamanho', segId, colId),
+    salvar:             (d)             => ipcRenderer.invoke('pedidos:salvar', d),
+    byVisita:           (visitaId)      => ipcRenderer.invoke('pedidos:byVisita', visitaId),
+    totaisPorTamanho:   (segId, colId)  => ipcRenderer.invoke('pedidos:totaisPorTamanho', segId, colId),
+    totaisPorFornecedor:(colId, segId)  => ipcRenderer.invoke('pedidos:totaisPorFornecedor', colId, segId),
+    itensPorFornecedor: (fornId, colId) => ipcRenderer.invoke('pedidos:itensPorFornecedor', fornId, colId),
   },
   backup: {
     export: () => ipcRenderer.invoke('backup:export'),
