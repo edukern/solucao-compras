@@ -1,5 +1,6 @@
 {
-  "buildCommand": "cd demo && npm install && node_modules/.bin/vite build && cp -r dist ../demo-out",
+  "installCommand": "npm install && npm install --prefix demo",
+  "buildCommand": "demo/node_modules/.bin/vite build demo --config demo/vite.config.js",
   "outputDirectory": "demo-out",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
