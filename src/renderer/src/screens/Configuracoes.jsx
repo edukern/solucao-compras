@@ -521,6 +521,57 @@ function AbaCompradores() {
 }
 
 // ---------------------------------------------------------------------------
+// AbaBackup
+// ---------------------------------------------------------------------------
+function AbaBackup() {
+  const [status, setStatus] = useState(null)
+  const [working, setWorking] = useState(false)
+
+  async function handleExport() {
+    setWorking(true)
+    setStatus(null)
+    try {
+      const ok = await window.api.backup.export()
+      setStatus(ok ? 'Backup exportado com sucesso.' : null)
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  async function handleImport() {
+    if (!window.confirm('ATENÇÃO: Isso vai sobrescrever todos os dados atuais com o backup selecionado. Tem certeza?')) return
+    setWorking(true)
+    setStatus(null)
+    try {
+      await window.api.backup.import()
+      // Se chegou aqui, foi cancelado (app.exit se chamou antes de retornar)
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  return (
+    <div className={styles.section}>
+      <div className={styles.backupCard}>
+        <h2 className={styles.sectionTitle}>Backup do banco de dados</h2>
+        <p className={styles.hint}>
+          Exporta ou restaura o arquivo <code>.db</code> com todos os dados do sistema.
+        </p>
+        <div className={styles.backupActions}>
+          <button className={styles.btnPrimary} onClick={handleExport} disabled={working}>
+            ↓ Exportar backup
+          </button>
+          <button className={styles.btnDanger} onClick={handleImport} disabled={working}>
+            ↑ Restaurar backup
+          </button>
+        </div>
+        {status && <p className={styles.backupStatus}>{status}</p>}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main Configuracoes screen
 // ---------------------------------------------------------------------------
 export default function Configuracoes() {
@@ -548,10 +599,17 @@ export default function Configuracoes() {
         >
           Compradores
         </button>
+        <button
+          className={aba === 'backup' ? styles.tabActive : styles.tab}
+          onClick={() => setAba('backup')}
+        >
+          Backup
+        </button>
       </div>
       {aba === 'colecoes'     && <AbaColecoes />}
       {aba === 'segmentacoes' && <AbaSegmentacoes />}
       {aba === 'compradores'  && <AbaCompradores />}
+      {aba === 'backup'       && <AbaBackup />}
     </div>
   )
 }

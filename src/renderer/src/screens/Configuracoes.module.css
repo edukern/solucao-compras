@@ -325,3 +325,39 @@
   color: var(--text-muted);
   padding: 1rem 0;
 }
+
+/* ── Backup ───────────────────────────────────────────────────────────────── */
+.backupCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.hint {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.hint code {
+  font-family: monospace;
+  background: var(--bg-secondary);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+  font-size: 0.8em;
+}
+
+.backupActions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.backupStatus {
+  font-size: 0.875rem;
+  color: var(--green);
+}
