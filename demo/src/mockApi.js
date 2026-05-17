@@ -57,11 +57,50 @@ const projecoesList = [
   { segmentacao_id: 3, colecao_id: 1, tamanho: 'G3', qtd_ajustada: 35, qtd_projetada: 35 },
 ]
 
-const visitasList = []
-const sessoesList = []
-const sessaoVisitasList = []
-const pedidosList = []
-const pedidoItensList = []
+const visitasList = [
+  { id: 10, fornecedor_id: 1, colecao_id: 1, data_visita: '2026-03-10', vendedor: 'Ana', cond_pag: '30/60/90', frete: 'CIF', obs: '', comprador_id: 1, sessao_id: 1 },
+  { id: 11, fornecedor_id: 1, colecao_id: 1, data_visita: '2026-03-10', vendedor: 'Ana', cond_pag: '30/60/90', frete: 'CIF', obs: '', comprador_id: 2, sessao_id: 1 },
+  { id: 12, fornecedor_id: 3, colecao_id: 1, data_visita: '2026-03-12', vendedor: 'Carlos', cond_pag: '60/90', frete: 'FOB', obs: '', comprador_id: 1, sessao_id: 2 },
+  { id: 13, fornecedor_id: 5, colecao_id: 1, data_visita: '2026-03-15', vendedor: 'Marta', cond_pag: '30/60', frete: 'CIF', obs: '', comprador_id: 3, sessao_id: 3 },
+]
+const sessoesList = [
+  { id: 1, fornecedor_id: 1, colecao_id: 1, data_visita: '2026-03-10', vendedor: 'Ana', cond_pag: '30/60/90', frete: 'CIF', obs: '' },
+  { id: 2, fornecedor_id: 3, colecao_id: 1, data_visita: '2026-03-12', vendedor: 'Carlos', cond_pag: '60/90', frete: 'FOB', obs: '' },
+  { id: 3, fornecedor_id: 5, colecao_id: 1, data_visita: '2026-03-15', vendedor: 'Marta', cond_pag: '30/60', frete: 'CIF', obs: '' },
+]
+const sessaoVisitasList = [
+  { sessao_id: 1, visita_id: 10, comprador_id: 1 },
+  { sessao_id: 1, visita_id: 11, comprador_id: 2 },
+  { sessao_id: 2, visita_id: 12, comprador_id: 1 },
+  { sessao_id: 3, visita_id: 13, comprador_id: 3 },
+]
+const pedidosList = [
+  { id: 20, visita_id: 10, comprador_id: 1, segmentacao_id: 1, valor_unitario: 42.90, desconto_pct: 5, transportadora: '', nota_fiscal: '', obs: '' },
+  { id: 21, visita_id: 10, comprador_id: 1, segmentacao_id: 2, valor_unitario: 89.90, desconto_pct: 0, transportadora: '', nota_fiscal: '', obs: '' },
+  { id: 22, visita_id: 11, comprador_id: 2, segmentacao_id: 1, valor_unitario: 42.90, desconto_pct: 5, transportadora: '', nota_fiscal: '', obs: '' },
+  { id: 23, visita_id: 12, comprador_id: 1, segmentacao_id: 3, valor_unitario: 55.00, desconto_pct: 0, transportadora: '', nota_fiscal: '', obs: '' },
+  { id: 24, visita_id: 13, comprador_id: 3, segmentacao_id: 2, valor_unitario: 89.90, desconto_pct: 10, transportadora: '', nota_fiscal: '', obs: '' },
+]
+const pedidoItensList = [
+  { id: 30, pedido_id: 20, tamanho: 'PP', qtd: 10 },
+  { id: 31, pedido_id: 20, tamanho: 'P',  qtd: 20 },
+  { id: 32, pedido_id: 20, tamanho: 'M',  qtd: 25 },
+  { id: 33, pedido_id: 20, tamanho: 'G',  qtd: 15 },
+  { id: 34, pedido_id: 20, tamanho: 'GG', qtd: 8  },
+  { id: 35, pedido_id: 21, tamanho: 'PP', qtd: 8  },
+  { id: 36, pedido_id: 21, tamanho: 'P',  qtd: 18 },
+  { id: 37, pedido_id: 21, tamanho: 'M',  qtd: 22 },
+  { id: 38, pedido_id: 21, tamanho: 'G',  qtd: 12 },
+  { id: 39, pedido_id: 22, tamanho: 'PP', qtd: 8  },
+  { id: 40, pedido_id: 22, tamanho: 'P',  qtd: 16 },
+  { id: 41, pedido_id: 22, tamanho: 'M',  qtd: 20 },
+  { id: 42, pedido_id: 23, tamanho: 'G1', qtd: 12 },
+  { id: 43, pedido_id: 23, tamanho: 'G2', qtd: 18 },
+  { id: 44, pedido_id: 24, tamanho: 'PP', qtd: 15 },
+  { id: 45, pedido_id: 24, tamanho: 'P',  qtd: 25 },
+  { id: 46, pedido_id: 24, tamanho: 'M',  qtd: 20 },
+  { id: 47, pedido_id: 24, tamanho: 'G',  qtd: 10 },
+]
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -293,6 +332,52 @@ export const mockApi = {
     async totaisPorTamanho(segId, colId) {
       await delay()
       return totaisPorTamanhoCalc(segId, colId)
+    },
+    async totaisPorFornecedor(colId, segId) {
+      await delay()
+      const visitasCol = visitasList.filter(v => v.colecao_id === colId)
+      const fornMap = new Map()
+      for (const v of visitasCol) {
+        const pedidos = pedidosList.filter(p => p.visita_id === v.id && (!segId || p.segmentacao_id === segId))
+        for (const p of pedidos) {
+          const itens = pedidoItensList.filter(i => i.pedido_id === p.id)
+          const pecas = itens.reduce((s, i) => s + i.qtd, 0)
+          const valor = pecas * p.valor_unitario * (1 - p.desconto_pct / 100)
+          if (!fornMap.has(v.fornecedor_id)) {
+            const forn = fornecedoresList.find(f => f.id === v.fornecedor_id)
+            fornMap.set(v.fornecedor_id, { fornecedor_id: v.fornecedor_id, fornecedor_nome: forn?.nome ?? '', skus: new Set(), total_pecas: 0, total_valor: 0 })
+          }
+          const entry = fornMap.get(v.fornecedor_id)
+          entry.skus.add(p.segmentacao_id)
+          entry.total_pecas += pecas
+          entry.total_valor += valor
+        }
+      }
+      return [...fornMap.values()].map(e => ({ ...e, num_skus: e.skus.size, skus: undefined }))
+    },
+    async itensPorFornecedor(fornId, colId) {
+      await delay()
+      const visitasForn = visitasList.filter(v => v.fornecedor_id === fornId && v.colecao_id === colId)
+      const segMap = new Map()
+      for (const v of visitasForn) {
+        const pedidos = pedidosList.filter(p => p.visita_id === v.id)
+        for (const p of pedidos) {
+          const itens = pedidoItensList.filter(i => i.pedido_id === p.id)
+          const pecas = itens.reduce((s, i) => s + i.qtd, 0)
+          const seg = segmentacoesList.find(s => s.id === p.segmentacao_id)
+          if (!segMap.has(p.segmentacao_id)) {
+            segMap.set(p.segmentacao_id, {
+              segmentacao_id: p.segmentacao_id,
+              classificacao: seg?.classificacao ?? '',
+              tipo_produto: seg?.tipo_produto ?? '',
+              classe: seg?.classe ?? '',
+              total_comprado: 0,
+            })
+          }
+          segMap.get(p.segmentacao_id).total_comprado += pecas
+        }
+      }
+      return [...segMap.values()]
     },
   },
 

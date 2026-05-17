@@ -16,7 +16,11 @@ const STATUS_PRONTO = [
 
 const STATUS_AGUARDANDO = [
   'Tamanhos das grades CASAL, KING, QUEEN, SOLT, LAR, GERAL — Samuel responde abaixo',
-  'Planilha semestral da Miche com histórico de vendas — Samuel envia para o Edu',
+  'Planilha da Miche com análise de vendas [qtde compra, venda, estoque total, com segmentação por coleção e tipo/classe/classificação]',
+]
+
+const STATUS_AFAZER_SAMUEL = [
+  '(opcional) Solicitar para a Macle modelo de importação de cadastro de produto via CSV',
 ]
 
 const STATUS_AFAZER = [
@@ -198,6 +202,16 @@ export default function Pendencias() {
             {STATUS_AGUARDANDO.map((item, i) => (
               <div key={i} className={styles.statusItem}>
                 <span className={styles.statusIconWait}>○</span>
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className={styles.statusBloco}>
+            <div className={styles.statusTitulo}>A fazer — Samuel</div>
+            {STATUS_AFAZER_SAMUEL.map((item, i) => (
+              <div key={i} className={styles.statusItem}>
+                <span className={styles.statusIconTodo}>·</span>
                 <span>{item}</span>
               </div>
             ))}
