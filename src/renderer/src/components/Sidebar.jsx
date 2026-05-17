@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { useCollection } from '../contexts/CollectionContext'
+import ColecaoModal from './ColecaoModal'
 import styles from './Sidebar.module.css'
 
 const NAV_ITEMS = [
@@ -9,14 +11,25 @@ const NAV_ITEMS = [
 ]
 
 export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
-  const { collections, activeId, setActiveId } = useCollection()
+  const { collections, setCollections, activeId, setActiveId } = useCollection()
+  const [showModal, setShowModal] = useState(false)
+
+  async function handleCreate(dados) {
+    const nova = await window.api.colecoes.create(dados)
+    setCollections(prev => [...prev, nova])
+    setActiveId(nova.id)
+    setShowModal(false)
+  }
 
   return (
     <aside className={styles.sidebar}>
       <div className={styles.brand}>Solução Compras</div>
 
       <div className={styles.collectionSection}>
-        <span className={styles.label}>Coleção ativa</span>
+        <div className={styles.colHeader}>
+          <span className={styles.label}>Coleção ativa</span>
+          <button className={styles.addBtn} onClick={() => setShowModal(true)} title="Nova coleção">+</button>
+        </div>
         <select
           className={styles.colSelect}
           value={activeId ?? ''}
@@ -47,6 +60,8 @@ export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
           {theme === 'dark' ? '☀️ Modo claro' : '🌙 Modo escuro'}
         </button>
       </div>
+
+      {showModal && <ColecaoModal onClose={() => setShowModal(false)} onSave={handleCreate} />}
     </aside>
   )
 }
