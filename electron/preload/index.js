@@ -32,13 +32,15 @@ contextBridge.exposeInMainWorld('api', {
     list:   ()  => ipcRenderer.invoke('compradores:list'),
     create: (d) => ipcRenderer.invoke('compradores:create', d),
   },
+  visitas: {
+    create: (d)     => ipcRenderer.invoke('visitas:create', d),
+    list:   (colId) => ipcRenderer.invoke('visitas:list', colId),
+    byId:   (id)    => ipcRenderer.invoke('visitas:byId', id),
+  },
   pedidos: {
-    salvar:           (d)            => ipcRenderer.invoke('pedidos:salvar', d),
-    totaisPorTamanho: (segId, colId) => ipcRenderer.invoke('pedidos:totaisPorTamanho', segId, colId),
-    listarVisitas:    (colId)        => ipcRenderer.invoke('pedidos:listarVisitas', colId),
-    listarPorColecao: (colId)        => ipcRenderer.invoke('pedidos:listarPorColecao', colId),
-    totaisPorFornecedor:   (colId, segId) => ipcRenderer.invoke('pedidos:totaisPorFornecedor', colId, segId),
-    itensPorFornecedor:    (fornId, colId) => ipcRenderer.invoke('pedidos:itensPorFornecedor', fornId, colId),
+    salvar:          (d)            => ipcRenderer.invoke('pedidos:salvar', d),
+    byVisita:        (visitaId)     => ipcRenderer.invoke('pedidos:byVisita', visitaId),
+    totaisPorTamanho:(segId, colId) => ipcRenderer.invoke('pedidos:totaisPorTamanho', segId, colId),
   },
   backup: {
     export: () => ipcRenderer.invoke('backup:export'),

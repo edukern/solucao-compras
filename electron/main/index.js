@@ -9,6 +9,7 @@ import { makeGrades } from './db/grades.js'
 import { makeProjecoes } from './db/projecoes.js'
 import { makeFornecedores } from './db/fornecedores.js'
 import { makeCompradores } from './db/compradores.js'
+import { makeVisitas } from './db/visitas.js'
 import { makePedidos } from './db/pedidos.js'
 import fs from 'fs'
 
@@ -42,6 +43,7 @@ app.whenReady().then(() => {
   const proj = makeProjecoes(db)
   const forn = makeFornecedores(db)
   const comp = makeCompradores(db)
+  const vis  = makeVisitas(db)
   const ped  = makePedidos(db)
 
   // Colecoes
@@ -74,13 +76,15 @@ app.whenReady().then(() => {
   ipcMain.handle('compradores:list',   () => comp.list())
   ipcMain.handle('compradores:create', (_, d) => comp.create(d))
 
+  // Visitas
+  ipcMain.handle('visitas:create', (_, d)     => vis.create(d))
+  ipcMain.handle('visitas:list',   (_, colId) => vis.list(colId))
+  ipcMain.handle('visitas:byId',   (_, id)    => vis.getById(id))
+
   // Pedidos
-  ipcMain.handle('pedidos:salvar',           (_, d) => ped.salvar(d))
-  ipcMain.handle('pedidos:totaisPorTamanho', (_, segId, colId) => ped.getTotaisPorTamanho(segId, colId))
-  ipcMain.handle('pedidos:listarVisitas',    (_, colId) => ped.listarVisitas(colId))
-  ipcMain.handle('pedidos:listarPorColecao', (_, colId) => ped.listarPorColecao(colId))
-  ipcMain.handle('pedidos:totaisPorFornecedor',   (_, colId, segId) => ped.totaisPorFornecedor(colId, segId ?? null))
-  ipcMain.handle('pedidos:itensPorFornecedor',    (_, fornId, colId) => ped.itensPorFornecedor(fornId, colId))
+  ipcMain.handle('pedidos:salvar',          (_, d)            => ped.salvar(d))
+  ipcMain.handle('pedidos:byVisita',        (_, visitaId)     => ped.byVisita(visitaId))
+  ipcMain.handle('pedidos:totaisPorTamanho',(_, segId, colId) => ped.totaisPorTamanho(segId, colId))
 
   // Backup / Restore
   ipcMain.handle('backup:export', async () => {
