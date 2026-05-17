@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useCollection } from '../contexts/CollectionContext'
 import { tamanhosDeTipoGrade } from '../constants/grades'
+import ConfirmModal from '../components/ConfirmModal'
 import styles from './Compras.module.css'
 
 const fmt = n => (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -16,6 +17,7 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
   const [vendedor,  setVendedor]  = useState('')
   const [condPag,   setCondPag]   = useState('')
   const [frete,     setFrete]     = useState('')
+  const [obs,       setObs]       = useState('')
   const [lojas,     setLojas]     = useState([])
   const [saving,    setSaving]    = useState(false)
   const [error,     setError]     = useState(null)
@@ -36,7 +38,7 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
         vendedor,
         cond_pag: condPag,
         frete,
-        obs: ''
+        obs
       }, lojas)
       const lojasPresentes = compradores.filter(c => lojas.includes(c.id))
       onStart(sessao, lojasPresentes)
@@ -83,6 +85,17 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
         </div>
       </div>
 
+      <div className={styles.field} style={{ width: '100%' }}>
+        <span className={styles.label}>Observações (opcional)</span>
+        <textarea
+          rows={2}
+          placeholder="Condições especiais, prazo de entrega, etc."
+          value={obs}
+          onChange={e => setObs(e.target.value)}
+          style={{ resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
+        />
+      </div>
+
       <div className={styles.presentesSection}>
         <span className={styles.label}>Lojas participantes desta sessão</span>
         <div className={styles.checkGrid}>
@@ -112,7 +125,7 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
 function RegistrarPedidoSessao({ sessao, visitas, segs, colId, onFechar }) {
   const [skuIdx,   setSkuIdx]   = useState(0)
   const [lojaIdx,  setLojaIdx]  = useState(0)
-  // valor/desconto por SKU: { [segId]: { valor, desconto } }
+  // valor/desconto/obs por SKU: { [segId]: { valor, desconto, obs } }
   const [skuConfig, setSkuConfig] = useState({})
   // qtds: { [segId]: { [visitaId]: { [tamanho]: qty } } }
   const [qtds, setQtds] = useState({})
@@ -129,6 +142,7 @@ function RegistrarPedidoSessao({ sessao, visitas, segs, colId, onFechar }) {
   const tamanhos = seg ? tamanhosDeTipoGrade(seg.tipo_grade) : []
   const valorStr = skuConfig[seg?.id]?.valor ?? ''
   const descontoStr = skuConfig[seg?.id]?.desconto ?? ''
+  const obsStr = skuConfig[seg?.id]?.obs ?? ''
 
   // Load projecao for current SKU
   useEffect(() => {
@@ -198,7 +212,7 @@ function RegistrarPedidoSessao({ sessao, visitas, segs, colId, onFechar }) {
           if (!itens.length) continue
           batch.push({ visita_id: v.id, comprador_id: v.comprador_id, segmentacao_id: s.id,
                        valor_unitario: valorNum, desconto_pct: descontoNum,
-                       transportadora: '', nota_fiscal: '', obs: '', itens })
+                       transportadora: '', nota_fiscal: '', obs: conf.obs ?? '', itens })
           meta.push({ comprador_nome: v.comprador_nome, comprador_cnpj: v.comprador_cnpj ?? '',
                       comprador_cidade: v.comprador_cidade ?? '',
                       classificacao: s.classificacao, tipo_produto: s.tipo_produto,
@@ -342,6 +356,18 @@ function RegistrarPedidoSessao({ sessao, visitas, segs, colId, onFechar }) {
                 </div>
               </div>
 
+              {/* Obs por SKU */}
+              <div className={styles.field} style={{ marginTop: '0.5rem' }}>
+                <span className={styles.label}>Obs do produto (opcional)</span>
+                <textarea
+                  rows={1}
+                  placeholder="Ex: entrega em 45 dias, apenas cor X…"
+                  value={obsStr}
+                  onChange={e => setSkuVal(seg.id, 'obs', e.target.value)}
+                  style={{ resize: 'vertical', width: '100%', boxSizing: 'border-box', fontSize: '0.82rem' }}
+                />
+              </div>
+
               {/* Totais por tamanho (todas as lojas) */}
               {visitas.length > 1 && (
                 <div className={`${styles.gradeRow} ${styles.gradeTotaisRow}`}>
@@ -437,6 +463,7 @@ function gerarPDFSessao(sessao, visitas, pedidosPorVisita) {
           <div class="row"><span class="lbl">Data pedido:</span><span>${fmtDate(sessao.data_visita)}</span></div>
           ${sessao.cond_pag ? `<div class="row"><span class="lbl">Cond. pag.:</span><span>${esc(sessao.cond_pag)}</span></div>` : ''}
           ${sessao.frete    ? `<div class="row"><span class="lbl">Frete:</span><span>${esc(sessao.frete)}</span></div>` : ''}
+          ${sessao.obs      ? `<div class="row"><span class="lbl">Obs.:</span><span>${esc(sessao.obs)}</span></div>`      : ''}
         </div>
         <div class="section" style="border-top:1px solid #ddd; padding-top:10px;">
           <div class="section-title">Comprador</div>
@@ -570,6 +597,7 @@ function Historico({ colId }) {
   const [expandedVisita,   setExpandedVisita]   = useState(null)
   const [pedidosPorVisita, setPedidosPorVisita] = useState({})
   const [reimprimindo,     setReimprimindo]     = useState(null) // sessao.id em andamento
+  const [confirmCancelar,  setConfirmCancelar]  = useState(null) // { pedidoId, visitaId }
 
   useEffect(() => {
     window.api.sessoes.list(colId).then(list => {
@@ -587,8 +615,10 @@ function Historico({ colId }) {
     }
   }
 
-  async function handleCancelarPedido(pedidoId, visitaId) {
-    if (!window.confirm('Cancelar este pedido? Essa ação não pode ser desfeita.')) return
+  async function executarCancelar() {
+    if (!confirmCancelar) return
+    const { pedidoId, visitaId } = confirmCancelar
+    setConfirmCancelar(null)
     await window.api.pedidos.cancelar(pedidoId)
     setPedidosPorVisita(prev => ({
       ...prev,
@@ -626,6 +656,15 @@ function Historico({ colId }) {
 
   return (
     <div className={styles.historico}>
+      {confirmCancelar && (
+        <ConfirmModal
+          message="Cancelar este pedido? Essa ação não pode ser desfeita."
+          confirmLabel="Cancelar pedido"
+          danger
+          onConfirm={executarCancelar}
+          onCancel={() => setConfirmCancelar(null)}
+        />
+      )}
       {sessoesList.map(ses => (
         <div key={ses.id} className={styles.histSessao}>
           <div className={styles.histSessaoHeader}>
@@ -693,7 +732,7 @@ function Historico({ colId }) {
                                   <td>
                                     <button
                                       className={styles.btnCancelar}
-                                      onClick={() => handleCancelarPedido(p.id, vis.visita_id)}
+                                      onClick={() => setConfirmCancelar({ pedidoId: p.id, visitaId: vis.visita_id })}
                                     >
                                       Cancelar
                                     </button>

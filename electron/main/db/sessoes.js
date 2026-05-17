@@ -5,8 +5,8 @@ export function makeSessoes(db) {
   `)
 
   const insertVisita = db.prepare(`
-    INSERT INTO visitas (fornecedor_id, colecao_id, data_visita, vendedor, cond_pag, frete, obs, sessao_id, comprador_id)
-    VALUES (@fornecedor_id, @colecao_id, @data_visita, @vendedor, @cond_pag, @frete, @obs, @sessao_id, @comprador_id)
+    INSERT INTO visitas (sessao_id, comprador_id)
+    VALUES (@sessao_id, @comprador_id)
   `)
 
   const selectById = db.prepare(`
@@ -45,10 +45,7 @@ export function makeSessoes(db) {
           fornecedor_id, colecao_id, data_visita, vendedor, cond_pag, frete, obs
         })
         const visitas = lojaIds.map(comprador_id => {
-          const { lastInsertRowid: visita_id } = insertVisita.run({
-            fornecedor_id, colecao_id, data_visita, vendedor, cond_pag, frete, obs,
-            sessao_id, comprador_id
-          })
+          const { lastInsertRowid: visita_id } = insertVisita.run({ sessao_id, comprador_id })
           return { visita_id: Number(visita_id), comprador_id }
         })
         const sessao = selectById.get(Number(sessao_id))

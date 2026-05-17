@@ -1,24 +1,33 @@
 export function makeVisitas(db) {
   const insert = db.prepare(`
-    INSERT INTO visitas (fornecedor_id, colecao_id, data_visita, vendedor, cond_pag, frete, obs)
-    VALUES (@fornecedor_id, @colecao_id, @data_visita, @vendedor, @cond_pag, @frete, @obs)
+    INSERT INTO visitas (sessao_id, comprador_id)
+    VALUES (@sessao_id, @comprador_id)
   `)
 
   const byId = db.prepare(`
-    SELECT v.*, f.nome AS fornecedor_nome
-    FROM visitas v JOIN fornecedores f ON f.id = v.fornecedor_id
+    SELECT v.id, v.sessao_id, v.comprador_id,
+           ses.fornecedor_id, ses.colecao_id, ses.data_visita,
+           ses.vendedor, ses.cond_pag, ses.frete, ses.obs,
+           f.nome AS fornecedor_nome
+    FROM visitas v
+    JOIN sessoes ses ON ses.id = v.sessao_id
+    JOIN fornecedores f ON f.id = ses.fornecedor_id
     WHERE v.id = ?
   `)
 
   const byColecao = db.prepare(`
-    SELECT v.*, f.nome AS fornecedor_nome,
+    SELECT v.id, v.sessao_id, v.comprador_id,
+           ses.fornecedor_id, ses.colecao_id, ses.data_visita,
+           ses.vendedor, ses.cond_pag, ses.frete, ses.obs,
+           f.nome AS fornecedor_nome,
            COUNT(p.id) AS num_pedidos
     FROM visitas v
-    JOIN fornecedores f ON f.id = v.fornecedor_id
+    JOIN sessoes ses ON ses.id = v.sessao_id
+    JOIN fornecedores f ON f.id = ses.fornecedor_id
     LEFT JOIN pedidos p ON p.visita_id = v.id
-    WHERE v.colecao_id = ?
+    WHERE ses.colecao_id = ?
     GROUP BY v.id
-    ORDER BY v.data_visita DESC
+    ORDER BY ses.data_visita DESC
   `)
 
   return {

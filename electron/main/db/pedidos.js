@@ -65,9 +65,10 @@ export function makePedidos(db) {
            SUM(pi.qtd * p.valor_unitario * (1.0 - p.desconto_pct / 100.0)) AS total_valor
     FROM pedidos p
     JOIN visitas v ON v.id = p.visita_id
-    JOIN fornecedores f ON f.id = v.fornecedor_id
+    JOIN sessoes ses ON ses.id = v.sessao_id
+    JOIN fornecedores f ON f.id = ses.fornecedor_id
     JOIN pedido_itens pi ON pi.pedido_id = p.id
-    WHERE v.colecao_id = ?
+    WHERE ses.colecao_id = ?
     GROUP BY f.id, f.nome
     ORDER BY f.nome
   `)
@@ -79,9 +80,10 @@ export function makePedidos(db) {
            SUM(pi.qtd * p.valor_unitario * (1.0 - p.desconto_pct / 100.0)) AS total_valor
     FROM pedidos p
     JOIN visitas v ON v.id = p.visita_id
-    JOIN fornecedores f ON f.id = v.fornecedor_id
+    JOIN sessoes ses ON ses.id = v.sessao_id
+    JOIN fornecedores f ON f.id = ses.fornecedor_id
     JOIN pedido_itens pi ON pi.pedido_id = p.id
-    WHERE v.colecao_id = ? AND p.segmentacao_id = ?
+    WHERE ses.colecao_id = ? AND p.segmentacao_id = ?
     GROUP BY f.id, f.nome
     ORDER BY f.nome
   `)
@@ -98,7 +100,8 @@ export function makePedidos(db) {
       FROM pedido_itens pi
       JOIN pedidos ped ON ped.id = pi.pedido_id
       JOIN visitas v ON v.id = ped.visita_id
-      WHERE v.colecao_id = @colId
+      JOIN sessoes ses ON ses.id = v.sessao_id
+      WHERE ses.colecao_id = @colId
       GROUP BY ped.segmentacao_id, pi.tamanho
     ) agg ON agg.segmentacao_id = p.segmentacao_id AND agg.tamanho = p.tamanho
     WHERE p.colecao_id = @colId AND p.qtd_ajustada > 0
@@ -110,9 +113,10 @@ export function makePedidos(db) {
            SUM(pi.qtd) AS total_comprado
     FROM pedidos p
     JOIN visitas v ON v.id = p.visita_id
+    JOIN sessoes ses ON ses.id = v.sessao_id
     JOIN segmentacoes s ON s.id = p.segmentacao_id
     JOIN pedido_itens pi ON pi.pedido_id = p.id
-    WHERE v.fornecedor_id = ? AND v.colecao_id = ?
+    WHERE ses.fornecedor_id = ? AND ses.colecao_id = ?
     GROUP BY s.id, s.classificacao, s.tipo_produto, s.classe, s.tipo_grade
     ORDER BY s.classificacao, s.tipo_produto, s.classe
   `)

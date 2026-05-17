@@ -162,4 +162,28 @@ export function runMigrations(db) {
   try { db.exec(`ALTER TABLE visitas ADD COLUMN sessao_id INTEGER REFERENCES sessoes(id)`) } catch {}
   // Link visitas to a comprador for per-loja sessions (nullable — old records unaffected)
   try { db.exec(`ALTER TABLE visitas ADD COLUMN comprador_id INTEGER REFERENCES compradores(id)`) } catch {}
+
+  // Deduplicate visitas — remove columns now owned by sessoes
+  const visitaCols = db.pragma('table_info(visitas)').map(c => c.name)
+  if (visitaCols.includes('fornecedor_id')) {
+    db.exec(`
+      ALTER TABLE visitas RENAME TO _visitas_old;
+
+      CREATE TABLE visitas (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        sessao_id    INTEGER NOT NULL REFERENCES sessoes(id),
+        comprador_id INTEGER NOT NULL REFERENCES compradores(id)
+      );
+
+      INSERT INTO visitas (id, sessao_id, comprador_id)
+        SELECT id, sessao_id, comprador_id
+        FROM _visitas_old
+        WHERE sessao_id IS NOT NULL AND comprador_id IS NOT NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_visitas_sessao ON visitas(sessao_id);
+      CREATE INDEX IF NOT EXISTS idx_visitas_comprador ON visitas(comprador_id);
+
+      DROP TABLE _visitas_old;
+    `)
+  }
 }

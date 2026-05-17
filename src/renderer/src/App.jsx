@@ -16,6 +16,8 @@ const SCREENS = {
   configuracoes: () => <Configuracoes />,
 }
 
+const noApi = !window.api
+
 export default function App() {
   const [screen, setScreen] = useState('dashboard')
   const [theme, setTheme] = useState('dark')
@@ -25,6 +27,16 @@ export default function App() {
   }, [theme])
 
   const Screen = SCREENS[screen] ?? SCREENS.dashboard
+
+  if (noApi) {
+    return (
+      <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '0.75rem', color: '#888', fontFamily: 'sans-serif' }}>
+        <div style={{ fontSize: '2rem' }}>💻</div>
+        <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#aaa' }}>Solução Compras</div>
+        <div style={{ fontSize: '0.9rem' }}>Disponível apenas no app desktop.</div>
+      </div>
+    )
+  }
 
   return (
     <CollectionProvider>
