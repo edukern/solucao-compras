@@ -4,9 +4,10 @@ import SegmentacaoSelect from '../components/SegmentacaoSelect'
 import { GRADE_LABEL, GRADE_SIZES } from '../utils/gradeConfig'
 import styles from './Compras.module.css'
 
-const fmt = n => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const fmt = n => (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtDate = iso => { if (!iso) return ''; const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}` }
 const today = () => new Date().toISOString().slice(0, 10)
+const esc = s => (s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
 
 // ─── Phase 1: Start Visit ─────────────────────────────────────────────────
 
@@ -392,9 +393,9 @@ function FecharVisita({ visita, compradores, segs, pedidos, onNovaVisita }) {
               ${p.desconto_pct > 0 ? `<div>Desconto: <strong>${p.desconto_pct}%</strong></div>` : ''}
               <div style="font-size:14px; margin-top:4px;">Valor líquido: <strong>R$ ${totalV.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>
             </div>
-            ${p.transportadora ? `<div class="obs-row">Transportadora: ${p.transportadora}</div>` : ''}
-            ${p.nota_fiscal    ? `<div class="obs-row">Nota fiscal: ${p.nota_fiscal}</div>` : ''}
-            ${p.obs            ? `<div class="obs-row">Obs: ${p.obs}</div>` : ''}
+            ${p.transportadora ? `<div class="obs-row">Transportadora: ${esc(p.transportadora)}</div>` : ''}
+            ${p.nota_fiscal    ? `<div class="obs-row">Nota fiscal: ${esc(p.nota_fiscal)}</div>` : ''}
+            ${p.obs            ? `<div class="obs-row">Obs: ${esc(p.obs)}</div>` : ''}
           </div>`
       }).join('')
 
@@ -405,18 +406,18 @@ function FecharVisita({ visita, compradores, segs, pedidos, onNovaVisita }) {
 
           <div class="section">
             <div class="section-title">Fornecedor</div>
-            <div class="row"><span class="lbl">Fornecedor:</span><span>${visita.fornecedor_nome}</span></div>
-            ${visita.vendedor ? `<div class="row"><span class="lbl">Vendedor:</span><span>${visita.vendedor}</span></div>` : ''}
+            <div class="row"><span class="lbl">Fornecedor:</span><span>${esc(visita.fornecedor_nome)}</span></div>
+            ${visita.vendedor ? `<div class="row"><span class="lbl">Vendedor:</span><span>${esc(visita.vendedor)}</span></div>` : ''}
             <div class="row"><span class="lbl">Data pedido:</span><span>${fmtDate(visita.data_visita)}</span></div>
-            ${visita.cond_pag ? `<div class="row"><span class="lbl">Cond. pag.:</span><span>${visita.cond_pag}</span></div>` : ''}
-            ${visita.frete    ? `<div class="row"><span class="lbl">Frete:</span><span>${visita.frete}</span></div>` : ''}
+            ${visita.cond_pag ? `<div class="row"><span class="lbl">Cond. pag.:</span><span>${esc(visita.cond_pag)}</span></div>` : ''}
+            ${visita.frete    ? `<div class="row"><span class="lbl">Frete:</span><span>${esc(visita.frete)}</span></div>` : ''}
           </div>
 
           <div class="section" style="border-top:1px solid #ddd; padding-top:10px;">
             <div class="section-title">Comprador</div>
-            <div class="row"><span class="lbl">Nome:</span><span><strong>${comp.nome}</strong></span></div>
-            <div class="row"><span class="lbl">CNPJ:</span><span>${comp.cnpj}</span></div>
-            ${comp.cidade ? `<div class="row"><span class="lbl">Cidade:</span><span>${comp.cidade}</span></div>` : ''}
+            <div class="row"><span class="lbl">Nome:</span><span><strong>${esc(comp.nome)}</strong></span></div>
+            <div class="row"><span class="lbl">CNPJ:</span><span>${esc(comp.cnpj)}</span></div>
+            ${comp.cidade ? `<div class="row"><span class="lbl">Cidade:</span><span>${esc(comp.cidade)}</span></div>` : ''}
           </div>
 
           ${pedidosHtml}
