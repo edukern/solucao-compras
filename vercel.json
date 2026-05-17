@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd demo && npm install && npm run build",
-  "outputDirectory": "demo/dist",
+  "buildCommand": "cd demo && npm install && npm run build && cp -r dist ../demo-out",
+  "outputDirectory": "demo-out",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
