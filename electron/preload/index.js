@@ -39,14 +39,11 @@ contextBridge.exposeInMainWorld('api', {
     remove: (id)     => ipcRenderer.invoke('compradores:remove', id),
   },
   sessoes: {
-    create: (d, lojaIds) => ipcRenderer.invoke('sessoes:create', d, lojaIds),
-    list:   (colId)      => ipcRenderer.invoke('sessoes:list', colId),
-    byId:   (id)         => ipcRenderer.invoke('sessoes:byId', id),
-  },
-  visitas: {
-    create: (d)     => ipcRenderer.invoke('visitas:create', d),
-    list:   (colId) => ipcRenderer.invoke('visitas:list', colId),
-    byId:   (id)    => ipcRenderer.invoke('visitas:byId', id),
+    create:  (d, lojaIds) => ipcRenderer.invoke('sessoes:create', d, lojaIds),
+    list:    (colId)      => ipcRenderer.invoke('sessoes:list', colId),
+    byId:    (id)         => ipcRenderer.invoke('sessoes:byId', id),
+    update:  (id, d)      => ipcRenderer.invoke('sessoes:update', id, d),
+    cancelar:(id)         => ipcRenderer.invoke('sessoes:cancelar', id),
   },
   pedidos: {
     salvar:             (d)             => ipcRenderer.invoke('pedidos:salvar', d),

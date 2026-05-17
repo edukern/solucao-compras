@@ -33,6 +33,22 @@ export function makeSessoes(db) {
     ORDER BY s.data_visita DESC
   `)
 
+  const updateSessao = db.prepare(`
+    UPDATE sessoes SET data_visita=@data_visita, vendedor=@vendedor,
+    cond_pag=@cond_pag, frete=@frete, obs=@obs WHERE id=@id
+  `)
+
+  const delPedidosBySessao = db.prepare(
+    `DELETE FROM pedidos WHERE visita_id IN (SELECT id FROM visitas WHERE sessao_id = ?)`
+  )
+  const delVisitasBySessao = db.prepare(`DELETE FROM visitas WHERE sessao_id = ?`)
+  const delSessao = db.prepare(`DELETE FROM sessoes WHERE id = ?`)
+  const cancelarSessaoTx = db.transaction((id) => {
+    delPedidosBySessao.run(id)
+    delVisitasBySessao.run(id)
+    delSessao.run(id)
+  })
+
   return {
     create(data, lojaIds) {
       const {
@@ -67,6 +83,15 @@ export function makeSessoes(db) {
       const sessao = selectById.get(id)
       if (!sessao) return null
       return { ...sessao, visitas: selectVisitasBySessao.all(id) }
+    },
+
+    update(id, { data_visita, vendedor = '', cond_pag = '', frete = '', obs = '' }) {
+      updateSessao.run({ id, data_visita, vendedor, cond_pag, frete, obs })
+      return selectById.get(id)
+    },
+
+    cancelar(id) {
+      cancelarSessaoTx(id)
     },
   }
 }

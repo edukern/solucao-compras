@@ -54,7 +54,8 @@ export function makePedidos(db) {
     FROM pedido_itens pi
     JOIN pedidos p ON p.id = pi.pedido_id
     JOIN visitas v ON v.id = p.visita_id
-    WHERE p.segmentacao_id = ? AND v.colecao_id = ?
+    JOIN sessoes ses ON ses.id = v.sessao_id
+    WHERE p.segmentacao_id = ? AND ses.colecao_id = ?
     GROUP BY pi.tamanho
   `)
 

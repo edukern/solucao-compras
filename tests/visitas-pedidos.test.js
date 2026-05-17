@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { makeDb } from './setup.js'
 import { makeColecoes } from '../electron/main/db/colecoes.js'
 import { makeFornecedores } from '../electron/main/db/fornecedores.js'
 import { makeCompradores } from '../electron/main/db/compradores.js'
 import { makeSegmentacoes } from '../electron/main/db/segmentacoes.js'
+import { makeSessoes } from '../electron/main/db/sessoes.js'
 import { makeVisitas } from '../electron/main/db/visitas.js'
 import { makePedidos } from '../electron/main/db/pedidos.js'
 
@@ -13,6 +14,7 @@ function setup() {
   const forn = makeFornecedores(db)
   const comp = makeCompradores(db)
   const seg = makeSegmentacoes(db)
+  const sess = makeSessoes(db)
   const vis = makeVisitas(db)
   const ped = makePedidos(db)
 
@@ -22,13 +24,13 @@ function setup() {
   const comprador2 = comp.create({ nome: 'Samuel Backes', cnpj: '15.563.106/0001-70', cidade: 'Três Coroas/RS' })
   const segId = seg.create({ classificacao: 'AD', tipo_produto: 'CALCA', classe: 'MASC', tipo_grade: 'AD', estacao: 'inverno' })
 
-  return { db, col, forn, comp, seg, vis, ped, colecao, fornecedor, comprador1, comprador2, segId }
+  return { db, col, forn, comp, seg, sess, vis, ped, colecao, fornecedor, comprador1, comprador2, segId }
 }
 
 describe('visitas', () => {
-  it('creates a visit and returns full object', () => {
-    const { vis, colecao, fornecedor } = setup()
-    const visita = vis.create({
+  it('creates a visit via sessao and returns full object', () => {
+    const { sess, vis, colecao, fornecedor, comprador1 } = setup()
+    const sessao = sess.create({
       fornecedor_id: fornecedor.id,
       colecao_id: colecao.id,
       data_visita: '2026-05-17',
@@ -36,35 +38,42 @@ describe('visitas', () => {
       cond_pag: '30 dias',
       frete: 'CIF',
       obs: ''
-    })
-    expect(visita).toMatchObject({ id: 1, fornecedor_id: fornecedor.id })
+    }, [comprador1.id])
+
+    const visitaId = sessao.visitas[0].visita_id
+    const visita = vis.getById(visitaId)
+    expect(visita.id).toBe(visitaId)
+    expect(visita.fornecedor_id).toBe(fornecedor.id)
     expect(visita.fornecedor_nome).toBe('LUNENDER')
   })
 
   it('lists all visits for a collection with fornecedor name', () => {
-    const { vis, colecao, fornecedor } = setup()
-    vis.create({ fornecedor_id: fornecedor.id, colecao_id: colecao.id, data_visita: '2026-05-17', vendedor: '', cond_pag: '', frete: '', obs: '' })
+    const { sess, vis, colecao, fornecedor, comprador1 } = setup()
+    sess.create({ fornecedor_id: fornecedor.id, colecao_id: colecao.id, data_visita: '2026-05-17', vendedor: '', cond_pag: '', frete: '', obs: '' }, [comprador1.id])
     const list = vis.list(colecao.id)
     expect(list).toHaveLength(1)
     expect(list[0].fornecedor_nome).toBe('LUNENDER')
   })
 
   it('retrieves visit by id with fornecedor name', () => {
-    const { vis, colecao, fornecedor } = setup()
-    const created = vis.create({ fornecedor_id: fornecedor.id, colecao_id: colecao.id, data_visita: '2026-05-17', vendedor: 'João', cond_pag: '', frete: '', obs: '' })
-    const fetched = vis.getById(created.id)
-    expect(fetched).toMatchObject({ id: created.id, vendedor: 'João' })
+    const { sess, vis, colecao, fornecedor, comprador1 } = setup()
+    const sessao = sess.create({ fornecedor_id: fornecedor.id, colecao_id: colecao.id, data_visita: '2026-05-17', vendedor: 'João', cond_pag: '', frete: '', obs: '' }, [comprador1.id])
+    const visitaId = sessao.visitas[0].visita_id
+    const fetched = vis.getById(visitaId)
+    expect(fetched.id).toBe(visitaId)
+    expect(fetched.vendedor).toBe('João')
     expect(fetched.fornecedor_nome).toBe('LUNENDER')
   })
 })
 
 describe('pedidos', () => {
   it('saves a purchase order with items and returns complete object', () => {
-    const { vis, ped, colecao, fornecedor, comprador1, segId } = setup()
-    const visita = vis.create({ fornecedor_id: fornecedor.id, colecao_id: colecao.id, data_visita: '2026-05-17', vendedor: 'Maria', cond_pag: '30 dias', frete: 'CIF', obs: '' })
+    const { sess, ped, colecao, fornecedor, comprador1, segId } = setup()
+    const sessao = sess.create({ fornecedor_id: fornecedor.id, colecao_id: colecao.id, data_visita: '2026-05-17', vendedor: 'Maria', cond_pag: '30 dias', frete: 'CIF', obs: '' }, [comprador1.id])
+    const visitaId = sessao.visitas[0].visita_id
 
     const pedido = ped.salvar({
-      visita_id: visita.id,
+      visita_id: visitaId,
       comprador_id: comprador1.id,
       segmentacao_id: segId,
       valor_unitario: 45.00,
@@ -80,71 +89,33 @@ describe('pedidos', () => {
     })
 
     expect(pedido.id).toBeDefined()
-    expect(pedido.visita_id).toBe(visita.id)
+    expect(pedido.visita_id).toBe(visitaId)
     expect(pedido.comprador_id).toBe(comprador1.id)
     expect(pedido.itens).toHaveLength(3)
     expect(pedido.itens.find(i => i.tamanho === 'M').qtd).toBe(15)
   })
 
   it('returns all orders for a visit with buyer and segmentation info', () => {
-    const { vis, ped, colecao, fornecedor, comprador1, comprador2, segId } = setup()
-    const visita = vis.create({ fornecedor_id: fornecedor.id, colecao_id: colecao.id, data_visita: '2026-05-17', vendedor: '', cond_pag: '', frete: '', obs: '' })
+    const { sess, ped, colecao, fornecedor, comprador1, comprador2, segId } = setup()
+    const sessao = sess.create({ fornecedor_id: fornecedor.id, colecao_id: colecao.id, data_visita: '2026-05-17', vendedor: '', cond_pag: '', frete: '', obs: '' }, [comprador1.id, comprador2.id])
+    const visitaId = sessao.visitas[0].visita_id
 
-    ped.salvar({
-      visita_id: visita.id,
-      comprador_id: comprador1.id,
-      segmentacao_id: segId,
-      valor_unitario: 45,
-      desconto_pct: 0,
-      transportadora: '',
-      nota_fiscal: '',
-      obs: '',
-      itens: [{ tamanho: 'M', qtd: 10 }]
-    })
-    ped.salvar({
-      visita_id: visita.id,
-      comprador_id: comprador2.id,
-      segmentacao_id: segId,
-      valor_unitario: 45,
-      desconto_pct: 0,
-      transportadora: '',
-      nota_fiscal: '',
-      obs: '',
-      itens: [{ tamanho: 'M', qtd: 5 }]
-    })
+    ped.salvar({ visita_id: visitaId, comprador_id: comprador1.id, segmentacao_id: segId, valor_unitario: 45, itens: [{ tamanho: 'M', qtd: 10 }] })
+    ped.salvar({ visita_id: visitaId, comprador_id: comprador2.id, segmentacao_id: segId, valor_unitario: 45, itens: [{ tamanho: 'M', qtd: 5 }] })
 
-    const pedidos = ped.byVisita(visita.id)
+    const pedidos = ped.byVisita(visitaId)
     expect(pedidos).toHaveLength(2)
     expect(pedidos[0].comprador_nome).toBeDefined()
     expect(pedidos[0].itens.length).toBeGreaterThan(0)
   })
 
-  it('aggregates quantities by size across all buyers and visits for a segmentation', () => {
-    const { vis, ped, colecao, fornecedor, comprador1, comprador2, segId } = setup()
-    const v1 = vis.create({ fornecedor_id: fornecedor.id, colecao_id: colecao.id, data_visita: '2026-05-17', vendedor: '', cond_pag: '', frete: '', obs: '' })
+  it('aggregates quantities by size across all buyers for a segmentation', () => {
+    const { sess, ped, colecao, fornecedor, comprador1, comprador2, segId } = setup()
+    const sessao = sess.create({ fornecedor_id: fornecedor.id, colecao_id: colecao.id, data_visita: '2026-05-17', vendedor: '', cond_pag: '', frete: '', obs: '' }, [comprador1.id, comprador2.id])
+    const [v1, v2] = sessao.visitas
 
-    ped.salvar({
-      visita_id: v1.id,
-      comprador_id: comprador1.id,
-      segmentacao_id: segId,
-      valor_unitario: 45,
-      desconto_pct: 0,
-      transportadora: '',
-      nota_fiscal: '',
-      obs: '',
-      itens: [{ tamanho: 'M', qtd: 10 }]
-    })
-    ped.salvar({
-      visita_id: v1.id,
-      comprador_id: comprador2.id,
-      segmentacao_id: segId,
-      valor_unitario: 45,
-      desconto_pct: 0,
-      transportadora: '',
-      nota_fiscal: '',
-      obs: '',
-      itens: [{ tamanho: 'M', qtd: 5 }]
-    })
+    ped.salvar({ visita_id: v1.visita_id, comprador_id: comprador1.id, segmentacao_id: segId, valor_unitario: 45, itens: [{ tamanho: 'M', qtd: 10 }] })
+    ped.salvar({ visita_id: v2.visita_id, comprador_id: comprador2.id, segmentacao_id: segId, valor_unitario: 45, itens: [{ tamanho: 'M', qtd: 5 }] })
 
     const totais = ped.totaisPorTamanho(segId, colecao.id)
     const mRow = totais.find(r => r.tamanho === 'M')

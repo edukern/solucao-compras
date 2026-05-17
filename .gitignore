@@ -26,3 +26,12 @@ out
 *.db
 *.db-wal
 *.db-shm
+
+# Native test binary (Node-version-specific, download manually)
+tests/native/build/
+tests/native/bs3.tar.gz
+
+# Arquivos auxiliares locais
+check-db.py
+seed-test.py
+SPEC-compras-redesign.md

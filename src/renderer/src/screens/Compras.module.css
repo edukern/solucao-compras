@@ -901,3 +901,27 @@
 }
 .btnReimprimir:hover:not(:disabled) { color: var(--accent-light); background: rgba(var(--accent-rgb), 0.08); }
 .btnReimprimir:disabled { opacity: 0.4; cursor: default; }
+
+/* Recovery banner */
+.recoveryBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background: rgba(234,179,8,0.08);
+  border: 1px solid rgba(234,179,8,0.35);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: var(--yellow, #eab308);
+}
+.recoveryBanner strong { color: var(--text-primary); }
+
+/* Edit form inside Histórico */
+.histEditForm {
+  padding: 0.75rem 1rem;
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border);
+}

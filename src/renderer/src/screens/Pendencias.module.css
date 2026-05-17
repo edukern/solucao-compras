@@ -1,10 +1,10 @@
 .page {
   padding: 2rem;
-  max-width: 680px;
+  max-width: 720px;
 }
 
 .header {
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 .title {
@@ -20,8 +20,207 @@
   margin: 0;
 }
 
+/* ── Abas ── */
+
+.abas {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.75rem;
+}
+
+.aba {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: color 0.15s;
+}
+
+.aba:hover { color: var(--text-primary); }
+
+.abaAtiva {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.abaBadge {
+  font-size: 0.65rem;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 10px;
+  padding: 0.1rem 0.45rem;
+  font-weight: 700;
+}
+
+.abaConteudo {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ── Status ── */
+
+.statusBloco {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.statusTitulo {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.statusItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.statusIconOk   { color: var(--green); font-weight: 700; flex-shrink: 0; }
+.statusIconWait { color: var(--accent); flex-shrink: 0; }
+.statusIconTodo { color: var(--text-muted); flex-shrink: 0; font-size: 1.1rem; line-height: 1.3; }
+
+/* ── Sobre o Sistema ── */
+
+.infoBloco {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.infoBlocoTitulo {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.infoTexto {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.tabelaCustos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.linhaCusto {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.linhaCusto:last-child { border-bottom: none; }
+
+.linhaCustoDestaque { color: var(--text-primary); font-weight: 500; }
+
+.custoValor {
+  font-weight: 600;
+  color: var(--green);
+  white-space: nowrap;
+  margin-left: 1rem;
+}
+
+.linhaCustoDestaque .custoValor { color: var(--text-muted); }
+
+.passos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.passo {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.passoNum {
+  background: var(--accent);
+  color: #fff;
+  border-radius: 50%;
+  width: 1.4rem;
+  height: 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.stackGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+@media (max-width: 560px) {
+  .stackGrid { grid-template-columns: 1fr; }
+}
+
+.stackItem {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.stackNome {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.stackDesc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ── Perguntas (existente) ── */
+
 .grupo {
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 .grupoTitulo {

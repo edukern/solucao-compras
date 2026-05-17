@@ -10,7 +10,6 @@ import { makeGrades } from './db/grades.js'
 import { makeProjecoes } from './db/projecoes.js'
 import { makeFornecedores } from './db/fornecedores.js'
 import { makeCompradores } from './db/compradores.js'
-import { makeVisitas } from './db/visitas.js'
 import { makePedidos } from './db/pedidos.js'
 import { makeSessoes } from './db/sessoes.js'
 import fs from 'fs'
@@ -46,7 +45,6 @@ app.whenReady().then(() => {
   const proj = makeProjecoes(db)
   const forn = makeFornecedores(db)
   const comp = makeCompradores(db)
-  const vis  = makeVisitas(db)
   const ped  = makePedidos(db)
   const sess = makeSessoes(db)
 
@@ -107,14 +105,11 @@ app.whenReady().then(() => {
   ipcMain.handle('compradores:remove', (_, id) => comp.remove(id))
 
   // Sessoes
-  ipcMain.handle('sessoes:create', (_, d, lojaIds) => sess.create(d, lojaIds))
-  ipcMain.handle('sessoes:list',   (_, colId)      => sess.list(colId))
-  ipcMain.handle('sessoes:byId',   (_, id)          => sess.getById(id))
-
-  // Visitas
-  ipcMain.handle('visitas:create', (_, d)     => vis.create(d))
-  ipcMain.handle('visitas:list',   (_, colId) => vis.list(colId))
-  ipcMain.handle('visitas:byId',   (_, id)    => vis.getById(id))
+  ipcMain.handle('sessoes:create',  (_, d, lojaIds) => sess.create(d, lojaIds))
+  ipcMain.handle('sessoes:list',    (_, colId)      => sess.list(colId))
+  ipcMain.handle('sessoes:byId',    (_, id)         => sess.getById(id))
+  ipcMain.handle('sessoes:update',  (_, id, d)      => sess.update(id, d))
+  ipcMain.handle('sessoes:cancelar',(_, id)         => sess.cancelar(id))
 
   // Pedidos
   ipcMain.handle('pedidos:salvar',             (_, d)            => ped.salvar(d))

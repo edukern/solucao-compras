@@ -127,13 +127,14 @@ export function runMigrations(db) {
       ON grade_historica(segmentacao_id, colecao_id);
     CREATE INDEX IF NOT EXISTS idx_proj_seg_col
       ON projecoes(segmentacao_id, colecao_id);
-    CREATE INDEX IF NOT EXISTS idx_visitas_col
-      ON visitas(colecao_id);
     CREATE INDEX IF NOT EXISTS idx_pedidos_visita
       ON pedidos(visita_id);
     CREATE INDEX IF NOT EXISTS idx_pedido_itens_pedido
       ON pedido_itens(pedido_id);
   `)
+  // idx_visitas_col only applies to the old visitas schema (which had colecao_id);
+  // after the deduplication migration below, visitas no longer has that column
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_visitas_col ON visitas(colecao_id)`) } catch {}
 
   // Add categoria to fornecedores if upgrading from very old schema
   try { db.exec(`ALTER TABLE fornecedores ADD COLUMN categoria TEXT`) } catch {}
@@ -166,24 +167,28 @@ export function runMigrations(db) {
   // Deduplicate visitas — remove columns now owned by sessoes
   const visitaCols = db.pragma('table_info(visitas)').map(c => c.name)
   if (visitaCols.includes('fornecedor_id')) {
+    // Create new table first, then drop the old one, then rename.
+    // This preserves pedidos.visita_id REFERENCES visitas(id) because SQLite only
+    // auto-rewrites FK text when we rename the referenced table — by keeping the name
+    // "visitas" as the final target, pedidos keeps pointing to the right table.
     db.exec(`
-      ALTER TABLE visitas RENAME TO _visitas_old;
-
-      CREATE TABLE visitas (
+      CREATE TABLE visitas_new (
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
         sessao_id    INTEGER NOT NULL REFERENCES sessoes(id),
         comprador_id INTEGER NOT NULL REFERENCES compradores(id)
       );
 
-      INSERT INTO visitas (id, sessao_id, comprador_id)
+      INSERT INTO visitas_new (id, sessao_id, comprador_id)
         SELECT id, sessao_id, comprador_id
-        FROM _visitas_old
+        FROM visitas
         WHERE sessao_id IS NOT NULL AND comprador_id IS NOT NULL;
+
+      DROP TABLE visitas;
+
+      ALTER TABLE visitas_new RENAME TO visitas;
 
       CREATE INDEX IF NOT EXISTS idx_visitas_sessao ON visitas(sessao_id);
       CREATE INDEX IF NOT EXISTS idx_visitas_comprador ON visitas(comprador_id);
-
-      DROP TABLE _visitas_old;
     `)
   }
 }

@@ -122,13 +122,15 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
 
 // ─── Phase 2: SKU-by-SKU Order Entry ──────────────────────────────────────
 
-function RegistrarPedidoSessao({ sessao, visitas, segs, colId, onFechar }) {
-  const [skuIdx,   setSkuIdx]   = useState(0)
-  const [lojaIdx,  setLojaIdx]  = useState(0)
-  // valor/desconto/obs por SKU: { [segId]: { valor, desconto, obs } }
-  const [skuConfig, setSkuConfig] = useState({})
+function RegistrarPedidoSessao({ sessao, visitas, segs, colId, onFechar,
+  initialQtds = {}, initialSkuConfig = {}, initialSkuIdx = 0, initialLojaIdx = 0 }) {
+  const [skuIdx,   setSkuIdx]   = useState(initialSkuIdx)
+  const [lojaIdx,  setLojaIdx]  = useState(initialLojaIdx)
+  // valor/desconto/obs/transportadora/nota_fiscal por SKU
+  const [skuConfig, setSkuConfig] = useState(initialSkuConfig)
   // qtds: { [segId]: { [visitaId]: { [tamanho]: qty } } }
-  const [qtds, setQtds] = useState({})
+  const [qtds, setQtds] = useState(initialQtds)
+  const RECOVERY_KEY = `SC_RECOVERY_${colId}`
   // projecoes por segId: { [segId]: [{ tamanho, qtd_ajustada }] }
   const [projs, setProjs] = useState({})
   const [saving, setSaving] = useState(false)
@@ -140,9 +142,11 @@ function RegistrarPedidoSessao({ sessao, visitas, segs, colId, onFechar }) {
   const seg = segs[skuIdx]
   const visita = visitas[lojaIdx]
   const tamanhos = seg ? tamanhosDeTipoGrade(seg.tipo_grade) : []
-  const valorStr = skuConfig[seg?.id]?.valor ?? ''
-  const descontoStr = skuConfig[seg?.id]?.desconto ?? ''
-  const obsStr = skuConfig[seg?.id]?.obs ?? ''
+  const valorStr          = skuConfig[seg?.id]?.valor          ?? ''
+  const descontoStr       = skuConfig[seg?.id]?.desconto       ?? ''
+  const obsStr            = skuConfig[seg?.id]?.obs            ?? ''
+  const transportadoraStr = skuConfig[seg?.id]?.transportadora ?? ''
+  const notaFiscalStr     = skuConfig[seg?.id]?.nota_fiscal    ?? ''
 
   // Load projecao for current SKU
   useEffect(() => {
@@ -156,6 +160,12 @@ function RegistrarPedidoSessao({ sessao, visitas, segs, colId, onFechar }) {
   useEffect(() => {
     firstInputRef.current?.focus()
   }, [lojaIdx, skuIdx])
+
+  // Auto-save para recuperação em caso de crash
+  useEffect(() => {
+    if (!sessao?.id) return
+    localStorage.setItem(RECOVERY_KEY, JSON.stringify({ sessao_id: sessao.id, qtds, skuConfig, skuIdx, lojaIdx }))
+  }, [qtds, skuConfig, skuIdx, lojaIdx])
 
   function getQtd(segId, visitaId, tam) {
     return qtds[segId]?.[visitaId]?.[tam] ?? ''
@@ -212,7 +222,8 @@ function RegistrarPedidoSessao({ sessao, visitas, segs, colId, onFechar }) {
           if (!itens.length) continue
           batch.push({ visita_id: v.id, comprador_id: v.comprador_id, segmentacao_id: s.id,
                        valor_unitario: valorNum, desconto_pct: descontoNum,
-                       transportadora: '', nota_fiscal: '', obs: conf.obs ?? '', itens })
+                       transportadora: conf.transportadora ?? '', nota_fiscal: conf.nota_fiscal ?? '',
+                       obs: conf.obs ?? '', itens })
           meta.push({ comprador_nome: v.comprador_nome, comprador_cnpj: v.comprador_cnpj ?? '',
                       comprador_cidade: v.comprador_cidade ?? '',
                       classificacao: s.classificacao, tipo_produto: s.tipo_produto,
@@ -220,6 +231,7 @@ function RegistrarPedidoSessao({ sessao, visitas, segs, colId, onFechar }) {
         }
       }
       const salvos = await window.api.pedidos.salvarBatch(batch)
+      localStorage.removeItem(RECOVERY_KEY)
       const allPedidos = salvos.map((p, i) => ({ ...p, ...meta[i] }))
       onFechar(allPedidos)
     } catch {
@@ -356,8 +368,30 @@ function RegistrarPedidoSessao({ sessao, visitas, segs, colId, onFechar }) {
                 </div>
               </div>
 
-              {/* Obs por SKU */}
-              <div className={styles.field} style={{ marginTop: '0.5rem' }}>
+              {/* Transportadora, NF e Obs por SKU */}
+              <div className={styles.skuPricing} style={{ marginTop: '0.5rem' }}>
+                <div className={styles.field}>
+                  <span className={styles.label}>Transportadora</span>
+                  <input
+                    type="text"
+                    placeholder="Ex: Jadlog, Correios…"
+                    value={transportadoraStr}
+                    onChange={e => setSkuVal(seg.id, 'transportadora', e.target.value)}
+                    style={{ width: 130 }}
+                  />
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Nota Fiscal</span>
+                  <input
+                    type="text"
+                    placeholder="Nº da NF"
+                    value={notaFiscalStr}
+                    onChange={e => setSkuVal(seg.id, 'nota_fiscal', e.target.value)}
+                    style={{ width: 100 }}
+                  />
+                </div>
+              </div>
+              <div className={styles.field} style={{ marginTop: '0.25rem' }}>
                 <span className={styles.label}>Obs do produto (opcional)</span>
                 <textarea
                   rows={1}
@@ -597,7 +631,11 @@ function Historico({ colId }) {
   const [expandedVisita,   setExpandedVisita]   = useState(null)
   const [pedidosPorVisita, setPedidosPorVisita] = useState({})
   const [reimprimindo,     setReimprimindo]     = useState(null) // sessao.id em andamento
-  const [confirmCancelar,  setConfirmCancelar]  = useState(null) // { pedidoId, visitaId }
+  const [confirmCancelar,     setConfirmCancelar]     = useState(null) // { pedidoId, visitaId }
+  const [editSessaoId,        setEditSessaoId]        = useState(null)
+  const [editSessaoForm,      setEditSessaoForm]      = useState({})
+  const [savingEditSessao,    setSavingEditSessao]    = useState(false)
+  const [confirmDeleteSessao, setConfirmDeleteSessao] = useState(null) // sessaoId
 
   useEffect(() => {
     window.api.sessoes.list(colId).then(list => {
@@ -624,6 +662,35 @@ function Historico({ colId }) {
       ...prev,
       [visitaId]: (prev[visitaId] ?? []).filter(p => p.id !== pedidoId)
     }))
+  }
+
+  function handleStartEditSessao(ses) {
+    setEditSessaoId(ses.id)
+    setEditSessaoForm({
+      data_visita: ses.data_visita,
+      vendedor:    ses.vendedor  ?? '',
+      cond_pag:    ses.cond_pag  ?? '',
+      frete:       ses.frete     ?? '',
+      obs:         ses.obs       ?? '',
+    })
+  }
+
+  async function handleSaveEditSessao(id) {
+    setSavingEditSessao(true)
+    try {
+      const updated = await window.api.sessoes.update(id, editSessaoForm)
+      setSessoesList(prev => prev.map(s => s.id === id ? { ...updated, visitas: s.visitas } : s))
+      setEditSessaoId(null)
+    } finally {
+      setSavingEditSessao(false)
+    }
+  }
+
+  async function executarDeleteSessao() {
+    const id = confirmDeleteSessao
+    setConfirmDeleteSessao(null)
+    await window.api.sessoes.cancelar(id)
+    setSessoesList(prev => prev.filter(s => s.id !== id))
   }
 
   async function handleReimprimir(ses) {
@@ -665,6 +732,15 @@ function Historico({ colId }) {
           onCancel={() => setConfirmCancelar(null)}
         />
       )}
+      {confirmDeleteSessao && (
+        <ConfirmModal
+          message="Excluir esta sessão inteira? Todos os pedidos serão removidos. Essa ação não pode ser desfeita."
+          confirmLabel="Excluir sessão"
+          danger
+          onConfirm={executarDeleteSessao}
+          onCancel={() => setConfirmDeleteSessao(null)}
+        />
+      )}
       {sessoesList.map(ses => (
         <div key={ses.id} className={styles.histSessao}>
           <div className={styles.histSessaoHeader}>
@@ -686,7 +762,71 @@ function Historico({ colId }) {
             >
               {reimprimindo === ses.id ? '…' : '🖨'}
             </button>
+            <button
+              className={styles.btnReimprimir}
+              onClick={() => handleStartEditSessao(ses)}
+              disabled={editSessaoId !== null}
+              title="Editar dados da sessão"
+            >
+              ✎
+            </button>
+            <button
+              className={styles.btnReimprimir}
+              style={{ color: 'var(--red)' }}
+              onClick={() => setConfirmDeleteSessao(ses.id)}
+              disabled={editSessaoId !== null}
+              title="Excluir sessão"
+            >
+              🗑
+            </button>
           </div>
+
+          {editSessaoId === ses.id && (
+            <div className={styles.histEditForm}>
+              <div className={styles.formGrid}>
+                <div className={styles.field}>
+                  <span className={styles.label}>Data</span>
+                  <input type="date" value={editSessaoForm.data_visita}
+                    onChange={e => setEditSessaoForm(p => ({ ...p, data_visita: e.target.value }))} />
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Vendedor</span>
+                  <input type="text" value={editSessaoForm.vendedor}
+                    onChange={e => setEditSessaoForm(p => ({ ...p, vendedor: e.target.value }))}
+                    placeholder="Nome do vendedor" />
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Cond. pagamento</span>
+                  <input type="text" value={editSessaoForm.cond_pag}
+                    onChange={e => setEditSessaoForm(p => ({ ...p, cond_pag: e.target.value }))}
+                    placeholder="Ex: 30/60 dias" />
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Frete</span>
+                  <select value={editSessaoForm.frete}
+                    onChange={e => setEditSessaoForm(p => ({ ...p, frete: e.target.value }))}>
+                    <option value="">—</option>
+                    <option value="CIF">CIF</option>
+                    <option value="FOB">FOB</option>
+                  </select>
+                </div>
+                <div className={styles.field} style={{ minWidth: 200 }}>
+                  <span className={styles.label}>Obs</span>
+                  <input type="text" value={editSessaoForm.obs}
+                    onChange={e => setEditSessaoForm(p => ({ ...p, obs: e.target.value }))}
+                    placeholder="Observações" />
+                </div>
+              </div>
+              <div className={styles.phaseActions} style={{ marginTop: '0.5rem' }}>
+                <button className={styles.btnSecondary} onClick={() => setEditSessaoId(null)} disabled={savingEditSessao}>
+                  Cancelar
+                </button>
+                <button className={styles.btnPrimary} onClick={() => handleSaveEditSessao(ses.id)} disabled={savingEditSessao}>
+                  {savingEditSessao ? 'Salvando…' : 'Salvar'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {expandedSessao === ses.id && (
             <div className={styles.histSessaoBody}>
@@ -766,7 +906,9 @@ export default function Compras() {
   const [sessao,      setSessao]      = useState(null)
   const [visitas,     setVisitas]     = useState([])
   const [pedidosFechados, setPedidosFechados] = useState([])
-  const [view,        setView]        = useState('nova') // 'nova' | 'historico'
+  const [view,            setView]            = useState('nova') // 'nova' | 'historico'
+  const [recoveryData,    setRecoveryData]    = useState(null)
+  const [recoveryInitial, setRecoveryInitial] = useState(null)
 
   useEffect(() => {
     Promise.all([
@@ -775,6 +917,31 @@ export default function Compras() {
       window.api.compradores.list(),
     ]).then(([s, f, c]) => { setSegs(s); setForns(f); setCompradores(c) })
   }, [])
+
+  // Verifica se há sessão interrompida para recuperar
+  useEffect(() => {
+    if (!active?.id) return
+    const key = `SC_RECOVERY_${active.id}`
+    const saved = localStorage.getItem(key)
+    if (!saved) { setRecoveryData(null); return }
+    try {
+      const data = JSON.parse(saved)
+      window.api.sessoes.byId(data.sessao_id).then(sessaoDb => {
+        if (!sessaoDb) { localStorage.removeItem(key); setRecoveryData(null); return }
+        const visEnriquecidas = sessaoDb.visitas.map(v => ({
+          id: v.visita_id,
+          comprador_id:     v.comprador_id,
+          comprador_nome:   v.comprador_nome,
+          comprador_cnpj:   v.comprador_cnpj   ?? '',
+          comprador_cidade: v.comprador_cidade  ?? '',
+        }))
+        setRecoveryData({ sessao: sessaoDb, visitas: visEnriquecidas, ...data })
+      })
+    } catch {
+      localStorage.removeItem(key)
+      setRecoveryData(null)
+    }
+  }, [active?.id])
 
   function handleStart(novaSessao, lojas) {
     const visitasEnriquecidas = novaSessao.visitas.map(v => {
@@ -797,10 +964,25 @@ export default function Compras() {
     setPhase(3)
   }
 
+  function handleRecover() {
+    const { sessao, visitas, qtds, skuConfig, skuIdx, lojaIdx } = recoveryData
+    setSessao(sessao)
+    setVisitas(visitas)
+    setRecoveryInitial({ qtds, skuConfig, skuIdx: skuIdx ?? 0, lojaIdx: lojaIdx ?? 0 })
+    setRecoveryData(null)
+    setPhase(2)
+  }
+
+  function handleDismissRecovery() {
+    localStorage.removeItem(`SC_RECOVERY_${active.id}`)
+    setRecoveryData(null)
+  }
+
   function handleNovaSessao() {
     setSessao(null)
     setVisitas([])
     setPedidosFechados([])
+    setRecoveryInitial(null)
     setPhase(1)
   }
 
@@ -819,6 +1001,19 @@ export default function Compras() {
   return (
     <div className={styles.page}>
       <h1 className={styles.title}>Compras — {active.nome}</h1>
+
+      {view === 'nova' && phase === 1 && recoveryData && (
+        <div className={styles.recoveryBanner}>
+          <span>
+            Sessão interrompida: <strong>{recoveryData.sessao.fornecedor_nome}</strong>
+            {' '}em <strong>{fmtDate(recoveryData.sessao.data_visita)}</strong>. Deseja continuar de onde parou?
+          </span>
+          <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+            <button className={styles.btnPrimary} onClick={handleRecover}>Continuar</button>
+            <button className={styles.btnSecondary} onClick={handleDismissRecovery}>Descartar</button>
+          </div>
+        </div>
+      )}
 
       {!inSession && (
         <div className={styles.viewToggle}>
@@ -863,6 +1058,10 @@ export default function Compras() {
           segs={segs}
           colId={active.id}
           onFechar={handleFechar}
+          initialQtds={recoveryInitial?.qtds ?? {}}
+          initialSkuConfig={recoveryInitial?.skuConfig ?? {}}
+          initialSkuIdx={recoveryInitial?.skuIdx ?? 0}
+          initialLojaIdx={recoveryInitial?.lojaIdx ?? 0}
         />
       )}
       {phase === 3 && sessao && (
