@@ -1,6 +1,7 @@
-import { colecoes, segmentacoes, fornecedores, projecoes, pedidosBase, compradores } from './mockData.js'
+import { colecoes as _colecoes, segmentacoes, fornecedores, projecoes, pedidosBase, compradores } from './mockData.js'
 
-// mutable in-memory pedidos array (resets on page reload — by design)
+// mutable in-memory state (resets on page reload — by design)
+const colecoesList = [..._colecoes]
 const pedidos = [...pedidosBase]
 
 function resolve(value) {
@@ -9,8 +10,13 @@ function resolve(value) {
 
 const mockApi = {
   colecoes: {
-    list: () => resolve([...colecoes]),
-    create: () => resolve(null),
+    list: () => resolve([...colecoesList]),
+    create({ nome, estacao, ano }) {
+      const id = colecoesList.length > 0 ? Math.max(...colecoesList.map(c => c.id)) + 1 : 1
+      const nova = { id, nome, estacao, ano, status: 'planejamento' }
+      colecoesList.push(nova)
+      return resolve(nova)
+    },
   },
 
   segmentacoes: {
