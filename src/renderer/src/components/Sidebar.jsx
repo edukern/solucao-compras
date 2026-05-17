@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { id: 'planejamento', label: 'Planejamento', icon: '🎯' },
   { id: 'compras',      label: 'Compras',      icon: '🛍️' },
   { id: 'relatorios',   label: 'Relatórios',   icon: '📊' },
+  { id: 'configuracoes', label: 'Configurações', icon: '⚙️' },
 ]
 
 export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {

@@ -5,12 +5,14 @@ import Dashboard from './screens/Dashboard'
 import Planejamento from './screens/Planejamento'
 import Compras from './screens/Compras'
 import Relatorios from './screens/Relatorios'
+import Configuracoes from './screens/Configuracoes'
 
 const SCREENS = {
   dashboard:    () => <Dashboard />,
   planejamento: () => <Planejamento />,
   compras:      () => <Compras />,
   relatorios:   () => <Relatorios />,
+  configuracoes: () => <Configuracoes />,
 }
 
 export default function App() {
