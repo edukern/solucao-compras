@@ -1,6 +1,7 @@
 // electron/main/index.js
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
+import { autoUpdater } from 'electron-updater'
 import { getDb } from './db/connection.js'
 import { runMigrations } from './db/schema.js'
 import { makeColecoes } from './db/colecoes.js'
@@ -158,6 +159,25 @@ app.whenReady().then(() => {
     const result = await dialog.showOpenDialog(options)
     return result.filePaths[0] ?? null
   })
+
+  // Auto-update — só roda no app instalado (não em dev)
+  if (app.isPackaged) {
+    autoUpdater.autoDownload = true
+    autoUpdater.autoInstallOnAppQuit = true
+
+    const sendStatus = (status) => {
+      BrowserWindow.getAllWindows()[0]?.webContents.send('updater:status', status)
+    }
+
+    autoUpdater.on('update-available',   info     => sendStatus({ type: 'available',   version: info.version }))
+    autoUpdater.on('download-progress',  progress => sendStatus({ type: 'downloading', percent: Math.round(progress.percent) }))
+    autoUpdater.on('update-downloaded',  ()       => sendStatus({ type: 'ready' }))
+    autoUpdater.on('error',              err      => sendStatus({ type: 'error', message: err.message }))
+
+    setTimeout(() => autoUpdater.checkForUpdates(), 5000)
+  }
+
+  ipcMain.handle('updater:install', () => autoUpdater.quitAndInstall())
 
   createWindow()
 })

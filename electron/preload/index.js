@@ -66,5 +66,13 @@ contextBridge.exposeInMainWorld('api', {
   },
   dialog: {
     openFile: (options) => ipcRenderer.invoke('dialog:openFile', options),
+  },
+  updater: {
+    install:  ()   => ipcRenderer.invoke('updater:install'),
+    onStatus: (cb) => {
+      const handler = (_, s) => cb(s)
+      ipcRenderer.on('updater:status', handler)
+      return () => ipcRenderer.removeListener('updater:status', handler)
+    },
   }
 })
