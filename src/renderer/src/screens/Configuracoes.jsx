@@ -533,6 +533,8 @@ function AbaBackup() {
     try {
       const ok = await window.api.backup.export()
       setStatus(ok ? 'Backup exportado com sucesso.' : null)
+    } catch {
+      setStatus('Erro ao exportar backup. Tente novamente.')
     } finally {
       setWorking(false)
     }
@@ -544,7 +546,9 @@ function AbaBackup() {
     setStatus(null)
     try {
       await window.api.backup.import()
-      // Se chegou aqui, foi cancelado (app.exit se chamou antes de retornar)
+      // ok=false: usuário cancelou o dialog de arquivo
+    } catch {
+      setStatus('Erro ao restaurar backup.')
     } finally {
       setWorking(false)
     }
@@ -565,7 +569,11 @@ function AbaBackup() {
             ↑ Restaurar backup
           </button>
         </div>
-        {status && <p className={styles.backupStatus}>{status}</p>}
+        {status && (
+          <p className={status.startsWith('Erro') ? styles.backupError : styles.backupStatus}>
+            {status}
+          </p>
+        )}
       </div>
     </div>
   )
