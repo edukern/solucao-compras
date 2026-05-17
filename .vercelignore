@@ -1,0 +1,12 @@
+dist-electron/
+out/
+demo/
+tests/
+resources/
+scripts/
+docs/
+seed-test.cjs
+seed-test.py
+check-db.py
+*.md
+!README.md
