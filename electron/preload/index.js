@@ -8,9 +8,10 @@ contextBridge.exposeInMainWorld('api', {
     setStatus: (id, status) => ipcRenderer.invoke('colecoes:setStatus', id, status),
   },
   segmentacoes: {
-    list:   ()  => ipcRenderer.invoke('segmentacoes:list'),
-    create: (d) => ipcRenderer.invoke('segmentacoes:create', d),
-    upsert: (d) => ipcRenderer.invoke('segmentacoes:upsert', d),
+    list:   ()    => ipcRenderer.invoke('segmentacoes:list'),
+    create: (d)   => ipcRenderer.invoke('segmentacoes:create', d),
+    upsert: (d)   => ipcRenderer.invoke('segmentacoes:upsert', d),
+    remove: (id)  => ipcRenderer.invoke('segmentacoes:remove', id),
   },
   grades: {
     save: (segId, colId, rows) => ipcRenderer.invoke('grades:save', segId, colId, rows),
@@ -29,8 +30,10 @@ contextBridge.exposeInMainWorld('api', {
     update: (id, d)  => ipcRenderer.invoke('fornecedores:update', id, d),
   },
   compradores: {
-    list:   ()  => ipcRenderer.invoke('compradores:list'),
-    create: (d) => ipcRenderer.invoke('compradores:create', d),
+    list:   ()       => ipcRenderer.invoke('compradores:list'),
+    create: (d)      => ipcRenderer.invoke('compradores:create', d),
+    update: (id, d)  => ipcRenderer.invoke('compradores:update', id, d),
+    remove: (id)     => ipcRenderer.invoke('compradores:remove', id),
   },
   visitas: {
     create: (d)     => ipcRenderer.invoke('visitas:create', d),

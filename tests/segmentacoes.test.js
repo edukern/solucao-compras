@@ -59,4 +59,10 @@ describe('segmentacoes', () => {
     const list = seg.list()
     expect(list[0].tipo_grade).toBe('INF')
   })
+
+  it('remove deletes segmentacao by id', () => {
+    const id = seg.create({ classificacao: 'AD', tipo_produto: 'CALCA', classe: 'MASC', tipo_grade: 'AD', estacao: 'inverno' })
+    seg.remove(id)
+    expect(seg.list()).toHaveLength(0)
+  })
 })

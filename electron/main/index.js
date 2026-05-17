@@ -55,6 +55,7 @@ app.whenReady().then(() => {
   ipcMain.handle('segmentacoes:list',    () => seg.list())
   ipcMain.handle('segmentacoes:create',  (_, d) => seg.create(d))
   ipcMain.handle('segmentacoes:upsert',  (_, d) => seg.upsert(d))
+  ipcMain.handle('segmentacoes:remove',  (_, id) => seg.remove(id))
 
   // Grades
   ipcMain.handle('grades:save',  (_, segId, colId, rows) => gr.saveGrade(segId, colId, rows))
@@ -75,6 +76,8 @@ app.whenReady().then(() => {
   // Compradores
   ipcMain.handle('compradores:list',   () => comp.list())
   ipcMain.handle('compradores:create', (_, d) => comp.create(d))
+  ipcMain.handle('compradores:update', (_, id, d) => comp.update(id, d))
+  ipcMain.handle('compradores:remove', (_, id) => comp.remove(id))
 
   // Visitas
   ipcMain.handle('visitas:create', (_, d)     => vis.create(d))

@@ -15,6 +15,7 @@ export function makeSegmentacoes(db) {
      WHERE classificacao = @classificacao AND tipo_produto = @tipo_produto
        AND classe = @classe AND tipo_grade = @tipo_grade`
   )
+  const del = db.prepare(`DELETE FROM segmentacoes WHERE id = ?`)
 
   return {
     create(data) {
@@ -33,6 +34,9 @@ export function makeSegmentacoes(db) {
       const existing = findExact.get(data)
       if (existing) return existing.id
       return insert.run(data).lastInsertRowid
+    },
+    remove(id) {
+      del.run(id)
     }
   }
 }
