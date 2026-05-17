@@ -8,7 +8,8 @@ export function makeColecoes(db) {
 
   return {
     create({ nome, estacao, ano }) {
-      return insert.run({ nome, estacao, ano }).lastInsertRowid
+      const id = insert.run({ nome, estacao, ano }).lastInsertRowid
+      return byId.get(id)
     },
     getById(id) {
       return byId.get(id)

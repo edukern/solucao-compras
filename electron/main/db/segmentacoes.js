@@ -1,7 +1,7 @@
 export function makeSegmentacoes(db) {
   const insert = db.prepare(
-    `INSERT INTO segmentacoes (classificacao, tipo_produto, classe, estacao)
-     VALUES (@classificacao, @tipo_produto, @classe, @estacao)`
+    `INSERT INTO segmentacoes (classificacao, tipo_produto, classe, tipo_grade, estacao)
+     VALUES (@classificacao, @tipo_produto, @classe, @tipo_grade, @estacao)`
   )
   const byId = db.prepare(`SELECT * FROM segmentacoes WHERE id = ?`)
   const all = db.prepare(
@@ -11,8 +11,9 @@ export function makeSegmentacoes(db) {
     `SELECT * FROM segmentacoes WHERE classificacao = ? ORDER BY tipo_produto, classe`
   )
   const findExact = db.prepare(
-    `SELECT id FROM segmentacoes WHERE classificacao = @classificacao
-     AND tipo_produto = @tipo_produto AND classe = @classe`
+    `SELECT id FROM segmentacoes
+     WHERE classificacao = @classificacao AND tipo_produto = @tipo_produto
+       AND classe = @classe AND tipo_grade = @tipo_grade`
   )
 
   return {

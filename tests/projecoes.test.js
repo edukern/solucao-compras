@@ -16,10 +16,10 @@ beforeEach(() => {
   gr = makeGrades(db)
   proj = makeProjecoes(db)
 
-  colV24 = col.create({ nome: 'Verão 2024', estacao: 'verao', ano: 2024 })
-  colV25 = col.create({ nome: 'Verão 2025', estacao: 'verao', ano: 2025 })
-  colV26 = col.create({ nome: 'Verão 2026', estacao: 'verao', ano: 2026 })
-  segId = seg.create({ classificacao: 'AD', tipo_produto: 'BERMUDA', classe: 'FEM', estacao: 'VERAO' })
+  colV24 = col.create({ nome: 'Verão 2024', estacao: 'verao', ano: 2024 }).id
+  colV25 = col.create({ nome: 'Verão 2025', estacao: 'verao', ano: 2025 }).id
+  colV26 = col.create({ nome: 'Verão 2026', estacao: 'verao', ano: 2026 }).id
+  segId = seg.create({ classificacao: 'AD', tipo_produto: 'BERMUDA', classe: 'FEM', tipo_grade: 'AD', estacao: 'VERAO' })
 
   gr.saveGrade(segId, colV24, [
     { tamanho: 'P', ordem: 0, qtd_comprada: 100, qtd_vendida: 90, qtd_estoque: 10 },

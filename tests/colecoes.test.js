@@ -11,11 +11,17 @@ beforeEach(() => {
 
 describe('colecoes', () => {
   it('creates a collection and returns it by id', () => {
-    const id = col.create({ nome: 'Verão 2026', estacao: 'verao', ano: 2026 })
-    const c = col.getById(id)
+    const c = col.create({ nome: 'Verão 2026', estacao: 'verao', ano: 2026 })
+    expect(c.id).toBeDefined()
     expect(c.nome).toBe('Verão 2026')
     expect(c.estacao).toBe('verao')
     expect(c.status).toBe('planejamento')
+  })
+
+  it('create returns full object, not just id', () => {
+    const result = col.create({ nome: 'Verão 2026', estacao: 'verao', ano: 2026 })
+    expect(result).toMatchObject({ id: 1, nome: 'Verão 2026', estacao: 'verao', ano: 2026 })
+    expect(typeof result).toBe('object')
   })
 
   it('lists all collections', () => {
@@ -25,9 +31,9 @@ describe('colecoes', () => {
   })
 
   it('updates status', () => {
-    const id = col.create({ nome: 'Verão 2026', estacao: 'verao', ano: 2026 })
-    col.setStatus(id, 'em_compra')
-    expect(col.getById(id).status).toBe('em_compra')
+    const c = col.create({ nome: 'Verão 2026', estacao: 'verao', ano: 2026 })
+    col.setStatus(c.id, 'em_compra')
+    expect(col.getById(c.id).status).toBe('em_compra')
   })
 
   it('rejects invalid estacao', () => {

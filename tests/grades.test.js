@@ -11,8 +11,8 @@ beforeEach(() => {
   col = makeColecoes(db)
   seg = makeSegmentacoes(db)
   gr = makeGrades(db)
-  colId = col.create({ nome: 'Verão 2025', estacao: 'verao', ano: 2025 })
-  segId = seg.create({ classificacao: 'AD', tipo_produto: 'BERMUDA', classe: 'FEM', estacao: 'VERAO' })
+  colId = col.create({ nome: 'Verão 2025', estacao: 'verao', ano: 2025 }).id
+  segId = seg.create({ classificacao: 'AD', tipo_produto: 'BERMUDA', classe: 'FEM', tipo_grade: 'AD', estacao: 'VERAO' })
 })
 
 describe('grades', () => {

@@ -14,8 +14,8 @@ beforeEach(() => {
   seg = makeSegmentacoes(db)
   forn = makeFornecedores(db)
   ped = makePedidos(db)
-  colId = col.create({ nome: 'Verão 2026', estacao: 'verao', ano: 2026 })
-  segId = seg.create({ classificacao: 'AD', tipo_produto: 'BERMUDA', classe: 'FEM', estacao: 'VERAO' })
+  colId = col.create({ nome: 'Verão 2026', estacao: 'verao', ano: 2026 }).id
+  segId = seg.create({ classificacao: 'AD', tipo_produto: 'BERMUDA', classe: 'FEM', tipo_grade: 'AD', estacao: 'VERAO' })
   fornId = forn.create({ nome: 'ABC', contato: '' })
 })
 
@@ -74,7 +74,7 @@ describe('pedidos', () => {
 
 describe('totaisPorFornecedor', () => {
   it('returns suppliers with order totals for a collection', () => {
-    const seg2Id = seg.create({ classificacao: 'EX', tipo_produto: 'CALCA', classe: 'MASC', estacao: 'VERAO' })
+    const seg2Id = seg.create({ classificacao: 'EX', tipo_produto: 'CALCA', classe: 'MASC', tipo_grade: 'EX', estacao: 'VERAO' })
     const forn2Id = forn.create({ nome: 'XYZ', contato: '' })
     ped.salvar({ fornecedor_id: fornId, colecao_id: colId, segmentacao_id: segId,
       data_pedido: '2026-05-16', valor_unitario: 50.00,
@@ -100,7 +100,7 @@ describe('totaisPorFornecedor', () => {
   })
 
   it('filters by segmentacao_id when segId is provided', () => {
-    const seg2Id = seg.create({ classificacao: 'EX', tipo_produto: 'CALCA', classe: 'MASC', estacao: 'VERAO' })
+    const seg2Id = seg.create({ classificacao: 'EX', tipo_produto: 'CALCA', classe: 'MASC', tipo_grade: 'EX', estacao: 'VERAO' })
     ped.salvar({ fornecedor_id: fornId, colecao_id: colId, segmentacao_id: segId,
       data_pedido: '2026-05-16', valor_unitario: 50.00,
       itens: [{ tamanho: 'P', qtd_pedida: 10 }]
@@ -122,7 +122,7 @@ describe('totaisPorFornecedor', () => {
 
 describe('itensPorFornecedor', () => {
   it('returns segmentacoes with comprado totals for a supplier in a collection', () => {
-    const seg2Id = seg.create({ classificacao: 'EX', tipo_produto: 'CALCA', classe: 'MASC', estacao: 'VERAO' })
+    const seg2Id = seg.create({ classificacao: 'EX', tipo_produto: 'CALCA', classe: 'MASC', tipo_grade: 'EX', estacao: 'VERAO' })
     ped.salvar({ fornecedor_id: fornId, colecao_id: colId, segmentacao_id: segId,
       data_pedido: '2026-05-16', valor_unitario: 50.00,
       itens: [{ tamanho: 'P', qtd_pedida: 10 }, { tamanho: 'M', qtd_pedida: 20 }]
