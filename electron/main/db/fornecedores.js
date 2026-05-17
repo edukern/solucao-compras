@@ -6,7 +6,8 @@ export function makeFornecedores(db) {
 
   return {
     create({ nome, contato = '', categoria = null }) {
-      return insert.run({ nome, contato, categoria }).lastInsertRowid
+      const id = insert.run({ nome, contato, categoria }).lastInsertRowid
+      return byId.get(id)
     },
     getById(id) { return byId.get(id) },
     list() { return all.all() },

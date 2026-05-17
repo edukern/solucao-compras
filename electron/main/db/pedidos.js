@@ -1,81 +1,64 @@
 export function makePedidos(db) {
-  const insertItem = db.prepare(`
-    INSERT INTO pedidos (fornecedor_id, colecao_id, segmentacao_id, data_pedido, tamanho, qtd_pedida, valor_unitario)
-    VALUES (@fornecedor_id, @colecao_id, @segmentacao_id, @data_pedido, @tamanho, @qtd_pedida, @valor_unitario)
+  const insertHeader = db.prepare(`
+    INSERT INTO pedidos
+      (visita_id, comprador_id, segmentacao_id, valor_unitario, desconto_pct,
+       transportadora, nota_fiscal, obs)
+    VALUES
+      (@visita_id, @comprador_id, @segmentacao_id, @valor_unitario, @desconto_pct,
+       @transportadora, @nota_fiscal, @obs)
   `)
 
-  const saveAll = db.transaction((base, itens) => {
+  const insertItem = db.prepare(`
+    INSERT INTO pedido_itens (pedido_id, tamanho, qtd) VALUES (?, ?, ?)
+  `)
+
+  const salvarTx = db.transaction((header, itens) => {
+    const id = insertHeader.run(header).lastInsertRowid
     for (const item of itens) {
-      insertItem.run({ ...base, ...item })
+      insertItem.run(id, item.tamanho, item.qtd)
     }
+    return id
   })
 
-  const totaisBySegCol = db.prepare(`
-    SELECT tamanho, SUM(qtd_pedida) AS total_pedido
-    FROM pedidos WHERE segmentacao_id = ? AND colecao_id = ?
-    GROUP BY tamanho
+  const byId = db.prepare(`SELECT * FROM pedidos WHERE id = ?`)
+  const itensByPedido = db.prepare(`SELECT * FROM pedido_itens WHERE pedido_id = ? ORDER BY tamanho`)
+
+  const byVisita = db.prepare(`
+    SELECT p.*,
+           c.nome AS comprador_nome, c.cnpj, c.cidade,
+           s.classificacao, s.tipo_produto, s.classe, s.tipo_grade
+    FROM pedidos p
+    JOIN compradores c ON c.id = p.comprador_id
+    JOIN segmentacoes s ON s.id = p.segmentacao_id
+    WHERE p.visita_id = ?
+    ORDER BY c.nome, s.tipo_produto
   `)
 
-  const byColecao = db.prepare(`SELECT * FROM pedidos WHERE colecao_id = ? ORDER BY data_pedido DESC`)
-
-  const visitas = db.prepare(`
-    SELECT p.fornecedor_id, f.nome AS fornecedor_nome, p.data_pedido,
-           SUM(p.qtd_pedida) AS total_pecas,
-           SUM(p.qtd_pedida * p.valor_unitario) AS total_valor
-    FROM pedidos p JOIN fornecedores f ON f.id = p.fornecedor_id
-    WHERE p.colecao_id = ?
-    GROUP BY p.fornecedor_id, p.data_pedido
-    ORDER BY p.data_pedido DESC
-  `)
-
-  const totaisForn = db.prepare(`
-    SELECT f.id AS fornecedor_id, f.nome AS fornecedor_nome,
-           COUNT(DISTINCT p.segmentacao_id) AS num_skus,
-           SUM(p.qtd_pedida) AS total_pecas,
-           SUM(p.qtd_pedida * p.valor_unitario) AS total_valor
-    FROM pedidos p JOIN fornecedores f ON f.id = p.fornecedor_id
-    WHERE p.colecao_id = ?
-    GROUP BY p.fornecedor_id ORDER BY f.nome
-  `)
-
-  const totaisFornBySeg = db.prepare(`
-    SELECT f.id AS fornecedor_id, f.nome AS fornecedor_nome,
-           COUNT(DISTINCT p.segmentacao_id) AS num_skus,
-           SUM(p.qtd_pedida) AS total_pecas,
-           SUM(p.qtd_pedida * p.valor_unitario) AS total_valor
-    FROM pedidos p JOIN fornecedores f ON f.id = p.fornecedor_id
-    WHERE p.colecao_id = ? AND p.segmentacao_id = ?
-    GROUP BY p.fornecedor_id ORDER BY f.nome
-  `)
-
-  const itensForn = db.prepare(`
-    SELECT s.id AS segmentacao_id,
-           s.classificacao, s.tipo_produto, s.classe,
-           SUM(p.qtd_pedida) AS total_comprado
-    FROM pedidos p JOIN segmentacoes s ON s.id = p.segmentacao_id
-    WHERE p.fornecedor_id = ? AND p.colecao_id = ?
-    GROUP BY p.segmentacao_id
-    ORDER BY s.classificacao, s.tipo_produto, s.classe
+  const totaisPorTamanho = db.prepare(`
+    SELECT pi.tamanho, SUM(pi.qtd) AS total_pedido
+    FROM pedido_itens pi
+    JOIN pedidos p ON p.id = pi.pedido_id
+    JOIN visitas v ON v.id = p.visita_id
+    WHERE p.segmentacao_id = ? AND v.colecao_id = ?
+    GROUP BY pi.tamanho
   `)
 
   return {
-    salvar({ fornecedor_id, colecao_id, segmentacao_id, data_pedido, valor_unitario, itens }) {
-      saveAll({ fornecedor_id, colecao_id, segmentacao_id, data_pedido, valor_unitario }, itens)
+    salvar({ visita_id, comprador_id, segmentacao_id, valor_unitario, desconto_pct = 0,
+             transportadora = '', nota_fiscal = '', obs = '', itens }) {
+      const id = salvarTx(
+        { visita_id, comprador_id, segmentacao_id, valor_unitario, desconto_pct,
+          transportadora, nota_fiscal, obs },
+        itens
+      )
+      return { ...byId.get(id), itens: itensByPedido.all(id) }
     },
-    getTotaisPorTamanho(segId, colId) {
-      return totaisBySegCol.all(segId, colId)
+    byVisita(visitaId) {
+      const pedidos = byVisita.all(visitaId)
+      return pedidos.map(p => ({ ...p, itens: itensByPedido.all(p.id) }))
     },
-    listarPorColecao(colId) {
-      return byColecao.all(colId)
-    },
-    listarVisitas(colId) {
-      return visitas.all(colId)
-    },
-    totaisPorFornecedor(colId, segId = null) {
-      return segId !== null ? totaisFornBySeg.all(colId, segId) : totaisForn.all(colId)
-    },
-    itensPorFornecedor(fornId, colId) {
-      return itensForn.all(fornId, colId)
+    totaisPorTamanho(segId, colId) {
+      return totaisPorTamanho.all(segId, colId)
     }
   }
 }
