@@ -16,8 +16,9 @@ contextBridge.exposeInMainWorld('api', {
     remove: (id)      => ipcRenderer.invoke('segmentacoes:remove', id),
   },
   grades: {
-    save: (segId, colId, rows) => ipcRenderer.invoke('grades:save', segId, colId, rows),
-    get:  (segId, colId)       => ipcRenderer.invoke('grades:get', segId, colId),
+    save:     (segId, colId, rows)           => ipcRenderer.invoke('grades:save', segId, colId, rows),
+    get:      (segId, colId)                 => ipcRenderer.invoke('grades:get', segId, colId),
+    importar: (filePath, colecaoId, estacao) => ipcRenderer.invoke('grades:importar', filePath, colecaoId, estacao),
   },
   projecoes: {
     calcular:  (segId, colId, baseIds, metodo) => ipcRenderer.invoke('projecoes:calcular', segId, colId, baseIds, metodo),
