@@ -113,9 +113,9 @@ describe('tamanhosDeTipoGrade', () => {
     expect(tamanhosDeTipoGrade('INEXISTENTE')).toEqual([])
   })
 
-  it('grades TBD retornam array vazio', () => {
+  it('grades TBD retornam tamanho U', () => {
     for (const g of ['CASAL', 'KING', 'QUEEN', 'SOLT', 'LAR', 'GERAL']) {
-      expect(tamanhosDeTipoGrade(g)).toEqual([])
+      expect(tamanhosDeTipoGrade(g)).toEqual(['U'])
     }
   })
 })
