@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useCollection } from '../contexts/CollectionContext'
 import ColecaoModal from './ColecaoModal'
 import styles from './Sidebar.module.css'
@@ -14,6 +14,11 @@ const NAV_ITEMS = [
 export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
   const { collections, setCollections, activeId, setActiveId } = useCollection()
   const [showModal, setShowModal] = useState(false)
+  const [version,   setVersion]   = useState(null)
+
+  useEffect(() => {
+    window.api.app?.version().then(setVersion)
+  }, [])
 
   async function handleCreate(dados) {
     const nova = await window.api.colecoes.create(dados)
@@ -57,6 +62,7 @@ export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
       </nav>
 
       <div className={styles.bottom}>
+        {version && <div className={styles.version}>v{version}</div>}
         <button className={styles.themeBtn} onClick={onToggleTheme}>
           {theme === 'dark' ? '☀️ Modo claro' : '🌙 Modo escuro'}
         </button>
