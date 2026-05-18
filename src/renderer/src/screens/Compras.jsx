@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import { useCollection } from '../contexts/CollectionContext'
 import { tamanhosDeTipoGrade, GRADE_DEFINITIONS } from '../constants/grades'
 import { TIPOS_PRODUTO } from '../constants/tipoProduto'
@@ -95,14 +95,13 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
         )}
       </div>
 
-      <div className={styles.field} style={{ width: '100%' }}>
+      <div className={styles.field} style={{ flexBasis: '100%' }}>
         <span className={styles.label}>Observações (opcional)</span>
-        <textarea
-          rows={2}
-          placeholder="Condições especiais, prazo de entrega, etc."
+        <input
+          type="text"
           value={obs}
           onChange={e => setObs(e.target.value)}
-          style={{ resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
+          style={{ width: '100%', boxSizing: 'border-box' }}
         />
       </div>
 
@@ -145,8 +144,6 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar,
   const firstInputRef = useRef(null)
 
   const activeItem = items.find(it => it.localId === activeId) ?? null
-  const tamanhos   = activeItem ? tamanhosDeTipoGrade(activeItem.tipo_grade) : []
-  const visita     = visitas[lojaIdx]
 
   // Auto-save para recuperação em caso de crash
   useEffect(() => {
@@ -206,16 +203,19 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar,
     if (activeId === localId) setActiveId(null)
   }
 
-  function handleEnterOnInput(e, tamIdx) {
+  function handleEnterOnInput(e, tamIdx, visIdx) {
     if (e.key !== 'Enter' && !(e.key === 'Tab' && !e.shiftKey)) return
     e.preventDefault()
-    if (tamIdx < tamanhos.length - 1) {
-      const inputs = e.target.closest(`.${styles.gradeRow}`)?.querySelectorAll('input')
-      if (inputs?.[tamIdx + 1]) inputs[tamIdx + 1].focus()
-      return
+    const item = items.find(it => it.localId === activeId)
+    if (!item) return
+    const tams = tamanhosDeTipoGrade(item.tipo_grade)
+    if (tamIdx < tams.length - 1) {
+      const row = e.target.closest('[data-grade-row]')
+      const inputs = row?.querySelectorAll('input[type=number]')
+      if (inputs?.[tamIdx + 1]) { inputs[tamIdx + 1].focus(); return }
     }
-    if (lojaIdx < visitas.length - 1) {
-      setLojaIdx(lojaIdx + 1)
+    if (visIdx < visitas.length - 1) {
+      setLojaIdx(visIdx + 1)
     } else {
       const idx = items.findIndex(it => it.localId === activeId)
       if (idx < items.length - 1) {
@@ -368,15 +368,13 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar,
         </button>
       </div>
 
-      {/* ── Items table ── */}
+      {/* ── Items table with inline grade expansion ── */}
       {items.length > 0 ? (
         <table className={styles.itemsTable}>
           <thead>
             <tr>
               <th>Ref</th>
-              <th>Produto</th>
-              <th>Grade</th>
-              <th>Classe</th>
+              <th>Produto · Grade · Classe</th>
               <th>ICMS</th>
               <th>Valor unit.</th>
               <th>Peças</th>
@@ -385,103 +383,88 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar,
           </thead>
           <tbody>
             {items.map(it => {
-              const total = totalQtdItem(it.localId)
               const isActive = it.localId === activeId
+              const tams = tamanhosDeTipoGrade(it.tipo_grade)
+              const total = totalQtdItem(it.localId)
               return (
-                <tr
-                  key={it.localId}
-                  className={`${styles.itemRow} ${isActive ? styles.itemRowActive : ''}`}
-                  onClick={() => { setActiveId(it.localId); setLojaIdx(0) }}
-                >
-                  <td>{it.ref || <span className={styles.itemDot}>—</span>}</td>
-                  <td>{it.tipo_produto}</td>
-                  <td>{it.tipo_grade}</td>
-                  <td>{it.classe}</td>
-                  <td>{it.icms_pct}%</td>
-                  <td>{it.valor ? `R$ ${it.valor}` : <span className={styles.itemDot}>—</span>}</td>
-                  <td><strong>{total > 0 ? total : <span className={styles.itemDot}>—</span>}</strong></td>
-                  <td>
-                    <button
-                      className={styles.btnRemoveItem}
-                      onClick={e => removeItem(it.localId, e)}
-                      title="Remover item"
-                    >✕</button>
-                  </td>
-                </tr>
+                <Fragment key={it.localId}>
+                  <tr
+                    className={`${styles.itemRow} ${isActive ? styles.itemRowActive : ''}`}
+                    onClick={() => { setActiveId(isActive ? null : it.localId); setLojaIdx(0) }}
+                  >
+                    <td>{it.ref || <span className={styles.itemDot}>—</span>}</td>
+                    <td>{it.tipo_produto} · {it.tipo_grade} · {it.classe}</td>
+                    <td>{it.icms_pct || '0'}%</td>
+                    <td>{it.valor ? `R$ ${it.valor}` : <span className={styles.itemDot}>—</span>}</td>
+                    <td><strong>{total > 0 ? total : <span className={styles.itemDot}>—</span>}</strong></td>
+                    <td>
+                      <button
+                        className={styles.btnRemoveItem}
+                        onClick={e => removeItem(it.localId, e)}
+                        title="Remover item"
+                      >✕</button>
+                    </td>
+                  </tr>
+                  {isActive && (
+                    <tr className={styles.gradeExpansionRow}>
+                      <td colSpan={6} className={styles.gradeExpansionCell}>
+                        <div className={styles.gradeInlineWrap}>
+                          <div className={styles.gradeInlineHeader}>
+                            <div className={styles.gradeInlineLoja}>Loja</div>
+                            {tams.map(t => (
+                              <div key={t} className={styles.gradeInlineSize}>{t}</div>
+                            ))}
+                            <div className={styles.gradeInlineTotal}>Total</div>
+                          </div>
+                          {visitas.map((v, i) => (
+                            <div
+                              key={v.id}
+                              data-grade-row="true"
+                              className={`${styles.gradeInlineRow} ${i === lojaIdx ? styles.gradeInlineRowActive : ''}`}
+                              onClick={() => setLojaIdx(i)}
+                            >
+                              <div className={styles.gradeInlineLoja}>{v.comprador_nome}</div>
+                              {tams.map((tam, tamIdx) => (
+                                <div key={tam} className={styles.gradeInlineSize}>
+                                  <input
+                                    ref={tamIdx === 0 && i === lojaIdx ? firstInputRef : null}
+                                    type="number"
+                                    min="0"
+                                    className={styles.qtyInput}
+                                    value={getQtd(it.localId, v.id, tam)}
+                                    onChange={e => setQtd(it.localId, v.id, tam, e.target.value)}
+                                    onFocus={() => setLojaIdx(i)}
+                                    onKeyDown={e => handleEnterOnInput(e, tamIdx, i)}
+                                    placeholder="0"
+                                  />
+                                </div>
+                              ))}
+                              <div className={styles.gradeInlineTotal}>
+                                {totalQtdLoja(it.localId, v.id) || ''}
+                              </div>
+                            </div>
+                          ))}
+                          {visitas.length > 1 && (
+                            <div className={`${styles.gradeInlineRow} ${styles.gradeInlineTotalsRow}`}>
+                              <div className={styles.gradeInlineLoja}>Total lojas</div>
+                              {tams.map(tam => {
+                                const tot = visitas.reduce((s, v2) => s + (parseInt(qtds[it.localId]?.[v2.id]?.[tam]) || 0), 0)
+                                return <div key={tam} className={styles.gradeInlineSize}>{tot || ''}</div>
+                              })}
+                              <div className={styles.gradeInlineTotal}>{totalQtdItem(it.localId) || ''}</div>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               )
             })}
           </tbody>
         </table>
       ) : (
         <div className={styles.placeholder}>Adicione o primeiro produto acima para começar.</div>
-      )}
-
-      {/* ── Grade section ── */}
-      {activeItem && tamanhos.length > 0 && (
-        <div className={styles.gradeSection}>
-          <div className={styles.gradeCaption}>
-            {activeItem.ref && <span className={styles.gradeCaptionRef}>{activeItem.ref}</span>}
-            <span>{activeItem.tipo_produto} · {activeItem.tipo_grade} · {activeItem.classe}</span>
-          </div>
-
-          {/* Loja tabs */}
-          <div className={styles.lojaTabs}>
-            {visitas.map((v, i) => (
-              <button
-                key={v.id}
-                className={`${styles.lojaTab} ${i === lojaIdx ? styles.lojaTabActive : ''} ${totalQtdLoja(activeItem.localId, v.id) > 0 ? styles.lojaTabHasData : ''}`}
-                onClick={() => setLojaIdx(i)}
-              >
-                {v.comprador_nome}
-                {totalQtdLoja(activeItem.localId, v.id) > 0 && (
-                  <span className={styles.lojaTabCount}>{totalQtdLoja(activeItem.localId, v.id)}</span>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* Grade grid */}
-          <div className={styles.gradeGrid}>
-            <div className={styles.gradeHeader}>
-              <div className={styles.gradeHeaderLabel} />
-              {tamanhos.map(tam => (
-                <div key={tam} className={styles.gradeHeaderCell}>{tam}</div>
-              ))}
-              <div className={styles.gradeHeaderCell}>Total</div>
-            </div>
-            <div className={styles.gradeRow}>
-              <div className={styles.gradeRowLabel}>{visita?.comprador_nome}</div>
-              {tamanhos.map((tam, tamIdx) => (
-                <input
-                  key={tam}
-                  ref={tamIdx === 0 ? firstInputRef : null}
-                  type="number"
-                  min="0"
-                  className={styles.qtyInput}
-                  value={getQtd(activeItem.localId, visita?.id, tam)}
-                  onChange={e => setQtd(activeItem.localId, visita?.id, tam, e.target.value)}
-                  onKeyDown={e => handleEnterOnInput(e, tamIdx)}
-                  placeholder="0"
-                />
-              ))}
-              <div className={styles.gradeTotal}>
-                {totalQtdLoja(activeItem.localId, visita?.id)}
-              </div>
-            </div>
-            {visitas.length > 1 && (
-              <div className={`${styles.gradeRow} ${styles.gradeTotaisRow}`}>
-                <div className={styles.gradeRowLabel}>Total lojas</div>
-                {tamanhos.map(tam => {
-                  const tot = visitas.reduce((s, v) => s + (parseInt(qtds[activeItem.localId]?.[v.id]?.[tam]) || 0), 0)
-                  return <div key={tam} className={styles.gradeTotalCell}>{tot || ''}</div>
-                })}
-                <div className={styles.gradeTotal}>
-                  {totalQtdItem(activeItem.localId)}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
       )}
 
       {error && <div className={styles.errorBanner}>{error}</div>}

@@ -977,3 +977,82 @@
 .gradeSection { margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem; }
 .gradeCaption { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.75rem; display: flex; gap: 0.5rem; align-items: center; color: var(--text); }
 .gradeCaptionRef { background: var(--bg-alt, #eee); padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); }
+
+/* ─── Phase 2: Inline grade expansion ──────────────────────────────────────── */
+.gradeExpansionRow > td {
+  padding: 0 !important;
+  background: var(--bg-secondary) !important;
+  border-bottom: 2px solid var(--border);
+}
+
+.gradeExpansionCell { padding: 0 !important; }
+
+.gradeInlineWrap {
+  padding: 0.5rem 0.75rem 0.6rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-x: auto;
+}
+
+.gradeInlineHeader {
+  display: flex;
+  align-items: center;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2px;
+}
+
+.gradeInlineRow {
+  display: flex;
+  align-items: center;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.gradeInlineRow:hover { background: var(--bg-hover); }
+.gradeInlineRowActive { background: rgba(var(--accent-rgb, 99,102,241), 0.06); }
+
+.gradeInlineLoja {
+  min-width: 140px;
+  flex-shrink: 0;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  padding: 0.25rem 0.5rem 0.25rem 0;
+}
+
+.gradeInlineSize {
+  min-width: 58px;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gradeInlineTotal {
+  min-width: 52px;
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent-light);
+  padding: 0.2rem 0.35rem;
+}
+
+.gradeInlineTotalsRow {
+  border-top: 1px solid var(--border);
+  margin-top: 3px;
+  padding-top: 2px;
+}
+.gradeInlineTotalsRow .gradeInlineLoja {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
