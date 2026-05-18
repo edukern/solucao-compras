@@ -75,11 +75,11 @@ const sessaoVisitasList = [
   { sessao_id: 3, visita_id: 13, comprador_id: 3 },
 ]
 const pedidosList = [
-  { id: 20, visita_id: 10, comprador_id: 1, segmentacao_id: 1, valor_unitario: 42.90, desconto_pct: 5, transportadora: '', nota_fiscal: '', obs: '' },
-  { id: 21, visita_id: 10, comprador_id: 1, segmentacao_id: 2, valor_unitario: 89.90, desconto_pct: 0, transportadora: '', nota_fiscal: '', obs: '' },
-  { id: 22, visita_id: 11, comprador_id: 2, segmentacao_id: 1, valor_unitario: 42.90, desconto_pct: 5, transportadora: '', nota_fiscal: '', obs: '' },
-  { id: 23, visita_id: 12, comprador_id: 1, segmentacao_id: 3, valor_unitario: 55.00, desconto_pct: 0, transportadora: '', nota_fiscal: '', obs: '' },
-  { id: 24, visita_id: 13, comprador_id: 3, segmentacao_id: 2, valor_unitario: 89.90, desconto_pct: 10, transportadora: '', nota_fiscal: '', obs: '' },
+  { id: 20, visita_id: 10, comprador_id: 1, segmentacao_id: 1, valor_unitario: 42.90, desconto_pct: 5, referencia: '', icms_pct: 0, transportadora: '', nota_fiscal: '', obs: '' },
+  { id: 21, visita_id: 10, comprador_id: 1, segmentacao_id: 2, valor_unitario: 89.90, desconto_pct: 0, referencia: '', icms_pct: 0, transportadora: '', nota_fiscal: '', obs: '' },
+  { id: 22, visita_id: 11, comprador_id: 2, segmentacao_id: 1, valor_unitario: 42.90, desconto_pct: 5, referencia: '', icms_pct: 0, transportadora: '', nota_fiscal: '', obs: '' },
+  { id: 23, visita_id: 12, comprador_id: 1, segmentacao_id: 3, valor_unitario: 55.00, desconto_pct: 0, referencia: '', icms_pct: 0, transportadora: '', nota_fiscal: '', obs: '' },
+  { id: 24, visita_id: 13, comprador_id: 3, segmentacao_id: 2, valor_unitario: 89.90, desconto_pct: 10, referencia: '', icms_pct: 0, transportadora: '', nota_fiscal: '', obs: '' },
 ]
 const pedidoItensList = [
   { id: 30, pedido_id: 20, tamanho: 'PP', qtd: 10 },
@@ -137,12 +137,14 @@ function enrichPedido(p) {
   return {
     ...p,
     comprador_nome: comp?.nome ?? '',
-    cnpj:   comp?.cnpj ?? '',
-    cidade: comp?.cidade ?? '',
-    classificacao: seg?.classificacao ?? '',
-    tipo_produto:  seg?.tipo_produto ?? '',
-    classe:        seg?.classe ?? '',
-    tipo_grade:    seg?.tipo_grade ?? '',
+    cnpj:           comp?.cnpj ?? '',
+    cidade:         comp?.cidade ?? '',
+    classificacao:  seg?.classificacao ?? '',
+    tipo_produto:   seg?.tipo_produto ?? '',
+    classe:         seg?.classe ?? '',
+    tipo_grade:     seg?.tipo_grade ?? '',
+    referencia:     p.referencia ?? '',
+    icms_pct:       p.icms_pct ?? 0,
     itens,
   }
 }
@@ -189,6 +191,19 @@ export const mockApi = {
       )
       if (existing) return existing.id
       const nova = { id: uid(), ...d }
+      segmentacoesList.push(nova)
+      return nova.id
+    },
+    async findOrCreate({ classificacao, tipo_produto, classe, tipo_grade, estacao }) {
+      await delay()
+      const existing = segmentacoesList.find(s =>
+        s.classificacao === classificacao &&
+        s.tipo_produto  === tipo_produto  &&
+        s.classe        === classe        &&
+        s.tipo_grade    === tipo_grade
+      )
+      if (existing) return existing.id
+      const nova = { id: uid(), classificacao, tipo_produto, classe, tipo_grade, estacao: estacao ?? 'inverno' }
       segmentacoesList.push(nova)
       return nova.id
     },
@@ -288,6 +303,28 @@ export const mockApi = {
       const visitas = sessaoVisitasList.filter(sv => sv.sessao_id === id)
       return { ...s, fornecedor_nome: forn?.nome ?? '', visitas }
     },
+    async update(id, dados) {
+      await delay()
+      const idx = sessoesList.findIndex(s => s.id === id)
+      if (idx !== -1) sessoesList[idx] = { ...sessoesList[idx], ...dados }
+      const s = sessoesList[idx]
+      const forn = fornecedoresList.find(f => f.id === s.fornecedor_id)
+      return { ...s, fornecedor_nome: forn?.nome ?? '' }
+    },
+    async cancelar(id) {
+      await delay()
+      const sessaoIdx = sessoesList.findIndex(s => s.id === id)
+      if (sessaoIdx !== -1) sessoesList.splice(sessaoIdx, 1)
+      const svLinks = sessaoVisitasList.filter(sv => sv.sessao_id === id)
+      for (const sv of svLinks) {
+        const vIdx = visitasList.findIndex(v => v.id === sv.visita_id)
+        if (vIdx !== -1) visitasList.splice(vIdx, 1)
+      }
+      const svCount = sessaoVisitasList.length
+      for (let i = svCount - 1; i >= 0; i--) {
+        if (sessaoVisitasList[i].sessao_id === id) sessaoVisitasList.splice(i, 1)
+      }
+    },
   },
 
   visitas: {
@@ -317,17 +354,38 @@ export const mockApi = {
                    transportadora = '', nota_fiscal = '', obs = '', itens }) {
       await delay()
       const id = uid()
-      pedidosList.push({ id, visita_id, comprador_id, segmentacao_id, valor_unitario, desconto_pct, transportadora, nota_fiscal, obs })
+      pedidosList.push({ id, visita_id, comprador_id, segmentacao_id, valor_unitario, desconto_pct, referencia: '', icms_pct: 0, transportadora, nota_fiscal, obs })
       for (const item of itens) {
         pedidoItensList.push({ id: uid(), pedido_id: id, tamanho: item.tamanho, qtd: item.qtd })
       }
       return enrichPedido(pedidosList.find(p => p.id === id))
+    },
+    async salvarBatch(pedidosData) {
+      await delay()
+      return pedidosData.map(({ visita_id, comprador_id, segmentacao_id, valor_unitario,
+                               desconto_pct = 0, referencia = '', icms_pct = 0, obs = '', itens }) => {
+        const id = uid()
+        pedidosList.push({ id, visita_id, comprador_id, segmentacao_id, valor_unitario,
+                           desconto_pct, referencia, icms_pct, obs })
+        for (const item of itens) {
+          pedidoItensList.push({ id: uid(), pedido_id: id, tamanho: item.tamanho, qtd: item.qtd })
+        }
+        return enrichPedido(pedidosList.find(p => p.id === id))
+      })
     },
     async byVisita(visitaId) {
       await delay()
       return pedidosList
         .filter(p => p.visita_id === visitaId)
         .map(enrichPedido)
+    },
+    async cancelar(pedidoId) {
+      await delay()
+      const idx = pedidosList.findIndex(p => p.id === pedidoId)
+      if (idx !== -1) pedidosList.splice(idx, 1)
+      for (let i = pedidoItensList.length - 1; i >= 0; i--) {
+        if (pedidoItensList[i].pedido_id === pedidoId) pedidoItensList.splice(i, 1)
+      }
     },
     async totaisPorTamanho(segId, colId) {
       await delay()

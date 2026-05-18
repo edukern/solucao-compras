@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useCollection } from '../contexts/CollectionContext'
-import { tamanhosDeTipoGrade } from '../constants/grades'
+import { tamanhosDeTipoGrade, GRADE_DEFINITIONS } from '../constants/grades'
+import { TIPOS_PRODUTO } from '../constants/tipoProduto'
 import ConfirmModal from '../components/ConfirmModal'
 import styles from './Compras.module.css'
 
@@ -120,131 +121,147 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
   )
 }
 
-// ─── Phase 2: SKU-by-SKU Order Entry ──────────────────────────────────────
+// ─── Phase 2: Tabela de itens ─────────────────────────────────────────────
 
-function RegistrarPedidoSessao({ sessao, visitas, segs, colId, onFechar,
-  initialQtds = {}, initialSkuConfig = {}, initialSkuIdx = 0, initialLojaIdx = 0 }) {
-  const [skuIdx,   setSkuIdx]   = useState(initialSkuIdx)
+function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar,
+  initialItems = [], initialQtds = {}, initialActiveId = null, initialLojaIdx = 0 }) {
+  const [items,    setItems]    = useState(initialItems)
+  const [activeId, setActiveId] = useState(initialActiveId)
   const [lojaIdx,  setLojaIdx]  = useState(initialLojaIdx)
-  // valor/desconto/obs/transportadora/nota_fiscal por SKU
-  const [skuConfig, setSkuConfig] = useState(initialSkuConfig)
-  // qtds: { [segId]: { [visitaId]: { [tamanho]: qty } } }
-  const [qtds, setQtds] = useState(initialQtds)
+  const [qtds,     setQtds]     = useState(initialQtds)
+  const [saving,   setSaving]   = useState(false)
+  const [error,    setError]    = useState(null)
+  const [form,     setForm]     = useState({ ref: '', tipo_produto: '', tipo_grade: 'AD', classe: 'FEM', icms_pct: '', valor: '' })
   const RECOVERY_KEY = `SC_RECOVERY_${colId}`
-  // projecoes por segId: { [segId]: [{ tamanho, qtd_ajustada }] }
-  const [projs, setProjs] = useState({})
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(null)
-
-  // Refs para focar o primeiro input ao trocar de loja
   const firstInputRef = useRef(null)
 
-  const seg = segs[skuIdx]
-  const visita = visitas[lojaIdx]
-  const tamanhos = seg ? tamanhosDeTipoGrade(seg.tipo_grade) : []
-  const valorStr          = skuConfig[seg?.id]?.valor          ?? ''
-  const descontoStr       = skuConfig[seg?.id]?.desconto       ?? ''
-  const obsStr            = skuConfig[seg?.id]?.obs            ?? ''
-  const transportadoraStr = skuConfig[seg?.id]?.transportadora ?? ''
-  const notaFiscalStr     = skuConfig[seg?.id]?.nota_fiscal    ?? ''
-
-  // Load projecao for current SKU
-  useEffect(() => {
-    if (!seg || projs[seg.id] !== undefined) return
-    window.api.projecoes.get(seg.id, colId).then(p => {
-      setProjs(prev => ({ ...prev, [seg.id]: p ?? [] }))
-    })
-  }, [seg?.id, colId])
-
-  // Focus first input when loja changes
-  useEffect(() => {
-    firstInputRef.current?.focus()
-  }, [lojaIdx, skuIdx])
+  const activeItem = items.find(it => it.localId === activeId) ?? null
+  const tamanhos   = activeItem ? tamanhosDeTipoGrade(activeItem.tipo_grade) : []
+  const visita     = visitas[lojaIdx]
 
   // Auto-save para recuperação em caso de crash
   useEffect(() => {
     if (!sessao?.id) return
-    localStorage.setItem(RECOVERY_KEY, JSON.stringify({ sessao_id: sessao.id, qtds, skuConfig, skuIdx, lojaIdx }))
-  }, [qtds, skuConfig, skuIdx, lojaIdx])
+    localStorage.setItem(RECOVERY_KEY, JSON.stringify({ sessao_id: sessao.id, items, qtds, activeId, lojaIdx }))
+  }, [items, qtds, activeId, lojaIdx])
 
-  function getQtd(segId, visitaId, tam) {
-    return qtds[segId]?.[visitaId]?.[tam] ?? ''
+  // Focus first input when active item / loja changes
+  useEffect(() => {
+    firstInputRef.current?.focus()
+  }, [activeId, lojaIdx])
+
+  function getQtd(localId, visitaId, tam) {
+    return qtds[localId]?.[visitaId]?.[tam] ?? ''
   }
 
-  function setQtd(segId, visitaId, tam, raw) {
+  function setQtd(localId, visitaId, tam, raw) {
     const val = raw === '' ? '' : Math.max(0, parseInt(raw, 10) || 0)
     setQtds(prev => ({
       ...prev,
-      [segId]: { ...prev[segId], [visitaId]: { ...prev[segId]?.[visitaId], [tam]: val } }
+      [localId]: { ...prev[localId], [visitaId]: { ...prev[localId]?.[visitaId], [tam]: val } }
     }))
   }
 
-  function setSkuVal(segId, field, val) {
-    setSkuConfig(prev => ({ ...prev, [segId]: { ...prev[segId], [field]: val } }))
-  }
-
-  function handleTabOnLastInput(e) {
-    if (e.key !== 'Tab' || e.shiftKey) return
-    e.preventDefault()
-    if (lojaIdx < visitas.length - 1) {
-      setLojaIdx(lojaIdx + 1)
-    } else if (skuIdx < segs.length - 1) {
-      setSkuIdx(skuIdx + 1)
-      setLojaIdx(0)
-    }
-  }
-
-  function totalQtdLoja(segId, visitaId) {
-    const loja = qtds[segId]?.[visitaId] ?? {}
+  function totalQtdLoja(localId, visitaId) {
+    const loja = qtds[localId]?.[visitaId] ?? {}
     return Object.values(loja).reduce((s, q) => s + (parseInt(q) || 0), 0)
   }
 
-  function hasAnyData(segId) {
-    return visitas.some(v => totalQtdLoja(segId, v.id) > 0)
+  function totalQtdItem(localId) {
+    return visitas.reduce((s, v) => s + totalQtdLoja(localId, v.id), 0)
+  }
+
+  function addItem() {
+    const { ref, tipo_produto, tipo_grade, classe, icms_pct, valor } = form
+    if (!tipo_produto.trim() || !tipo_grade) return
+    const localId = `item_${Date.now()}_${Math.random()}`
+    const novoItem = {
+      localId,
+      ref: ref.trim(),
+      tipo_produto: tipo_produto.trim().toUpperCase(),
+      tipo_grade,
+      classe,
+      icms_pct: icms_pct || '0',
+      valor: valor || '',
+    }
+    setItems(prev => [...prev, novoItem])
+    setActiveId(localId)
+    setLojaIdx(0)
+    setForm(prev => ({ ...prev, ref: '', valor: '' }))
+  }
+
+  function removeItem(localId, e) {
+    e.stopPropagation()
+    setItems(prev => prev.filter(it => it.localId !== localId))
+    setQtds(prev => { const n = { ...prev }; delete n[localId]; return n })
+    if (activeId === localId) setActiveId(null)
+  }
+
+  function handleEnterOnInput(e, tamIdx) {
+    if (e.key !== 'Enter' && !(e.key === 'Tab' && !e.shiftKey)) return
+    e.preventDefault()
+    if (tamIdx < tamanhos.length - 1) {
+      const inputs = e.target.closest(`.${styles.gradeRow}`)?.querySelectorAll('input')
+      if (inputs?.[tamIdx + 1]) inputs[tamIdx + 1].focus()
+      return
+    }
+    if (lojaIdx < visitas.length - 1) {
+      setLojaIdx(lojaIdx + 1)
+    } else {
+      const idx = items.findIndex(it => it.localId === activeId)
+      if (idx < items.length - 1) {
+        setActiveId(items[idx + 1].localId)
+        setLojaIdx(0)
+      }
+    }
   }
 
   async function handleFechar() {
     setSaving(true)
     setError(null)
     try {
-      // Monta lista de pedidos para salvar em uma única transação
       const batch = []
-      const meta = [] // { comprador_nome, comprador_cnpj, comprador_cidade, classificacao, tipo_produto, classe, tipo_grade }
-      for (const s of segs) {
-        const conf = skuConfig[s.id] ?? {}
-        const valorNum = parseFloat((conf.valor ?? '').replace(',', '.')) || 0
-        const descontoNum = Math.min(100, Math.max(0, parseFloat((conf.desconto ?? '').replace(',', '.')) || 0))
+      const meta  = []
+      for (const item of items) {
+        const { localId, ref, tipo_produto, tipo_grade, classe, icms_pct, valor } = item
+        const valorNum = parseFloat((valor ?? '').replace(',', '.')) || 0
+        const icmsNum  = parseFloat((icms_pct ?? '').replace(',', '.')) || 0
+        const classDef = GRADE_DEFINITIONS[tipo_grade]
+        if (!classDef) continue
+        const classificacao = classDef.classificacao
+
+        const segId = await window.api.segmentacoes.findOrCreate({
+          classificacao, tipo_produto, classe, tipo_grade,
+          estacao: colEstacao ?? 'inverno',
+        })
+
         for (const v of visitas) {
-          const lojaTams = qtds[s.id]?.[v.id] ?? {}
-          const itens = tamanhosDeTipoGrade(s.tipo_grade)
+          const lojaTams = qtds[localId]?.[v.id] ?? {}
+          const itens = tamanhosDeTipoGrade(tipo_grade)
             .map(tam => ({ tamanho: tam, qtd: parseInt(lojaTams[tam]) || 0 }))
             .filter(i => i.qtd > 0)
           if (!itens.length) continue
-          batch.push({ visita_id: v.id, comprador_id: v.comprador_id, segmentacao_id: s.id,
-                       valor_unitario: valorNum, desconto_pct: descontoNum,
-                       transportadora: conf.transportadora ?? '', nota_fiscal: conf.nota_fiscal ?? '',
-                       obs: conf.obs ?? '', itens })
-          meta.push({ comprador_nome: v.comprador_nome, comprador_cnpj: v.comprador_cnpj ?? '',
-                      comprador_cidade: v.comprador_cidade ?? '',
-                      classificacao: s.classificacao, tipo_produto: s.tipo_produto,
-                      classe: s.classe, tipo_grade: s.tipo_grade })
+          batch.push({
+            visita_id: v.id, comprador_id: v.comprador_id, segmentacao_id: segId,
+            valor_unitario: valorNum, desconto_pct: 0,
+            referencia: ref, icms_pct: icmsNum, obs: '', itens,
+          })
+          meta.push({
+            comprador_nome: v.comprador_nome, comprador_cnpj: v.comprador_cnpj ?? '',
+            comprador_cidade: v.comprador_cidade ?? '',
+            classificacao, tipo_produto, classe, tipo_grade,
+          })
         }
       }
       const salvos = await window.api.pedidos.salvarBatch(batch)
       localStorage.removeItem(RECOVERY_KEY)
-      const allPedidos = salvos.map((p, i) => ({ ...p, ...meta[i] }))
-      onFechar(allPedidos)
+      onFechar(salvos.map((p, i) => ({ ...p, ...meta[i] })))
     } catch {
       setError('Erro ao salvar pedidos. Tente novamente.')
     } finally {
       setSaving(false)
     }
   }
-
-  const skuProj = projs[seg?.id] ?? []
-  const getProjQtd = tam => skuProj.find(r => r.tamanho === tam)?.qtd_ajustada ?? 0
-  const valorNum = parseFloat(valorStr.replace(',', '.')) || 0
-  const descontoNum = Math.min(100, Math.max(0, parseFloat(descontoStr.replace(',', '.')) || 0))
 
   return (
     <div className={styles.phase}>
@@ -259,173 +276,210 @@ function RegistrarPedidoSessao({ sessao, visitas, segs, colId, onFechar,
         <span>{visitas.length} loja(s)</span>
       </div>
 
-      <h2 className={styles.phaseTitle}>Fase 2 — Registrar Pedidos por SKU</h2>
+      <h2 className={styles.phaseTitle}>Fase 2 — Registrar Pedidos</h2>
 
-      <div className={styles.skuLayout}>
-        {/* SKU sidebar */}
-        <div className={styles.skuList}>
-          {segs.map((s, i) => (
-            <button
-              key={s.id}
-              className={`${styles.skuItem} ${i === skuIdx ? styles.skuItemActive : ''} ${hasAnyData(s.id) ? styles.skuItemHasData : ''}`}
-              onClick={() => { setSkuIdx(i); setLojaIdx(0) }}
-            >
-              <span className={styles.skuItemClass}>{s.classificacao} · {s.tipo_grade}</span>
-              <span className={styles.skuItemName}>{s.tipo_produto} · {s.classe}</span>
-              {hasAnyData(s.id) && <span className={styles.skuDot} />}
-            </button>
-          ))}
+      {/* ── Add item form ── */}
+      <datalist id="tipos-produto-list">
+        {TIPOS_PRODUTO.map(t => <option key={t} value={t} />)}
+      </datalist>
+
+      <div className={styles.addItemForm}>
+        <div className={styles.field}>
+          <span className={styles.label}>Ref</span>
+          <input
+            type="text"
+            className={styles.addItemRef}
+            placeholder="Cód. forn."
+            value={form.ref}
+            onChange={e => setForm(p => ({ ...p, ref: e.target.value }))}
+            onKeyDown={e => { if (e.key === 'Enter') addItem() }}
+          />
         </div>
-
-        {/* SKU detail */}
-        <div className={styles.skuDetail}>
-          {!seg ? (
-            <div className={styles.placeholder}>Nenhuma segmentação cadastrada.</div>
-          ) : tamanhos.length === 0 ? (
-            <div className={styles.placeholder}>
-              Grade {seg.tipo_grade} ainda sem tamanhos definidos (TBD).
-            </div>
-          ) : (
-            <>
-              <div className={styles.skuHeader}>
-                <span className={styles.skuHeaderName}>{seg.tipo_produto} · {seg.classe}</span>
-                <span className={styles.skuHeaderGrade}>{seg.classificacao} · {seg.tipo_grade} · {tamanhos.join(', ')}</span>
-              </div>
-
-              {/* Valor e desconto compartilhados por SKU */}
-              <div className={styles.skuPricing}>
-                <div className={styles.field}>
-                  <span className={styles.label}>Valor unit. (R$)</span>
-                  <input
-                    type="text"
-                    placeholder="0,00"
-                    value={valorStr}
-                    onChange={e => setSkuVal(seg.id, 'valor', e.target.value)}
-                    style={{ width: 80 }}
-                  />
-                </div>
-                <div className={styles.field}>
-                  <span className={styles.label}>Desconto (%)</span>
-                  <input
-                    type="text"
-                    placeholder="0"
-                    value={descontoStr}
-                    onChange={e => setSkuVal(seg.id, 'desconto', e.target.value)}
-                    style={{ width: 64 }}
-                  />
-                </div>
-              </div>
-
-              {/* Loja tabs */}
-              <div className={styles.lojaTabs}>
-                {visitas.map((v, i) => (
-                  <button
-                    key={v.id}
-                    className={`${styles.lojaTab} ${i === lojaIdx ? styles.lojaTabActive : ''} ${totalQtdLoja(seg.id, v.id) > 0 ? styles.lojaTabHasData : ''}`}
-                    onClick={() => setLojaIdx(i)}
-                  >
-                    {v.comprador_nome}
-                    {totalQtdLoja(seg.id, v.id) > 0 && (
-                      <span className={styles.lojaTabCount}>{totalQtdLoja(seg.id, v.id)}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-
-              {/* Grade grid */}
-              <div className={styles.gradeGrid}>
-                <div className={styles.gradeRow}>
-                  {skuProj.length > 0 && <div className={styles.gradeRowLabel}>Projeção</div>}
-                  {skuProj.length > 0 && tamanhos.map(tam => (
-                    <div key={tam} className={styles.gradeProjCell}>{getProjQtd(tam)}</div>
-                  ))}
-                </div>
-                <div className={styles.gradeHeader}>
-                  <div className={styles.gradeHeaderLabel} />
-                  {tamanhos.map(tam => (
-                    <div key={tam} className={styles.gradeHeaderCell}>{tam}</div>
-                  ))}
-                  <div className={styles.gradeHeaderCell}>Total</div>
-                </div>
-                <div className={styles.gradeRow}>
-                  <div className={styles.gradeRowLabel}>{visita?.comprador_nome}</div>
-                  {tamanhos.map((tam, tamIdx) => (
-                    <input
-                      key={tam}
-                      ref={tamIdx === 0 ? firstInputRef : null}
-                      type="number"
-                      min="0"
-                      className={styles.qtyInput}
-                      value={getQtd(seg.id, visita?.id, tam)}
-                      onChange={e => setQtd(seg.id, visita?.id, tam, e.target.value)}
-                      onKeyDown={tamIdx === tamanhos.length - 1 ? handleTabOnLastInput : undefined}
-                      placeholder="0"
-                    />
-                  ))}
-                  <div className={styles.gradeTotal}>
-                    {totalQtdLoja(seg.id, visita?.id)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Transportadora, NF e Obs por SKU */}
-              <div className={styles.skuPricing} style={{ marginTop: '0.5rem' }}>
-                <div className={styles.field}>
-                  <span className={styles.label}>Transportadora</span>
-                  <input
-                    type="text"
-                    placeholder="Ex: Jadlog, Correios…"
-                    value={transportadoraStr}
-                    onChange={e => setSkuVal(seg.id, 'transportadora', e.target.value)}
-                    style={{ width: 130 }}
-                  />
-                </div>
-                <div className={styles.field}>
-                  <span className={styles.label}>Nota Fiscal</span>
-                  <input
-                    type="text"
-                    placeholder="Nº da NF"
-                    value={notaFiscalStr}
-                    onChange={e => setSkuVal(seg.id, 'nota_fiscal', e.target.value)}
-                    style={{ width: 100 }}
-                  />
-                </div>
-              </div>
-              <div className={styles.field} style={{ marginTop: '0.25rem' }}>
-                <span className={styles.label}>Obs do produto (opcional)</span>
-                <textarea
-                  rows={1}
-                  placeholder="Ex: entrega em 45 dias, apenas cor X…"
-                  value={obsStr}
-                  onChange={e => setSkuVal(seg.id, 'obs', e.target.value)}
-                  style={{ resize: 'vertical', width: '100%', boxSizing: 'border-box', fontSize: '0.82rem' }}
-                />
-              </div>
-
-              {/* Totais por tamanho (todas as lojas) */}
-              {visitas.length > 1 && (
-                <div className={`${styles.gradeRow} ${styles.gradeTotaisRow}`}>
-                  <div className={styles.gradeRowLabel}>Total lojas</div>
-                  {tamanhos.map(tam => {
-                    const tot = visitas.reduce((s, v) => s + (parseInt(qtds[seg.id]?.[v.id]?.[tam]) || 0), 0)
-                    return <div key={tam} className={styles.gradeTotalCell}>{tot || ''}</div>
-                  })}
-                  <div className={styles.gradeTotal}>
-                    {visitas.reduce((s, v) => s + totalQtdLoja(seg.id, v.id), 0)}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
+        <div className={styles.field}>
+          <span className={styles.label}>Produto</span>
+          <input
+            type="text"
+            list="tipos-produto-list"
+            className={styles.addItemProd}
+            placeholder="Ex: CAMISETA"
+            value={form.tipo_produto}
+            onChange={e => setForm(p => ({ ...p, tipo_produto: e.target.value }))}
+            onKeyDown={e => { if (e.key === 'Enter') addItem() }}
+          />
         </div>
+        <div className={styles.field}>
+          <span className={styles.label}>Grade</span>
+          <select
+            value={form.tipo_grade}
+            onChange={e => setForm(p => ({ ...p, tipo_grade: e.target.value }))}
+          >
+            {Object.keys(GRADE_DEFINITIONS).map(g => <option key={g} value={g}>{g}</option>)}
+          </select>
+        </div>
+        <div className={styles.field}>
+          <span className={styles.label}>Classe</span>
+          <select
+            value={form.classe}
+            onChange={e => setForm(p => ({ ...p, classe: e.target.value }))}
+          >
+            <option value="FEM">FEM</option>
+            <option value="MASC">MASC</option>
+            <option value="UNI">UNI</option>
+          </select>
+        </div>
+        <div className={styles.field}>
+          <span className={styles.label}>ICMS %</span>
+          <input
+            type="text"
+            className={styles.addItemIcms}
+            placeholder="0"
+            value={form.icms_pct}
+            onChange={e => setForm(p => ({ ...p, icms_pct: e.target.value }))}
+            onKeyDown={e => { if (e.key === 'Enter') addItem() }}
+          />
+        </div>
+        <div className={styles.field}>
+          <span className={styles.label}>Valor unit.</span>
+          <input
+            type="text"
+            className={styles.addItemValor}
+            placeholder="0,00"
+            value={form.valor}
+            onChange={e => setForm(p => ({ ...p, valor: e.target.value }))}
+            onKeyDown={e => { if (e.key === 'Enter') addItem() }}
+          />
+        </div>
+        <button
+          className={styles.btnAdd}
+          disabled={!form.tipo_produto.trim() || !form.tipo_grade}
+          onClick={addItem}
+        >
+          + Adicionar
+        </button>
       </div>
+
+      {/* ── Items table ── */}
+      {items.length > 0 ? (
+        <table className={styles.itemsTable}>
+          <thead>
+            <tr>
+              <th>Ref</th>
+              <th>Produto</th>
+              <th>Grade</th>
+              <th>Classe</th>
+              <th>ICMS</th>
+              <th>Valor unit.</th>
+              <th>Peças</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map(it => {
+              const total = totalQtdItem(it.localId)
+              const isActive = it.localId === activeId
+              return (
+                <tr
+                  key={it.localId}
+                  className={`${styles.itemRow} ${isActive ? styles.itemRowActive : ''}`}
+                  onClick={() => { setActiveId(it.localId); setLojaIdx(0) }}
+                >
+                  <td>{it.ref || <span className={styles.itemDot}>—</span>}</td>
+                  <td>{it.tipo_produto}</td>
+                  <td>{it.tipo_grade}</td>
+                  <td>{it.classe}</td>
+                  <td>{it.icms_pct}%</td>
+                  <td>{it.valor ? `R$ ${it.valor}` : <span className={styles.itemDot}>—</span>}</td>
+                  <td><strong>{total > 0 ? total : <span className={styles.itemDot}>—</span>}</strong></td>
+                  <td>
+                    <button
+                      className={styles.btnRemoveItem}
+                      onClick={e => removeItem(it.localId, e)}
+                      title="Remover item"
+                    >✕</button>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      ) : (
+        <div className={styles.placeholder}>Adicione o primeiro produto acima para começar.</div>
+      )}
+
+      {/* ── Grade section ── */}
+      {activeItem && tamanhos.length > 0 && (
+        <div className={styles.gradeSection}>
+          <div className={styles.gradeCaption}>
+            {activeItem.ref && <span className={styles.gradeCaptionRef}>{activeItem.ref}</span>}
+            <span>{activeItem.tipo_produto} · {activeItem.tipo_grade} · {activeItem.classe}</span>
+          </div>
+
+          {/* Loja tabs */}
+          <div className={styles.lojaTabs}>
+            {visitas.map((v, i) => (
+              <button
+                key={v.id}
+                className={`${styles.lojaTab} ${i === lojaIdx ? styles.lojaTabActive : ''} ${totalQtdLoja(activeItem.localId, v.id) > 0 ? styles.lojaTabHasData : ''}`}
+                onClick={() => setLojaIdx(i)}
+              >
+                {v.comprador_nome}
+                {totalQtdLoja(activeItem.localId, v.id) > 0 && (
+                  <span className={styles.lojaTabCount}>{totalQtdLoja(activeItem.localId, v.id)}</span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Grade grid */}
+          <div className={styles.gradeGrid}>
+            <div className={styles.gradeHeader}>
+              <div className={styles.gradeHeaderLabel} />
+              {tamanhos.map(tam => (
+                <div key={tam} className={styles.gradeHeaderCell}>{tam}</div>
+              ))}
+              <div className={styles.gradeHeaderCell}>Total</div>
+            </div>
+            <div className={styles.gradeRow}>
+              <div className={styles.gradeRowLabel}>{visita?.comprador_nome}</div>
+              {tamanhos.map((tam, tamIdx) => (
+                <input
+                  key={tam}
+                  ref={tamIdx === 0 ? firstInputRef : null}
+                  type="number"
+                  min="0"
+                  className={styles.qtyInput}
+                  value={getQtd(activeItem.localId, visita?.id, tam)}
+                  onChange={e => setQtd(activeItem.localId, visita?.id, tam, e.target.value)}
+                  onKeyDown={e => handleEnterOnInput(e, tamIdx)}
+                  placeholder="0"
+                />
+              ))}
+              <div className={styles.gradeTotal}>
+                {totalQtdLoja(activeItem.localId, visita?.id)}
+              </div>
+            </div>
+            {visitas.length > 1 && (
+              <div className={`${styles.gradeRow} ${styles.gradeTotaisRow}`}>
+                <div className={styles.gradeRowLabel}>Total lojas</div>
+                {tamanhos.map(tam => {
+                  const tot = visitas.reduce((s, v) => s + (parseInt(qtds[activeItem.localId]?.[v.id]?.[tam]) || 0), 0)
+                  return <div key={tam} className={styles.gradeTotalCell}>{tot || ''}</div>
+                })}
+                <div className={styles.gradeTotal}>
+                  {totalQtdItem(activeItem.localId)}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {error && <div className={styles.errorBanner}>{error}</div>}
 
       <div className={styles.phaseActions}>
         <button
           className={styles.btnSecondary}
-          disabled={saving || !segs.some(s => hasAnyData(s.id))}
+          disabled={saving || items.every(it => totalQtdItem(it.localId) === 0)}
           onClick={handleFechar}
         >
           {saving ? 'Salvando…' : 'Fechar sessão e gerar PDFs →'}
@@ -459,9 +513,11 @@ function gerarPDFSessao(sessao, visitas, pedidosPorVisita) {
     const totalPecasComprador = visPedidos.reduce((s, p) => s + p.itens.reduce((s2, i) => s2 + i.qtd, 0), 0)
 
     const pedidosHtml = visPedidos.map(p => {
-      const segLabel = p.classificacao
-        ? `${p.classificacao} — ${p.tipo_produto} — ${p.classe} (Grade ${p.tipo_grade})`
-        : `Segmentação #${p.segmentacao_id}`
+      const segLabel = p.referencia
+        ? `${p.referencia} — ${p.tipo_produto ?? ''} — ${p.classe ?? ''} (Grade ${p.tipo_grade ?? ''})`
+        : p.classificacao
+          ? `${p.classificacao} — ${p.tipo_produto} — ${p.classe} (Grade ${p.tipo_grade})`
+          : `Segmentação #${p.segmentacao_id}`
       const totalQ = p.itens.reduce((s, i) => s + i.qtd, 0)
       const totalV = totalQ * p.valor_unitario * (1 - p.desconto_pct / 100)
       const rowsHtml = p.itens.filter(i => i.qtd > 0).map(i =>
@@ -593,11 +649,13 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
             <div key={vis.id} className={styles.resumoCard}>
               <div className={styles.resumoCardHeader}>{vis.comprador_nome}</div>
               {visPedidos.map((p, i) => {
-                const seg = segs.find(s => s.id === p.segmentacao_id)
                 const totalQ = p.itens.reduce((s, i) => s + i.qtd, 0)
                 return (
                   <div key={i} className={styles.resumoItem}>
-                    <span>{seg ? `${seg.tipo_produto} ${seg.classe}` : `Seg #${p.segmentacao_id}`}</span>
+                    <span>
+                      {p.referencia ? `[${p.referencia}] ` : ''}
+                      {p.tipo_produto ? `${p.tipo_produto} ${p.classe}` : `Seg #${p.segmentacao_id}`}
+                    </span>
                     <span>{totalQ} pç</span>
                   </div>
                 )
@@ -965,10 +1023,10 @@ export default function Compras() {
   }
 
   function handleRecover() {
-    const { sessao, visitas, qtds, skuConfig, skuIdx, lojaIdx } = recoveryData
+    const { sessao, visitas, items, qtds, activeId, lojaIdx } = recoveryData
     setSessao(sessao)
     setVisitas(visitas)
-    setRecoveryInitial({ qtds, skuConfig, skuIdx: skuIdx ?? 0, lojaIdx: lojaIdx ?? 0 })
+    setRecoveryInitial({ items: items ?? [], qtds: qtds ?? {}, activeId: activeId ?? null, lojaIdx: lojaIdx ?? 0 })
     setRecoveryData(null)
     setPhase(2)
   }
@@ -1055,12 +1113,12 @@ export default function Compras() {
         <RegistrarPedidoSessao
           sessao={sessaoDisplay}
           visitas={visitas}
-          segs={segs}
           colId={active.id}
+          colEstacao={active.estacao}
           onFechar={handleFechar}
+          initialItems={recoveryInitial?.items ?? []}
           initialQtds={recoveryInitial?.qtds ?? {}}
-          initialSkuConfig={recoveryInitial?.skuConfig ?? {}}
-          initialSkuIdx={recoveryInitial?.skuIdx ?? 0}
+          initialActiveId={recoveryInitial?.activeId ?? null}
           initialLojaIdx={recoveryInitial?.lojaIdx ?? 0}
         />
       )}

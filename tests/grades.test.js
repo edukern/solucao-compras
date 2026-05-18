@@ -44,4 +44,49 @@ describe('grades', () => {
     expect(rows[0].tamanho).toBe('P')
     expect(rows[1].tamanho).toBe('GG')
   })
+
+  it('importBatch upserts rows across multiple segmentacoes in one call', () => {
+    const segId2 = seg.create({ classificacao: 'AD', tipo_produto: 'CAMISETA', classe: 'MASC', tipo_grade: 'AD', estacao: 'VERAO' })
+    const colId2 = col.create({ nome: 'Inverno 2024', estacao: 'inverno', ano: 2024 }).id
+
+    gr.importBatch([
+      {
+        segmentacao_id: segId,
+        colecao_id: colId,
+        rows: [
+          { tamanho: 'P', ordem: 0, qtd_comprada: 10, qtd_vendida: 8, qtd_estoque: 2 },
+          { tamanho: 'M', ordem: 1, qtd_comprada: 20, qtd_vendida: 18, qtd_estoque: 2 },
+        ]
+      },
+      {
+        segmentacao_id: segId2,
+        colecao_id: colId2,
+        rows: [
+          { tamanho: 'G', ordem: 2, qtd_comprada: 5, qtd_vendida: 5, qtd_estoque: 0 },
+        ]
+      }
+    ])
+
+    const rows1 = gr.getGrade(segId, colId)
+    expect(rows1).toHaveLength(2)
+    expect(rows1[0].qtd_comprada).toBe(10)
+
+    const rows2 = gr.getGrade(segId2, colId2)
+    expect(rows2).toHaveLength(1)
+    expect(rows2[0].tamanho).toBe('G')
+  })
+
+  it('importBatch upserts (overwrites) on conflict', () => {
+    gr.saveGrade(segId, colId, [
+      { tamanho: 'P', ordem: 0, qtd_comprada: 100, qtd_vendida: 80, qtd_estoque: 20 }
+    ])
+    gr.importBatch([{
+      segmentacao_id: segId,
+      colecao_id: colId,
+      rows: [{ tamanho: 'P', ordem: 0, qtd_comprada: 999, qtd_vendida: 0, qtd_estoque: 0 }]
+    }])
+    const rows = gr.getGrade(segId, colId)
+    expect(rows).toHaveLength(1)
+    expect(rows[0].qtd_comprada).toBe(999)
+  })
 })

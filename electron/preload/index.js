@@ -10,13 +10,15 @@ contextBridge.exposeInMainWorld('api', {
   segmentacoes: {
     list:   ()        => ipcRenderer.invoke('segmentacoes:list'),
     create: (d)       => ipcRenderer.invoke('segmentacoes:create', d),
-    upsert: (d)       => ipcRenderer.invoke('segmentacoes:upsert', d),
+    upsert:       (d) => ipcRenderer.invoke('segmentacoes:upsert', d),
+    findOrCreate: (d) => ipcRenderer.invoke('segmentacoes:findOrCreate', d),
     update: (id, d)   => ipcRenderer.invoke('segmentacoes:update', id, d),
     remove: (id)      => ipcRenderer.invoke('segmentacoes:remove', id),
   },
   grades: {
-    save: (segId, colId, rows) => ipcRenderer.invoke('grades:save', segId, colId, rows),
-    get:  (segId, colId)       => ipcRenderer.invoke('grades:get', segId, colId),
+    save:     (segId, colId, rows)           => ipcRenderer.invoke('grades:save', segId, colId, rows),
+    get:      (segId, colId)                 => ipcRenderer.invoke('grades:get', segId, colId),
+    importar: (filePath, colecaoId, estacao) => ipcRenderer.invoke('grades:importar', filePath, colecaoId, estacao),
   },
   projecoes: {
     calcular:  (segId, colId, baseIds, metodo) => ipcRenderer.invoke('projecoes:calcular', segId, colId, baseIds, metodo),

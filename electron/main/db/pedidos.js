@@ -2,10 +2,10 @@ export function makePedidos(db) {
   const insertHeader = db.prepare(`
     INSERT INTO pedidos
       (visita_id, comprador_id, segmentacao_id, valor_unitario, desconto_pct,
-       transportadora, nota_fiscal, obs)
+       referencia, icms_pct, obs)
     VALUES
       (@visita_id, @comprador_id, @segmentacao_id, @valor_unitario, @desconto_pct,
-       @transportadora, @nota_fiscal, @obs)
+       @referencia, @icms_pct, @obs)
   `)
 
   const insertItem = db.prepare(`
@@ -23,9 +23,9 @@ export function makePedidos(db) {
   const salvarBatchTx = db.transaction((pedidosData) => {
     const results = []
     for (const { visita_id, comprador_id, segmentacao_id, valor_unitario,
-                  desconto_pct = 0, transportadora = '', nota_fiscal = '', obs = '', itens } of pedidosData) {
+                  desconto_pct = 0, referencia = '', icms_pct = 0, obs = '', itens } of pedidosData) {
       const id = insertHeader.run({ visita_id, comprador_id, segmentacao_id, valor_unitario,
-                                    desconto_pct, transportadora, nota_fiscal, obs }).lastInsertRowid
+                                    desconto_pct, referencia, icms_pct, obs }).lastInsertRowid
       for (const item of itens) {
         insertItem.run(id, item.tamanho, item.qtd)
       }
@@ -124,10 +124,10 @@ export function makePedidos(db) {
 
   return {
     salvar({ visita_id, comprador_id, segmentacao_id, valor_unitario, desconto_pct = 0,
-             transportadora = '', nota_fiscal = '', obs = '', itens }) {
+             referencia = '', icms_pct = 0, obs = '', itens }) {
       const id = salvarTx(
         { visita_id, comprador_id, segmentacao_id, valor_unitario, desconto_pct,
-          transportadora, nota_fiscal, obs },
+          referencia, icms_pct, obs },
         itens
       )
       return { ...byId.get(id), itens: itensByPedido.all(id) }

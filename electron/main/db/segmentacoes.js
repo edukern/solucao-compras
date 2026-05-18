@@ -39,6 +39,11 @@ export function makeSegmentacoes(db) {
       if (existing) return existing.id
       return insert.run(data).lastInsertRowid
     },
+    findOrCreate({ classificacao, tipo_produto, classe, tipo_grade, estacao }) {
+      const existing = findExact.get({ classificacao, tipo_produto, classe, tipo_grade })
+      if (existing) return existing.id
+      return insert.run({ classificacao, tipo_produto, classe, tipo_grade, estacao: estacao ?? 'inverno' }).lastInsertRowid
+    },
     update(id, { tipo_produto, classe, tipo_grade, estacao }) {
       upd.run({ id, tipo_produto, classe, tipo_grade, estacao })
     },
