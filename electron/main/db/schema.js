@@ -167,6 +167,36 @@ export function runMigrations(db) {
   try { db.exec(`ALTER TABLE visitas ADD COLUMN sessao_id INTEGER REFERENCES sessoes(id)`) } catch {}
   // Link visitas to a comprador for per-loja sessions (nullable — old records unaffected)
   try { db.exec(`ALTER TABLE visitas ADD COLUMN comprador_id INTEGER REFERENCES compradores(id)`) } catch {}
+  // Transportadora at session level (shown when frete = FOB)
+  try { db.exec(`ALTER TABLE sessoes ADD COLUMN transportadora TEXT`) } catch {}
+
+  // Seed initial data on first run (idempotent — INSERT OR IGNORE)
+  const seedCompradores = db.prepare(
+    `INSERT OR IGNORE INTO compradores (nome, cnpj, cidade) VALUES (?, ?, ?)`
+  )
+  const seedFornecedores = db.prepare(
+    `INSERT OR IGNORE INTO fornecedores (nome, contato, categoria) VALUES (?, ?, ?)`
+  )
+  ;[
+    ['Irmãos Backes',        '08.889.201/0001-01', 'Três Coroas/RS'],
+    ['Samuel Paulo Backes',  '15.563.106/0001-70', 'Três Coroas/RS'],
+    ['PSM Backes',           '28.010.922/0001-07', 'Igrejinha/RS'],
+    ['Alexandre Backes',     '06.284.903/0001-28', ''],
+    ['Elisangela M. Backes', '13.706.244/0001-36', 'Santa Maria do Herval/RS'],
+    ['Rafael J. Backes',     '46.348.002/0001-77', 'Rolante/RS'],
+    ['Streit Conf',          '10.206.469/0001-35', 'Riozinho/RS'],
+    ['FMV Streit Conf',      '20.354.516/0001-41', 'Rolante/RS'],
+  ].forEach(([nome, cnpj, cidade]) => seedCompradores.run(nome, cnpj, cidade))
+  ;[
+    ['LUNENDER',  '', 'CONFECCOES'],
+    ['GANGSTER',  '', 'ACESSORIOS'],
+    ['FAKINI',    '', 'CONFECCOES'],
+    ['ROVITEX',   '', 'CONFECCOES'],
+    ['BIOGAS',    '', 'CONFECCOES'],
+    ['CROCKER',   '', 'CONFECCOES'],
+    ['HUTTZ',     '', 'CONFECCOES'],
+    ['MOONCITY',  '', 'CONFECCOES'],
+  ].forEach(([nome, contato, categoria]) => seedFornecedores.run(nome, contato, categoria))
 
   // Deduplicate visitas — remove columns now owned by sessoes
   const visitaCols = db.pragma('table_info(visitas)').map(c => c.name)
