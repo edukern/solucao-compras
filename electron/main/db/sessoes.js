@@ -1,7 +1,7 @@
 export function makeSessoes(db) {
   const insert = db.prepare(`
-    INSERT INTO sessoes (fornecedor_id, colecao_id, data_visita, vendedor, cond_pag, frete, obs)
-    VALUES (@fornecedor_id, @colecao_id, @data_visita, @vendedor, @cond_pag, @frete, @obs)
+    INSERT INTO sessoes (fornecedor_id, colecao_id, data_visita, vendedor, cond_pag, frete, obs, transportadora)
+    VALUES (@fornecedor_id, @colecao_id, @data_visita, @vendedor, @cond_pag, @frete, @obs, @transportadora)
   `)
 
   const insertVisita = db.prepare(`
@@ -35,7 +35,7 @@ export function makeSessoes(db) {
 
   const updateSessao = db.prepare(`
     UPDATE sessoes SET data_visita=@data_visita, vendedor=@vendedor,
-    cond_pag=@cond_pag, frete=@frete, obs=@obs WHERE id=@id
+    cond_pag=@cond_pag, frete=@frete, obs=@obs, transportadora=@transportadora WHERE id=@id
   `)
 
   const delPedidosBySessao = db.prepare(
@@ -53,12 +53,12 @@ export function makeSessoes(db) {
     create(data, lojaIds) {
       const {
         fornecedor_id, colecao_id, data_visita,
-        vendedor = '', cond_pag = '', frete = '', obs = ''
+        vendedor = '', cond_pag = '', frete = '', obs = '', transportadora = ''
       } = data
 
       const doCreate = db.transaction(() => {
         const { lastInsertRowid: sessao_id } = insert.run({
-          fornecedor_id, colecao_id, data_visita, vendedor, cond_pag, frete, obs
+          fornecedor_id, colecao_id, data_visita, vendedor, cond_pag, frete, obs, transportadora
         })
         const visitas = lojaIds.map(comprador_id => {
           const { lastInsertRowid: visita_id } = insertVisita.run({ sessao_id, comprador_id })
@@ -85,8 +85,8 @@ export function makeSessoes(db) {
       return { ...sessao, visitas: selectVisitasBySessao.all(id) }
     },
 
-    update(id, { data_visita, vendedor = '', cond_pag = '', frete = '', obs = '' }) {
-      updateSessao.run({ id, data_visita, vendedor, cond_pag, frete, obs })
+    update(id, { data_visita, vendedor = '', cond_pag = '', frete = '', obs = '', transportadora = '' }) {
+      updateSessao.run({ id, data_visita, vendedor, cond_pag, frete, obs, transportadora })
       return selectById.get(id)
     },
 

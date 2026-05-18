@@ -17,9 +17,10 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
   const [data,      setData]      = useState(today())
   const [vendedor,  setVendedor]  = useState('')
   const [condPag,   setCondPag]   = useState('')
-  const [frete,     setFrete]     = useState('')
-  const [obs,       setObs]       = useState('')
-  const [lojas,     setLojas]     = useState([])
+  const [frete,          setFrete]          = useState('')
+  const [transportadora, setTransportadora] = useState('')
+  const [obs,            setObs]            = useState('')
+  const [lojas,          setLojas]          = useState([])
   const [saving,    setSaving]    = useState(false)
   const [error,     setError]     = useState(null)
 
@@ -39,6 +40,7 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
         vendedor,
         cond_pag: condPag,
         frete,
+        transportadora: frete === 'FOB' ? transportadora : '',
         obs
       }, lojas)
       const lojasPresentes = compradores.filter(c => lojas.includes(c.id))
@@ -78,12 +80,19 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
         </div>
         <div className={styles.field}>
           <span className={styles.label}>Frete</span>
-          <select value={frete} onChange={e => setFrete(e.target.value)}>
+          <select value={frete} onChange={e => { setFrete(e.target.value); if (e.target.value !== 'FOB') setTransportadora('') }}>
             <option value="">—</option>
             <option value="CIF">CIF</option>
             <option value="FOB">FOB</option>
           </select>
         </div>
+        {frete === 'FOB' && (
+          <div className={styles.field}>
+            <span className={styles.label}>Transportadora</span>
+            <input type="text" placeholder="Nome da transportadora" value={transportadora}
+              onChange={e => setTransportadora(e.target.value)} />
+          </div>
+        )}
       </div>
 
       <div className={styles.field} style={{ width: '100%' }}>
@@ -272,6 +281,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar,
         {sessao.vendedor && <><span className={styles.dot}>·</span><span>Vendedor: {sessao.vendedor}</span></>}
         {sessao.cond_pag && <><span className={styles.dot}>·</span><span>{sessao.cond_pag}</span></>}
         {sessao.frete    && <><span className={styles.dot}>·</span><span>Frete: {sessao.frete}</span></>}
+        {sessao.frete === 'FOB' && sessao.transportadora && <><span className={styles.dot}>·</span><span>Transp.: {sessao.transportadora}</span></>}
         <span className={styles.dot}>·</span>
         <span>{visitas.length} loja(s)</span>
       </div>
@@ -553,6 +563,7 @@ function gerarPDFSessao(sessao, visitas, pedidosPorVisita) {
           <div class="row"><span class="lbl">Data pedido:</span><span>${fmtDate(sessao.data_visita)}</span></div>
           ${sessao.cond_pag ? `<div class="row"><span class="lbl">Cond. pag.:</span><span>${esc(sessao.cond_pag)}</span></div>` : ''}
           ${sessao.frete    ? `<div class="row"><span class="lbl">Frete:</span><span>${esc(sessao.frete)}</span></div>` : ''}
+          ${sessao.frete === 'FOB' && sessao.transportadora ? `<div class="row"><span class="lbl">Transportadora:</span><span>${esc(sessao.transportadora)}</span></div>` : ''}
           ${sessao.obs      ? `<div class="row"><span class="lbl">Obs.:</span><span>${esc(sessao.obs)}</span></div>`      : ''}
         </div>
         <div class="section" style="border-top:1px solid #ddd; padding-top:10px;">
@@ -725,11 +736,12 @@ function Historico({ colId }) {
   function handleStartEditSessao(ses) {
     setEditSessaoId(ses.id)
     setEditSessaoForm({
-      data_visita: ses.data_visita,
-      vendedor:    ses.vendedor  ?? '',
-      cond_pag:    ses.cond_pag  ?? '',
-      frete:       ses.frete     ?? '',
-      obs:         ses.obs       ?? '',
+      data_visita:    ses.data_visita,
+      vendedor:       ses.vendedor       ?? '',
+      cond_pag:       ses.cond_pag       ?? '',
+      frete:          ses.frete          ?? '',
+      transportadora: ses.transportadora ?? '',
+      obs:            ses.obs            ?? '',
     })
   }
 
@@ -862,12 +874,20 @@ function Historico({ colId }) {
                 <div className={styles.field}>
                   <span className={styles.label}>Frete</span>
                   <select value={editSessaoForm.frete}
-                    onChange={e => setEditSessaoForm(p => ({ ...p, frete: e.target.value }))}>
+                    onChange={e => setEditSessaoForm(p => ({ ...p, frete: e.target.value, transportadora: e.target.value !== 'FOB' ? '' : p.transportadora }))}>
                     <option value="">—</option>
                     <option value="CIF">CIF</option>
                     <option value="FOB">FOB</option>
                   </select>
                 </div>
+                {editSessaoForm.frete === 'FOB' && (
+                  <div className={styles.field}>
+                    <span className={styles.label}>Transportadora</span>
+                    <input type="text" value={editSessaoForm.transportadora}
+                      onChange={e => setEditSessaoForm(p => ({ ...p, transportadora: e.target.value }))}
+                      placeholder="Nome da transportadora" />
+                  </div>
+                )}
                 <div className={styles.field} style={{ minWidth: 200 }}>
                   <span className={styles.label}>Obs</span>
                   <input type="text" value={editSessaoForm.obs}
