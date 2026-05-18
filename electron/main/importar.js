@@ -84,6 +84,21 @@ export function parsePlanilha(buffer) {
   return parsePlanilhaRows(rows)
 }
 
+export function parseFornecedoresERP(rows) {
+  let currentCategoria = ''
+  const marcas = []
+  rows.forEach(row => {
+    const cat  = row['Confirma seleção']?.toString().trim()
+    const nome = row['__EMPTY']?.toString().trim()
+    if (cat) {
+      currentCategoria = cat
+    } else if (nome && nome !== 'Descrição') {
+      marcas.push({ nome, categoria: currentCategoria })
+    }
+  })
+  return marcas
+}
+
 export function importarPlanilha({ filePath, colecaoId, estacao, seg, gr }) {
   const buffer = readFileSync(filePath)
   const blocks = parsePlanilha(buffer)

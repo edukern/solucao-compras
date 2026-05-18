@@ -140,9 +140,12 @@ export function runMigrations(db) {
   try { db.exec(`ALTER TABLE fornecedores ADD COLUMN categoria TEXT`) } catch {}
 
   // Add unique index on fornecedores.nome for idempotent imports
+  // If this fails (duplicate names already in DB), imports may create duplicates — log so it's visible
   try {
     db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_fornecedores_nome ON fornecedores(nome)`)
-  } catch {}
+  } catch (e) {
+    console.error('[schema] idx_fornecedores_nome failed — duplicate names in DB:', e.message)
+  }
 
   // Add referencia and icms_pct to pedidos (introduced 2026-05)
   try { db.exec(`ALTER TABLE pedidos ADD COLUMN referencia TEXT`) } catch {}
@@ -177,25 +180,35 @@ export function runMigrations(db) {
     // This preserves pedidos.visita_id REFERENCES visitas(id) because SQLite only
     // auto-rewrites FK text when we rename the referenced table — by keeping the name
     // "visitas" as the final target, pedidos keeps pointing to the right table.
-    db.exec(`
-      CREATE TABLE visitas_new (
-        id           INTEGER PRIMARY KEY AUTOINCREMENT,
-        sessao_id    INTEGER NOT NULL REFERENCES sessoes(id),
-        comprador_id INTEGER NOT NULL REFERENCES compradores(id)
-      );
+    // Wrapped in a transaction so a crash mid-migration doesn't leave the DB without a visitas table.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS app_config (
+      key   TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+  `)
 
-      INSERT INTO visitas_new (id, sessao_id, comprador_id)
-        SELECT id, sessao_id, comprador_id
-        FROM visitas
-        WHERE sessao_id IS NOT NULL AND comprador_id IS NOT NULL;
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE visitas_new (
+          id           INTEGER PRIMARY KEY AUTOINCREMENT,
+          sessao_id    INTEGER NOT NULL REFERENCES sessoes(id),
+          comprador_id INTEGER NOT NULL REFERENCES compradores(id)
+        );
 
-      DROP TABLE visitas;
+        INSERT INTO visitas_new (id, sessao_id, comprador_id)
+          SELECT id, sessao_id, comprador_id
+          FROM visitas
+          WHERE sessao_id IS NOT NULL AND comprador_id IS NOT NULL;
 
-      ALTER TABLE visitas_new RENAME TO visitas;
+        DROP TABLE visitas;
 
-      CREATE INDEX IF NOT EXISTS idx_visitas_sessao ON visitas(sessao_id);
-      CREATE INDEX IF NOT EXISTS idx_visitas_comprador ON visitas(comprador_id);
-    `)
+        ALTER TABLE visitas_new RENAME TO visitas;
+
+        CREATE INDEX IF NOT EXISTS idx_visitas_sessao ON visitas(sessao_id);
+        CREATE INDEX IF NOT EXISTS idx_visitas_comprador ON visitas(comprador_id);
+      `)
+    })()
   }
 }
 

@@ -5,7 +5,6 @@ import { makeFornecedores } from '../electron/main/db/fornecedores.js'
 import { makeCompradores } from '../electron/main/db/compradores.js'
 import { makeSegmentacoes } from '../electron/main/db/segmentacoes.js'
 import { makeSessoes } from '../electron/main/db/sessoes.js'
-import { makeVisitas } from '../electron/main/db/visitas.js'
 import { makePedidos } from '../electron/main/db/pedidos.js'
 
 function setup() {
@@ -15,7 +14,6 @@ function setup() {
   const comp = makeCompradores(db)
   const seg = makeSegmentacoes(db)
   const sess = makeSessoes(db)
-  const vis = makeVisitas(db)
   const ped = makePedidos(db)
 
   const colecao = col.create({ nome: 'Inverno 2026', estacao: 'inverno', ano: 2026 })
@@ -24,12 +22,12 @@ function setup() {
   const comprador2 = comp.create({ nome: 'Samuel Backes', cnpj: '15.563.106/0001-70', cidade: 'Três Coroas/RS' })
   const segId = seg.create({ classificacao: 'AD', tipo_produto: 'CALCA', classe: 'MASC', tipo_grade: 'AD', estacao: 'inverno' })
 
-  return { db, col, forn, comp, seg, sess, vis, ped, colecao, fornecedor, comprador1, comprador2, segId }
+  return { db, col, forn, comp, seg, sess, ped, colecao, fornecedor, comprador1, comprador2, segId }
 }
 
-describe('visitas', () => {
-  it('creates a visit via sessao and returns full object', () => {
-    const { sess, vis, colecao, fornecedor, comprador1 } = setup()
+describe('visitas via sessoes', () => {
+  it('creates a sessao with visitas and returns fornecedor data', () => {
+    const { sess, colecao, fornecedor, comprador1 } = setup()
     const sessao = sess.create({
       fornecedor_id: fornecedor.id,
       colecao_id: colecao.id,
@@ -40,29 +38,29 @@ describe('visitas', () => {
       obs: ''
     }, [comprador1.id])
 
-    const visitaId = sessao.visitas[0].visita_id
-    const visita = vis.getById(visitaId)
-    expect(visita.id).toBe(visitaId)
-    expect(visita.fornecedor_id).toBe(fornecedor.id)
-    expect(visita.fornecedor_nome).toBe('LUNENDER')
+    expect(sessao.visitas).toHaveLength(1)
+    expect(sessao.visitas[0].visita_id).toBeDefined()
+    expect(sessao.fornecedor_id).toBe(fornecedor.id)
+    expect(sessao.fornecedor_nome).toBe('LUNENDER')
   })
 
-  it('lists all visits for a collection with fornecedor name', () => {
-    const { sess, vis, colecao, fornecedor, comprador1 } = setup()
+  it('lists all sessoes for a collection with fornecedor name', () => {
+    const { sess, colecao, fornecedor, comprador1 } = setup()
     sess.create({ fornecedor_id: fornecedor.id, colecao_id: colecao.id, data_visita: '2026-05-17', vendedor: '', cond_pag: '', frete: '', obs: '' }, [comprador1.id])
-    const list = vis.list(colecao.id)
+    const list = sess.list(colecao.id)
     expect(list).toHaveLength(1)
     expect(list[0].fornecedor_nome).toBe('LUNENDER')
+    expect(list[0].visitas).toHaveLength(1)
   })
 
-  it('retrieves visit by id with fornecedor name', () => {
-    const { sess, vis, colecao, fornecedor, comprador1 } = setup()
+  it('retrieves sessao by id with vendedor and fornecedor name', () => {
+    const { sess, colecao, fornecedor, comprador1 } = setup()
     const sessao = sess.create({ fornecedor_id: fornecedor.id, colecao_id: colecao.id, data_visita: '2026-05-17', vendedor: 'João', cond_pag: '', frete: '', obs: '' }, [comprador1.id])
-    const visitaId = sessao.visitas[0].visita_id
-    const fetched = vis.getById(visitaId)
-    expect(fetched.id).toBe(visitaId)
+    const fetched = sess.getById(sessao.id)
+    expect(fetched.id).toBe(sessao.id)
     expect(fetched.vendedor).toBe('João')
     expect(fetched.fornecedor_nome).toBe('LUNENDER')
+    expect(fetched.visitas[0].visita_id).toBe(sessao.visitas[0].visita_id)
   })
 })
 

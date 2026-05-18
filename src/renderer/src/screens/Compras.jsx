@@ -500,93 +500,8 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar,
 }
 
 // ─── PDF generation (shared between FecharSessao and Historico) ──────────
-//
-// sessao:          { fornecedor_nome, data_visita, vendedor, cond_pag, frete }
-// visitas:         [{ id, comprador_nome, comprador_cnpj, comprador_cidade }]
-// pedidosPorVisita: { [visitaId]: pedido[] }  — each pedido has
-//                  { visita_id, itens, valor_unitario, desconto_pct,
-//                    classificacao, tipo_produto, classe, tipo_grade }
 
-function gerarPDFSessao(sessao, visitas, pedidosPorVisita) {
-  const dateStr = new Date().toLocaleDateString('pt-BR')
-  const visitasComPedidos = visitas.filter(v => (pedidosPorVisita[v.id] ?? []).length > 0)
-  if (!visitasComPedidos.length) { alert('Nenhum pedido para gerar PDF.'); return }
-
-  const ordersHtml = visitasComPedidos.map((vis, idx) => {
-    const visPedidos = pedidosPorVisita[vis.id] ?? []
-    const isLast = idx === visitasComPedidos.length - 1
-
-    const totalGeralComprador = visPedidos.reduce((s, p) => {
-      const q = p.itens.reduce((s2, i) => s2 + i.qtd, 0)
-      return s + q * p.valor_unitario * (1 - p.desconto_pct / 100)
-    }, 0)
-    const totalPecasComprador = visPedidos.reduce((s, p) => s + p.itens.reduce((s2, i) => s2 + i.qtd, 0), 0)
-
-    const pedidosHtml = visPedidos.map(p => {
-      const segLabel = p.referencia
-        ? `${p.referencia} — ${p.tipo_produto ?? ''} — ${p.classe ?? ''} (Grade ${p.tipo_grade ?? ''})`
-        : p.classificacao
-          ? `${p.classificacao} — ${p.tipo_produto} — ${p.classe} (Grade ${p.tipo_grade})`
-          : `Segmentação #${p.segmentacao_id}`
-      const totalQ = p.itens.reduce((s, i) => s + i.qtd, 0)
-      const totalV = totalQ * p.valor_unitario * (1 - p.desconto_pct / 100)
-      const rowsHtml = p.itens.filter(i => i.qtd > 0).map(i =>
-        `<tr><td style="text-align:left; padding:5px 10px;">${i.tamanho}</td><td style="text-align:right; padding:5px 10px;">${i.qtd}</td></tr>`
-      ).join('')
-      return `
-        <div class="seg-block">
-          <div class="seg-title">${segLabel}</div>
-          <table>
-            <thead><tr><th style="text-align:left;">Tamanho</th><th>Quantidade</th></tr></thead>
-            <tbody>${rowsHtml}</tbody>
-            <tfoot><tr>
-              <td style="text-align:left; font-weight:bold; border-top:2px solid #aaa; padding:5px 10px;">Total</td>
-              <td style="font-weight:bold; border-top:2px solid #aaa; padding:5px 10px; text-align:right;">${totalQ}</td>
-            </tr></tfoot>
-          </table>
-          <div class="totals">
-            <div>Valor unitário: <strong>R$ ${p.valor_unitario.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>
-            ${p.desconto_pct > 0 ? `<div>Desconto: <strong>${p.desconto_pct}%</strong></div>` : ''}
-            <div style="font-size:14px; margin-top:4px;">Valor líquido: <strong>R$ ${totalV.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>
-          </div>
-        </div>`
-    }).join('')
-
-    return `
-      <div class="order"${isLast ? ' style="page-break-after:avoid;"' : ''}>
-        <h1>PEDIDO DE COMPRA</h1>
-        <p style="font-size:10px; color:#888; margin-bottom:12px;">Gerado em: ${dateStr}</p>
-        <div class="section">
-          <div class="section-title">Fornecedor</div>
-          <div class="row"><span class="lbl">Fornecedor:</span><span>${esc(sessao.fornecedor_nome)}</span></div>
-          ${sessao.vendedor ? `<div class="row"><span class="lbl">Vendedor:</span><span>${esc(sessao.vendedor)}</span></div>` : ''}
-          <div class="row"><span class="lbl">Data pedido:</span><span>${fmtDate(sessao.data_visita)}</span></div>
-          ${sessao.cond_pag ? `<div class="row"><span class="lbl">Cond. pag.:</span><span>${esc(sessao.cond_pag)}</span></div>` : ''}
-          ${sessao.frete    ? `<div class="row"><span class="lbl">Frete:</span><span>${esc(sessao.frete)}</span></div>` : ''}
-          ${sessao.frete === 'FOB' && sessao.transportadora ? `<div class="row"><span class="lbl">Transportadora:</span><span>${esc(sessao.transportadora)}</span></div>` : ''}
-          ${sessao.obs      ? `<div class="row"><span class="lbl">Obs.:</span><span>${esc(sessao.obs)}</span></div>`      : ''}
-        </div>
-        <div class="section" style="border-top:1px solid #ddd; padding-top:10px;">
-          <div class="section-title">Comprador</div>
-          <div class="row"><span class="lbl">Nome:</span><span><strong>${esc(vis.comprador_nome)}</strong></span></div>
-          ${vis.comprador_cnpj   ? `<div class="row"><span class="lbl">CNPJ:</span><span>${esc(vis.comprador_cnpj)}</span></div>`   : ''}
-          ${vis.comprador_cidade ? `<div class="row"><span class="lbl">Cidade:</span><span>${esc(vis.comprador_cidade)}</span></div>` : ''}
-        </div>
-        ${pedidosHtml}
-        <div class="total-geral">
-          <span>${totalPecasComprador} peça(s)</span>
-          <span>Total do pedido: <strong>R$ ${totalGeralComprador.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></span>
-        </div>
-        <div class="footer">Gerado por Solução Compras — ${dateStr}</div>
-      </div>`
-  }).join('')
-
-  const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Pedidos — ${esc(sessao.fornecedor_nome)} — ${fmtDate(sessao.data_visita)}</title>
-  <style>
+const PDF_STYLES = `
     body { font-family: Arial, sans-serif; font-size: 12px; color: #000; margin: 0; }
     .order { padding: 24px; page-break-after: always; }
     .order:last-child { page-break-after: avoid; }
@@ -604,24 +519,133 @@ function gerarPDFSessao(sessao, visitas, pedidosPorVisita) {
     .totals { margin-top: 10px; text-align: right; line-height: 1.7; }
     .total-geral { display:flex; justify-content:space-between; align-items:center; margin-top:20px; padding:10px 12px; background:#f5f5f5; border:2px solid #333; border-radius:4px; font-size:13px; }
     .footer { margin-top: 24px; font-size: 10px; color: #888; text-align: center; border-top: 1px solid #ddd; padding-top: 8px; }
-    @media print { @page { margin: 15mm; } }
+    @media print { @page { margin: 15mm; } }`
+
+function wrapDoc(ordersHtml, titulo) {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>${titulo}</title>
+  <style>${PDF_STYLES}
   </style>
 </head>
 <body>${ordersHtml}</body>
 </html>`
+}
+
+function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
+  const dateStr = new Date().toLocaleDateString('pt-BR')
+  const totalGeralComprador = visPedidos.reduce((s, p) => {
+    const q = p.itens.reduce((s2, i) => s2 + i.qtd, 0)
+    return s + q * p.valor_unitario * (1 - p.desconto_pct / 100)
+  }, 0)
+  const totalPecasComprador = visPedidos.reduce((s, p) => s + p.itens.reduce((s2, i) => s2 + i.qtd, 0), 0)
+
+  const pedidosHtml = visPedidos.map(p => {
+    const segLabel = p.referencia
+      ? `${p.referencia} — ${p.tipo_produto ?? ''} — ${p.classe ?? ''} (Grade ${p.tipo_grade ?? ''})`
+      : p.classificacao
+        ? `${p.classificacao} — ${p.tipo_produto} — ${p.classe} (Grade ${p.tipo_grade})`
+        : `Segmentação #${p.segmentacao_id}`
+    const totalQ = p.itens.reduce((s, i) => s + i.qtd, 0)
+    const totalV = totalQ * p.valor_unitario * (1 - p.desconto_pct / 100)
+    const rowsHtml = p.itens.filter(i => i.qtd > 0).map(i =>
+      `<tr><td style="text-align:left; padding:5px 10px;">${i.tamanho}</td><td style="text-align:right; padding:5px 10px;">${i.qtd}</td></tr>`
+    ).join('')
+    return `
+      <div class="seg-block">
+        <div class="seg-title">${segLabel}</div>
+        <table>
+          <thead><tr><th style="text-align:left;">Tamanho</th><th>Quantidade</th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+          <tfoot><tr>
+            <td style="text-align:left; font-weight:bold; border-top:2px solid #aaa; padding:5px 10px;">Total</td>
+            <td style="font-weight:bold; border-top:2px solid #aaa; padding:5px 10px; text-align:right;">${totalQ}</td>
+          </tr></tfoot>
+        </table>
+        <div class="totals">
+          <div>Valor unitário: <strong>R$ ${p.valor_unitario.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>
+          ${p.desconto_pct > 0 ? `<div>Desconto: <strong>${p.desconto_pct}%</strong></div>` : ''}
+          <div style="font-size:14px; margin-top:4px;">Valor líquido: <strong>R$ ${totalV.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>
+        </div>
+      </div>`
+  }).join('')
+
+  return `
+    <div class="order"${isLast ? ' style="page-break-after:avoid;"' : ''}>
+      <h1>PEDIDO DE COMPRA</h1>
+      <p style="font-size:10px; color:#888; margin-bottom:12px;">Gerado em: ${dateStr}</p>
+      <div class="section">
+        <div class="section-title">Fornecedor</div>
+        <div class="row"><span class="lbl">Fornecedor:</span><span>${esc(sessao.fornecedor_nome)}</span></div>
+        ${sessao.vendedor ? `<div class="row"><span class="lbl">Vendedor:</span><span>${esc(sessao.vendedor)}</span></div>` : ''}
+        <div class="row"><span class="lbl">Data pedido:</span><span>${fmtDate(sessao.data_visita)}</span></div>
+        ${sessao.cond_pag ? `<div class="row"><span class="lbl">Cond. pag.:</span><span>${esc(sessao.cond_pag)}</span></div>` : ''}
+        ${sessao.frete    ? `<div class="row"><span class="lbl">Frete:</span><span>${esc(sessao.frete)}</span></div>` : ''}
+        ${sessao.frete === 'FOB' && sessao.transportadora ? `<div class="row"><span class="lbl">Transportadora:</span><span>${esc(sessao.transportadora)}</span></div>` : ''}
+        ${sessao.obs      ? `<div class="row"><span class="lbl">Obs.:</span><span>${esc(sessao.obs)}</span></div>` : ''}
+      </div>
+      <div class="section" style="border-top:1px solid #ddd; padding-top:10px;">
+        <div class="section-title">Comprador</div>
+        <div class="row"><span class="lbl">Nome:</span><span><strong>${esc(vis.comprador_nome)}</strong></span></div>
+        ${vis.comprador_cnpj   ? `<div class="row"><span class="lbl">CNPJ:</span><span>${esc(vis.comprador_cnpj)}</span></div>`   : ''}
+        ${vis.comprador_cidade ? `<div class="row"><span class="lbl">Cidade:</span><span>${esc(vis.comprador_cidade)}</span></div>` : ''}
+      </div>
+      ${pedidosHtml}
+      <div class="total-geral">
+        <span>${totalPecasComprador} peça(s)</span>
+        <span>Total do pedido: <strong>R$ ${totalGeralComprador.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></span>
+      </div>
+      <div class="footer">Gerado por Solução Compras — ${dateStr}</div>
+    </div>`
+}
+
+function gerarPDFSessao(sessao, visitas, pedidosPorVisita) {
+  const visitasComPedidos = visitas.filter(v => (pedidosPorVisita[v.id] ?? []).length > 0)
+  if (!visitasComPedidos.length) { alert('Nenhum pedido para gerar PDF.'); return }
+
+  const ordersHtml = visitasComPedidos.map((vis, idx) =>
+    gerarHTMLOrdem(sessao, vis, pedidosPorVisita[vis.id] ?? [], idx === visitasComPedidos.length - 1)
+  ).join('')
+  const html = wrapDoc(ordersHtml, `Pedidos — ${esc(sessao.fornecedor_nome)} — ${fmtDate(sessao.data_visita)}`)
 
   const win = window.open('', '_blank')
   if (!win) { alert('Bloqueador de pop-ups ativo. Permita pop-ups para este site.'); return }
-  win.onload = () => win.print()
   win.document.write(html)
   win.document.close()
   win.focus()
-  if (win.document.readyState === 'complete') win.print()
+  win.print()
+}
+
+// DD-MM-AA a partir de YYYY-MM-DD
+const fmtDataPDF = iso => { const [y,m,d] = iso.split('-'); return `${d}-${m}-${y.slice(2)}` }
+
+async function salvarPDFVisita(sessao, vis, visPedidos, pasta) {
+  const html = wrapDoc(
+    gerarHTMLOrdem(sessao, vis, visPedidos, true),
+    `Pedido — ${esc(sessao.fornecedor_nome)} — ${esc(vis.comprador_nome)}`
+  )
+  const nome = `${fmtDataPDF(sessao.data_visita)} ${vis.comprador_nome} ${sessao.fornecedor_nome}`
+    .replace(/[/\\?%*:|"<>]/g, '-')
+  return window.api.pdf.salvarNaPasta(html, nome, pasta)
 }
 
 // ─── Phase 3: Close Session + PDFs ───────────────────────────────────────
 
 function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
+  const [pastaDestino, setPastaDestino] = useState(null)
+  const [salvandoPDF,  setSalvandoPDF]  = useState(null) // vis.id em andamento
+  const [salvos,       setSalvos]       = useState(new Set())
+  const [erroPDF,      setErroPDF]      = useState(null)
+
+  const podeSalvarPDF    = !!window.api?.pdf?.salvarNaPasta
+  const visitasComPedidos = visitas.filter(v => pedidos.some(p => p.visita_id === v.id))
+  const totalGeral = pedidos.reduce((s, p) => {
+    const q = p.itens.reduce((s2, i) => s2 + i.qtd, 0)
+    return s + q * p.valor_unitario * (1 - p.desconto_pct / 100)
+  }, 0)
+
   function handleGerarPDFs() {
     const pedMap = {}
     for (const p of pedidos) {
@@ -631,11 +655,56 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
     gerarPDFSessao(sessao, visitas, pedMap)
   }
 
-  const visitasComPedidos = visitas.filter(v => pedidos.some(p => p.visita_id === v.id))
-  const totalGeral = pedidos.reduce((s, p) => {
-    const q = p.itens.reduce((s2, i) => s2 + i.qtd, 0)
-    return s + q * p.valor_unitario * (1 - p.desconto_pct / 100)
-  }, 0)
+  async function handleSalvarPDF(vis) {
+    setErroPDF(null)
+    let pasta = pastaDestino
+
+    // Primeira vez: abre dialog de pasta (uma única vez para a sessão)
+    if (!pasta) {
+      pasta = await window.api.pdf.escolherPasta()
+      if (!pasta) return // usuário cancelou
+      setPastaDestino(pasta)
+    }
+
+    const visPedidos = pedidos.filter(p => p.visita_id === vis.id)
+    setSalvandoPDF(vis.id)
+    try {
+      const result = await salvarPDFVisita(sessao, vis, visPedidos, pasta)
+      if (result?.ok) {
+        setSalvos(prev => new Set([...prev, vis.id]))
+      } else {
+        setErroPDF(`Erro ao salvar PDF de ${vis.comprador_nome}.`)
+      }
+    } catch {
+      setErroPDF(`Erro ao salvar PDF de ${vis.comprador_nome}.`)
+    } finally {
+      setSalvandoPDF(null)
+    }
+  }
+
+  async function handleSalvarTodos() {
+    setErroPDF(null)
+    let pasta = pastaDestino
+    if (!pasta) {
+      pasta = await window.api.pdf.escolherPasta()
+      if (!pasta) return
+      setPastaDestino(pasta)
+    }
+    for (const vis of visitasComPedidos) {
+      if (salvos.has(vis.id)) continue
+      setSalvandoPDF(vis.id)
+      try {
+        const visPedidos = pedidos.filter(p => p.visita_id === vis.id)
+        const result = await salvarPDFVisita(sessao, vis, visPedidos, pasta)
+        if (result?.ok) setSalvos(prev => new Set([...prev, vis.id]))
+      } catch {
+        setErroPDF(`Erro ao salvar PDF de ${vis.comprador_nome}.`)
+        setSalvandoPDF(null)
+        return
+      }
+    }
+    setSalvandoPDF(null)
+  }
 
   return (
     <div className={styles.phase}>
@@ -649,6 +718,20 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
 
       <h2 className={styles.phaseTitle}>Fase 3 — Resumo da Sessão</h2>
 
+      {pastaDestino && (
+        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
+          Pasta: <strong style={{ color: 'var(--text-secondary)' }}>{pastaDestino}</strong>
+          <button
+            style={{ marginLeft: '0.75rem', background: 'none', border: 'none', color: 'var(--accent)', fontSize: '0.78rem', cursor: 'pointer', padding: 0 }}
+            onClick={async () => { const p = await window.api.pdf.escolherPasta(); if (p) { setPastaDestino(p); setSalvos(new Set()) } }}
+          >
+            trocar
+          </button>
+        </div>
+      )}
+
+      {erroPDF && <div className={styles.errorBanner}>{erroPDF}</div>}
+
       <div className={styles.resumoGrid}>
         {visitasComPedidos.map(vis => {
           const visPedidos = pedidos.filter(p => p.visita_id === vis.id)
@@ -656,6 +739,7 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
             const q = p.itens.reduce((s2, i) => s2 + i.qtd, 0)
             return s + q * p.valor_unitario * (1 - p.desconto_pct / 100)
           }, 0)
+          const foiSalvo = salvos.has(vis.id)
           return (
             <div key={vis.id} className={styles.resumoCard}>
               <div className={styles.resumoCardHeader}>{vis.comprador_nome}</div>
@@ -672,6 +756,16 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
                 )
               })}
               <div className={styles.resumoTotal}>R$ {fmt(totalComp)}</div>
+              {podeSalvarPDF && (
+                <button
+                  className={foiSalvo ? styles.btnSecondary : styles.btnPdf}
+                  style={{ marginTop: '0.5rem', width: '100%', padding: '0.35rem', fontSize: '0.78rem' }}
+                  onClick={() => handleSalvarPDF(vis)}
+                  disabled={salvandoPDF !== null}
+                >
+                  {salvandoPDF === vis.id ? 'Salvando…' : foiSalvo ? '✓ PDF salvo' : '↓ Salvar PDF'}
+                </button>
+              )}
             </div>
           )
         })}
@@ -683,8 +777,21 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
 
       <div className={styles.phaseActions}>
         <button className={styles.btnSecondary} onClick={onNovaSessao}>← Nova sessão</button>
+        {podeSalvarPDF && (
+          <button
+            className={styles.btnPdf}
+            onClick={handleSalvarTodos}
+            disabled={salvandoPDF !== null || salvos.size === visitasComPedidos.length}
+          >
+            {salvos.size === visitasComPedidos.length
+              ? '✓ Todos os PDFs salvos'
+              : salvandoPDF !== null
+                ? 'Salvando…'
+                : `↓ Salvar todos os PDFs (${visitasComPedidos.length - salvos.size})`}
+          </button>
+        )}
         <button className={styles.btnPrimary} onClick={handleGerarPDFs}>
-          Gerar PDFs ({visitasComPedidos.length})
+          Imprimir todos ({visitasComPedidos.length})
         </button>
       </div>
     </div>

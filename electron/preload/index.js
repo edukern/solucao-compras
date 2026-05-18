@@ -63,6 +63,10 @@ contextBridge.exposeInMainWorld('api', {
     export: () => ipcRenderer.invoke('backup:export'),
     import: () => ipcRenderer.invoke('backup:import'),
   },
+  pdf: {
+    escolherPasta:  ()                    => ipcRenderer.invoke('pdf:escolherPasta'),
+    salvarNaPasta:  (html, nome, pasta)   => ipcRenderer.invoke('pdf:salvarNaPasta', { html, nome, pasta }),
+  },
   dialog: {
     openFile: (options) => ipcRenderer.invoke('dialog:openFile', options),
   },

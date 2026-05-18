@@ -2,6 +2,7 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import { autoUpdater } from 'electron-updater'
+import Database from 'better-sqlite3'
 import { getDb } from './db/connection.js'
 import { runMigrations, seedInitialData } from './db/schema.js'
 import { makeColecoes } from './db/colecoes.js'
@@ -14,7 +15,7 @@ import { makePedidos } from './db/pedidos.js'
 import { makeSessoes } from './db/sessoes.js'
 import fs from 'fs'
 import * as XLSX from 'xlsx'
-import { importarPlanilha } from './importar.js'
+import { importarPlanilha, parseFornecedoresERP } from './importar.js'
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -39,7 +40,12 @@ function createWindow() {
 app.whenReady().then(() => {
   const db = getDb()
   runMigrations(db)
-  seedInitialData(db)
+
+  const isSeeded = db.prepare(`SELECT 1 FROM app_config WHERE key='seeded'`).get()
+  if (!isSeeded) {
+    seedInitialData(db)
+    db.prepare(`INSERT OR IGNORE INTO app_config (key, value) VALUES ('seeded', '1')`).run()
+  }
 
   const col  = makeColecoes(db)
   const seg  = makeSegmentacoes(db)
@@ -83,23 +89,10 @@ app.whenReady().then(() => {
   ipcMain.handle('fornecedores:update', (_, id, d) => forn.update(id, d))
   ipcMain.handle('fornecedores:remove', (_, id) => forn.remove(id))
   ipcMain.handle('fornecedores:importarArquivo', async (_, filePath) => {
-    // ERP export: 'Confirma seleção' = category header, '__EMPTY' = brand name
     const workbook = XLSX.readFile(filePath)
     const sheet = workbook.Sheets[workbook.SheetNames[0]]
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' })
-
-    let currentCategoria = ''
-    const marcas = []
-    rows.forEach(row => {
-      const cat = row['Confirma seleção']?.toString().trim()
-      const nome = row['__EMPTY']?.toString().trim()
-      if (cat) {
-        currentCategoria = cat
-      } else if (nome && nome !== 'Descrição') {
-        marcas.push({ nome, categoria: currentCategoria })
-      }
-    })
-
+    const marcas = parseFornecedoresERP(rows)
     const stats = forn.importar(marcas)
     return { ...stats, fornecedores: forn.list() }
   })
@@ -135,7 +128,8 @@ app.whenReady().then(() => {
       filters: [{ name: 'Database', extensions: ['db'] }]
     })
     if (!filePath) return false
-    fs.copyFileSync(db.filename, filePath)
+    // db.backup() uses the SQLite Online Backup API — safe with WAL mode, checkpoints before copying
+    await db.backup(filePath)
     return true
   })
 
@@ -146,6 +140,19 @@ app.whenReady().then(() => {
       properties: ['openFile']
     })
     if (!filePaths.length) return false
+
+    // Validate the backup file before replacing the live database
+    let testDb
+    try {
+      testDb = new Database(filePaths[0], { readonly: true })
+      const [{ integrity_check }] = testDb.pragma('integrity_check')
+      if (integrity_check !== 'ok') return { error: 'Arquivo de backup corrompido.' }
+    } catch {
+      return { error: 'Arquivo inválido — não é um banco SQLite.' }
+    } finally {
+      testDb?.close()
+    }
+
     db.close()
     fs.copyFileSync(filePaths[0], db.filename)
     for (const ext of ['-wal', '-shm']) {
@@ -154,6 +161,38 @@ app.whenReady().then(() => {
     app.relaunch()
     app.exit(0)
     return true
+  })
+
+  // Abre dialog para escolher pasta de destino
+  ipcMain.handle('pdf:escolherPasta', async () => {
+    const { filePaths, canceled } = await dialog.showOpenDialog({
+      title: 'Escolher pasta para salvar PDFs',
+      properties: ['openDirectory', 'createDirectory']
+    })
+    if (canceled || !filePaths.length) return null
+    return filePaths[0]
+  })
+
+  // Converte HTML em PDF e salva em pasta/nome.pdf (sem dialog)
+  ipcMain.handle('pdf:salvarNaPasta', async (_, { html, nome, pasta }) => {
+    const filePath = path.join(pasta, `${nome}.pdf`)
+    const tmpFile  = path.join(app.getPath('temp'), `sc-${Date.now()}.html`)
+    fs.writeFileSync(tmpFile, html, 'utf8')
+
+    const pdfWin = new BrowserWindow({ show: false, webPreferences: { sandbox: true } })
+    try {
+      await pdfWin.loadFile(tmpFile)
+      const pdfBuffer = await pdfWin.webContents.printToPDF({
+        printBackground: false,
+        pageSize: 'A4',
+        margins: { marginType: 'custom', top: 0.59, bottom: 0.59, left: 0.59, right: 0.59 }
+      })
+      fs.writeFileSync(filePath, pdfBuffer)
+      return { ok: true, filePath }
+    } finally {
+      pdfWin.destroy()
+      try { fs.unlinkSync(tmpFile) } catch {}
+    }
   })
 
   ipcMain.handle('dialog:openFile', async (_, options) => {
