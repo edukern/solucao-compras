@@ -38,6 +38,7 @@
       "node_modules/better-sqlite3/**/*"
     ],
     "win": {
+      "icon": "resources/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -80,6 +81,7 @@
     "electron-builder": "^25.1.8",
     "electron-vite": "^3.1.0",
     "eslint": "^9.18.0",
+    "png-to-ico": "^3.0.1",
     "prettier": "^3.4.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
