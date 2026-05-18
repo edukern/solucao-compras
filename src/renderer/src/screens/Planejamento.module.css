@@ -132,3 +132,57 @@
   color: var(--text-muted);
   font-size: 0.9rem;
 }
+
+/* ── Importar Análise de Coleção ─────────────────────────────────────── */
+.importSection {
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+}
+.importSummary {
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  list-style: none;
+  user-select: none;
+}
+.importSummary::-webkit-details-marker { display: none; }
+.importSummary::before { content: '▶  '; font-size: 0.7rem; }
+details[open] .importSummary::before { content: '▼  '; }
+.importBody {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--border);
+}
+.importRow {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.importLabel {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.btnImportar {
+  padding: 0.4rem 0.9rem;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.btnImportar:disabled { opacity: 0.4; cursor: not-allowed; }
+.importSuccess {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--green, #2a9d5c);
+}
+.importError {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--red, #c00);
+}

@@ -8,15 +8,11 @@ const STATUS_PRONTO = [
   'Fluxo completo de compra: sessão → pedidos por loja → PDF',
   'Dashboard com projeção vs comprado por segmentação',
   'Histórico de sessões com edição e exclusão',
-  'Campos Transportadora e Nota Fiscal no pedido',
   'Recuperação automática se o app fechar no meio de uma sessão',
   'Atualização automática do app quando houver nova versão',
-  'Suite de testes automatizados (90 testes passando)',
-]
-
-const STATUS_AGUARDANDO = [
-  'Tamanhos das grades CASAL, KING, QUEEN, SOLT, LAR, GERAL — Samuel responde abaixo',
-  'Planilha da Miche com análise de vendas [qtde compra, venda, estoque total, com segmentação por coleção e tipo/classe/classificação]',
+  'Suite de testes automatizados (109 testes passando)',
+  'Grades domésticas (CASAL, KING, QUEEN, SOLT, LAR, GERAL) — tamanho único',
+  'Importação de Análise de Coleção para popular histórico e calcular projeções',
 ]
 
 const STATUS_AFAZER_SAMUEL = [
@@ -24,70 +20,20 @@ const STATUS_AFAZER_SAMUEL = [
 ]
 
 const STATUS_AFAZER = [
-  'Cadastrar os tamanhos no código depois que Samuel responder as grades',
-  'Tela de importação da planilha da Miche (para calcular projeções com dados reais)',
   'Verificar e finalizar tela de gestão de fornecedores (criar/editar)',
   'ERP import — quando solicitar o formato para a fornecedora do sistema',
+  'Relatórios Curva ABC e Quebra de Estoque',
 ]
 
 // ─── Perguntas para Samuel ────────────────────────────────────────────────────
 
 const PERGUNTAS = [
   {
-    id: 'grade_casal',
-    grupo: 'Grades — Tamanhos',
-    titulo: 'Grade CASAL',
-    pergunta: 'Quais tamanhos existem na grade CASAL? Liste em ordem, separados por vírgula.',
-    placeholder: 'Ex: PP, P, M, G, GG',
-  },
-  {
-    id: 'grade_king',
-    grupo: 'Grades — Tamanhos',
-    titulo: 'Grade KING',
-    pergunta: 'Quais tamanhos existem na grade KING?',
-    placeholder: 'Ex: Único, P, M, G',
-  },
-  {
-    id: 'grade_queen',
-    grupo: 'Grades — Tamanhos',
-    titulo: 'Grade QUEEN',
-    pergunta: 'Quais tamanhos existem na grade QUEEN?',
-    placeholder: 'Ex: Único, P, M',
-  },
-  {
-    id: 'grade_solt',
-    grupo: 'Grades — Tamanhos',
-    titulo: 'Grade SOLT (Solteiro)',
-    pergunta: 'Quais tamanhos existem na grade SOLT?',
-    placeholder: 'Ex: Único, P, M, G',
-  },
-  {
-    id: 'grade_lar',
-    grupo: 'Grades — Tamanhos',
-    titulo: 'Grade LAR',
-    pergunta: 'Quais tamanhos existem na grade LAR?',
-    placeholder: 'Ex: P, M, G',
-  },
-  {
-    id: 'grade_geral',
-    grupo: 'Grades — Tamanhos',
-    titulo: 'Grade GERAL',
-    pergunta: 'Quais tamanhos existem na grade GERAL?',
-    placeholder: 'Ex: PP, P, M, G, GG, XG',
-  },
-  {
     id: 'nf_transportadora',
     grupo: 'Pedidos de Compra',
     titulo: 'Nota Fiscal e Transportadora',
     pergunta: 'Você costuma preencher Nota Fiscal e Transportadora nos pedidos de compra? Se sim, normalmente sabe essas informações na hora da visita ao fornecedor ou só depois?',
     placeholder: 'Ex: Sim, a NF chega depois. A transportadora sei na hora.',
-  },
-  {
-    id: 'planilha_historica',
-    grupo: 'Dados Históricos',
-    titulo: 'Planilha de vendas da Miche',
-    pergunta: 'O sistema precisa da planilha semestral que a Miche faz com os dados de vendas por tamanho (para calcular as projeções de compra). Quando puder, manda para o Edu. Responda aqui quando tiver enviado.',
-    placeholder: 'Ex: Enviei hoje por WhatsApp / e-mail',
   },
 ]
 
@@ -192,16 +138,6 @@ export default function Pendencias() {
             {STATUS_PRONTO.map((item, i) => (
               <div key={i} className={styles.statusItem}>
                 <span className={styles.statusIconOk}>✓</span>
-                <span>{item}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className={styles.statusBloco}>
-            <div className={styles.statusTitulo}>Aguardando Samuel</div>
-            {STATUS_AGUARDANDO.map((item, i) => (
-              <div key={i} className={styles.statusItem}>
-                <span className={styles.statusIconWait}>○</span>
                 <span>{item}</span>
               </div>
             ))}
