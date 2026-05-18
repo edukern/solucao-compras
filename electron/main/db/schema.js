@@ -1,4 +1,5 @@
 export function runMigrations(db) {
+  db.pragma('foreign_keys = OFF')
   // Base tables — unchanged
   db.exec(`
     CREATE TABLE IF NOT EXISTS colecoes (
@@ -214,6 +215,8 @@ export function runMigrations(db) {
       `)
     })()
   }
+
+  db.pragma('foreign_keys = ON')
 }
 
 export function seedInitialData(db) {
