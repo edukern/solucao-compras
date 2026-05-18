@@ -131,15 +131,17 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
 
 // ─── Phase 2: Tabela de itens ─────────────────────────────────────────────
 
-function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar,
+function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, segs = [],
   initialItems = [], initialQtds = {}, initialActiveId = null, initialLojaIdx = 0 }) {
-  const [items,    setItems]    = useState(initialItems)
-  const [activeId, setActiveId] = useState(initialActiveId)
-  const [lojaIdx,  setLojaIdx]  = useState(initialLojaIdx)
-  const [qtds,     setQtds]     = useState(initialQtds)
-  const [saving,   setSaving]   = useState(false)
-  const [error,    setError]    = useState(null)
-  const [form,     setForm]     = useState({ ref: '', tipo_produto: '', tipo_grade: 'AD', classe: 'FEM', icms_pct: '', valor: '' })
+  const [items,         setItems]         = useState(initialItems)
+  const [activeId,      setActiveId]      = useState(initialActiveId)
+  const [lojaIdx,       setLojaIdx]       = useState(initialLojaIdx)
+  const [qtds,          setQtds]          = useState(initialQtds)
+  const [saving,        setSaving]        = useState(false)
+  const [error,         setError]         = useState(null)
+  const [form,          setForm]          = useState({ ref: '', tipo_produto: '', tipo_grade: 'AD', classe: 'FEM', icms_pct: '', valor: '' })
+  const [projCache,     setProjCache]     = useState({})
+  const [distribTargets,setDistribTargets]= useState({})
   const RECOVERY_KEY = `SC_RECOVERY_${colId}`
   const firstInputRef = useRef(null)
 
@@ -223,6 +225,64 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar,
         setLojaIdx(0)
       }
     }
+  }
+
+  function findSegId(item) {
+    const classDef = GRADE_DEFINITIONS[item.tipo_grade]
+    if (!classDef) return null
+    const seg = segs.find(s =>
+      s.classificacao === classDef.classificacao &&
+      s.tipo_produto  === item.tipo_produto.trim().toUpperCase() &&
+      s.classe        === item.classe &&
+      s.tipo_grade    === item.tipo_grade &&
+      s.estacao       === (colEstacao ?? 'inverno')
+    )
+    return seg?.id ?? null
+  }
+
+  async function getProjecao(segId) {
+    if (projCache[segId]) return projCache[segId]
+    const rows = await window.api.projecoes.get(segId, colId)
+    setProjCache(prev => ({ ...prev, [segId]: rows }))
+    return rows
+  }
+
+  function distribuirProporcionalmente(total, projRows) {
+    const totalProj = projRows.reduce((s, r) => s + (r.qtd_ajustada || 0), 0)
+    if (totalProj === 0 || total <= 0) return null
+    const exatos = projRows.map(r => {
+      const exato = total * (r.qtd_ajustada || 0) / totalProj
+      return { tamanho: r.tamanho, piso: Math.floor(exato), fracao: exato % 1 }
+    })
+    const resto = total - exatos.reduce((s, r) => s + r.piso, 0)
+    const sorted = [...exatos].sort((a, b) => b.fracao - a.fracao)
+    const resultado = {}
+    exatos.forEach(r => { resultado[r.tamanho] = r.piso })
+    sorted.slice(0, resto).forEach(r => { resultado[r.tamanho]++ })
+    return resultado
+  }
+
+  async function handleDistribuirTotal(localId, visitaId, rawTotal) {
+    const total = parseInt(rawTotal, 10)
+    if (isNaN(total) || total <= 0) return
+    const item = items.find(it => it.localId === localId)
+    if (!item) return
+    const segId = findSegId(item)
+    if (!segId) { setError('Sem projeção: segmentação não encontrada para esta coleção.'); return }
+    const projRows = await getProjecao(segId)
+    if (!projRows?.length) { setError('Sem projeção salva para esta segmentação. Calcule a projeção em Planejamento primeiro.'); return }
+    const tams = tamanhosDeTipoGrade(item.tipo_grade)
+    const projFiltered = projRows.filter(r => tams.includes(r.tamanho))
+    const distribuicao = distribuirProporcionalmente(total, projFiltered)
+    if (!distribuicao) return
+    setQtds(prev => ({
+      ...prev,
+      [localId]: {
+        ...prev[localId],
+        [visitaId]: Object.fromEntries(tams.map(tam => [tam, distribuicao[tam] ?? 0]))
+      }
+    }))
+    setError(null)
   }
 
   async function handleFechar() {
@@ -416,34 +476,58 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar,
                             ))}
                             <div className={styles.gradeInlineTotal}>Total</div>
                           </div>
-                          {visitas.map((v, i) => (
-                            <div
-                              key={v.id}
-                              data-grade-row="true"
-                              className={`${styles.gradeInlineRow} ${i === lojaIdx ? styles.gradeInlineRowActive : ''}`}
-                              onClick={() => setLojaIdx(i)}
-                            >
-                              <div className={styles.gradeInlineLoja}>{v.comprador_nome}</div>
-                              {tams.map((tam, tamIdx) => (
-                                <div key={tam} className={styles.gradeInlineSize}>
+                          {visitas.map((v, i) => {
+                            const targetKey = `${it.localId}__${v.id}`
+                            const targetEditing = distribTargets[targetKey]
+                            const computedTotal = totalQtdLoja(it.localId, v.id)
+                            return (
+                              <div
+                                key={v.id}
+                                data-grade-row="true"
+                                className={`${styles.gradeInlineRow} ${i === lojaIdx ? styles.gradeInlineRowActive : ''}`}
+                                onClick={() => setLojaIdx(i)}
+                              >
+                                <div className={styles.gradeInlineLoja}>{v.comprador_nome}</div>
+                                {tams.map((tam, tamIdx) => (
+                                  <div key={tam} className={styles.gradeInlineSize}>
+                                    <input
+                                      ref={tamIdx === 0 && i === lojaIdx ? firstInputRef : null}
+                                      type="number"
+                                      min="0"
+                                      className={styles.qtyInput}
+                                      value={getQtd(it.localId, v.id, tam)}
+                                      onChange={e => setQtd(it.localId, v.id, tam, e.target.value)}
+                                      onFocus={() => setLojaIdx(i)}
+                                      onKeyDown={e => handleEnterOnInput(e, tamIdx, i)}
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                ))}
+                                <div className={styles.gradeInlineTotalCell}>
                                   <input
-                                    ref={tamIdx === 0 && i === lojaIdx ? firstInputRef : null}
                                     type="number"
-                                    min="0"
-                                    className={styles.qtyInput}
-                                    value={getQtd(it.localId, v.id, tam)}
-                                    onChange={e => setQtd(it.localId, v.id, tam, e.target.value)}
-                                    onFocus={() => setLojaIdx(i)}
-                                    onKeyDown={e => handleEnterOnInput(e, tamIdx, i)}
-                                    placeholder="0"
+                                    min="1"
+                                    className={styles.totalDistribInput}
+                                    value={targetEditing !== undefined ? targetEditing : (computedTotal || '')}
+                                    placeholder={computedTotal || '—'}
+                                    title="Digite o total e pressione Enter para distribuir pela projeção de compras"
+                                    onChange={e => setDistribTargets(prev => ({ ...prev, [targetKey]: e.target.value }))}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') {
+                                        handleDistribuirTotal(it.localId, v.id, e.target.value)
+                                        setDistribTargets(prev => { const n = { ...prev }; delete n[targetKey]; return n })
+                                        e.preventDefault()
+                                      } else if (e.key === 'Escape') {
+                                        setDistribTargets(prev => { const n = { ...prev }; delete n[targetKey]; return n })
+                                      }
+                                    }}
+                                    onBlur={() => setDistribTargets(prev => { const n = { ...prev }; delete n[targetKey]; return n })}
+                                    onClick={e => e.stopPropagation()}
                                   />
                                 </div>
-                              ))}
-                              <div className={styles.gradeInlineTotal}>
-                                {totalQtdLoja(it.localId, v.id) || ''}
                               </div>
-                            </div>
-                          ))}
+                            )
+                          })}
                           {visitas.length > 1 && (
                             <div className={`${styles.gradeInlineRow} ${styles.gradeInlineTotalsRow}`}>
                               <div className={styles.gradeInlineLoja}>Total lojas</div>
@@ -1225,6 +1309,7 @@ export default function Compras() {
           visitas={visitas}
           colId={active.id}
           colEstacao={active.estacao}
+          segs={segs}
           onFechar={handleFechar}
           initialItems={recoveryInitial?.items ?? []}
           initialQtds={recoveryInitial?.qtds ?? {}}

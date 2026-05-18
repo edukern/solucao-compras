@@ -1045,6 +1045,35 @@
   padding: 0.2rem 0.35rem;
 }
 
+.gradeInlineTotalCell {
+  min-width: 64px;
+  padding: 0.1rem 0.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.totalDistribInput {
+  width: 60px;
+  text-align: center;
+  background: var(--input-bg);
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  color: var(--accent-light);
+  font-weight: 600;
+  padding: 0.2rem 0.3rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.totalDistribInput:focus {
+  outline: none;
+  border-color: var(--accent);
+  border-style: solid;
+  background: rgba(var(--accent-rgb, 99,102,241), 0.06);
+}
+.totalDistribInput::placeholder { color: var(--text-muted); font-weight: 400; }
+
 .gradeInlineTotalsRow {
   border-top: 1px solid var(--border);
   margin-top: 3px;
