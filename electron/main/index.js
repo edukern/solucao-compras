@@ -1,5 +1,5 @@
 // electron/main/index.js
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron'
 import { join } from 'path'
 import { autoUpdater } from 'electron-updater'
 import Database from 'better-sqlite3'
@@ -36,6 +36,8 @@ function createWindow() {
     win.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
+
+Menu.setApplicationMenu(null)
 
 app.whenReady().then(() => {
   let db
