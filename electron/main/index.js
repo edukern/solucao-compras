@@ -227,6 +227,8 @@ app.whenReady().then(() => {
   }
 
   ipcMain.handle('updater:install', () => autoUpdater.quitAndInstall())
+  ipcMain.handle('updater:check',   () => { if (app.isPackaged) autoUpdater.checkForUpdates() })
+  ipcMain.handle('app:version',     () => app.getVersion())
 
   createWindow()
 })

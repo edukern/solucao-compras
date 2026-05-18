@@ -72,10 +72,14 @@ contextBridge.exposeInMainWorld('api', {
   },
   updater: {
     install:  ()   => ipcRenderer.invoke('updater:install'),
+    check:    ()   => ipcRenderer.invoke('updater:check'),
     onStatus: (cb) => {
       const handler = (_, s) => cb(s)
       ipcRenderer.on('updater:status', handler)
       return () => ipcRenderer.removeListener('updater:status', handler)
     },
-  }
+  },
+  app: {
+    version: () => ipcRenderer.invoke('app:version'),
+  },
 })

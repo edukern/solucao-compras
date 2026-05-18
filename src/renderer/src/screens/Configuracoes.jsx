@@ -943,6 +943,91 @@ function AbaFornecedores() {
 }
 
 // ---------------------------------------------------------------------------
+// AbaAtualizacoes
+// ---------------------------------------------------------------------------
+function AbaAtualizacoes() {
+  const [versao, setVersao] = useState(null)
+  const [status, setStatus] = useState(null)
+  const [checking, setChecking] = useState(false)
+
+  useEffect(() => {
+    window.api.app?.version().then(setVersao)
+    if (!window.api?.updater) return
+    return window.api.updater.onStatus(s => {
+      setChecking(false)
+      setStatus(s)
+    })
+  }, [])
+
+  function handleCheck() {
+    setChecking(true)
+    setStatus(null)
+    window.api.updater.check()
+    // Se em 10s não chegar nenhum evento, o app está na versão mais recente
+    setTimeout(() => setChecking(prev => {
+      if (prev) setStatus({ type: 'upToDate' })
+      return false
+    }), 10000)
+  }
+
+  const statusMsg = {
+    upToDate:    'Você está na versão mais recente.',
+    available:   s => `Versão ${s.version} disponível — baixando em segundo plano…`,
+    downloading: s => `Baixando… ${s.percent}%`,
+    ready:       'Atualização baixada e pronta para instalar.',
+    error:       s => `Erro: ${s.message}`,
+  }
+
+  function renderStatus() {
+    if (!status) return null
+    const color = status.type === 'ready' || status.type === 'upToDate'
+      ? 'var(--green)'
+      : status.type === 'error' ? 'var(--red, #ef4444)' : 'var(--accent)'
+    const msg = typeof statusMsg[status.type] === 'function'
+      ? statusMsg[status.type](status)
+      : statusMsg[status.type] ?? status.type
+    return <p style={{ color, marginTop: '0.75rem', fontSize: '0.875rem' }}>{msg}</p>
+  }
+
+  return (
+    <div className={styles.section}>
+      <div className={styles.backupCard}>
+        <h2 className={styles.sectionTitle}>Versão do aplicativo</h2>
+        {versao && (
+          <p className={styles.hint}>
+            Versão instalada: <strong>{versao}</strong>
+          </p>
+        )}
+        <p className={styles.hint}>
+          Atualizações são baixadas automaticamente em segundo plano quando o app está aberto.
+          Use o botão abaixo para checar agora.
+        </p>
+        <div className={styles.backupActions}>
+          <button
+            className={styles.btnPrimary}
+            onClick={handleCheck}
+            disabled={checking || !window.api?.updater}
+          >
+            {checking ? 'Verificando…' : 'Verificar atualizações'}
+          </button>
+          {status?.type === 'ready' && (
+            <button className={styles.btnPrimary} onClick={() => window.api.updater.install()}>
+              Reiniciar e instalar
+            </button>
+          )}
+        </div>
+        {renderStatus()}
+        {!window.api?.updater && (
+          <p className={styles.hint} style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+            (Verificação de atualizações disponível apenas no app instalado.)
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main Configuracoes screen
 // ---------------------------------------------------------------------------
 export default function Configuracoes() {
@@ -982,12 +1067,19 @@ export default function Configuracoes() {
         >
           Backup
         </button>
+        <button
+          className={aba === 'atualizacoes' ? styles.tabActive : styles.tab}
+          onClick={() => setAba('atualizacoes')}
+        >
+          Atualizações
+        </button>
       </div>
       {aba === 'colecoes'     && <AbaColecoes />}
       {aba === 'segmentacoes' && <AbaSegmentacoes />}
       {aba === 'compradores'  && <AbaCompradores />}
       {aba === 'fornecedores' && <AbaFornecedores />}
       {aba === 'backup'       && <AbaBackup />}
+      {aba === 'atualizacoes' && <AbaAtualizacoes />}
     </div>
   )
 }
