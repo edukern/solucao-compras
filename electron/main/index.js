@@ -3,7 +3,7 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import { autoUpdater } from 'electron-updater'
 import { getDb } from './db/connection.js'
-import { runMigrations } from './db/schema.js'
+import { runMigrations, seedInitialData } from './db/schema.js'
 import { makeColecoes } from './db/colecoes.js'
 import { makeSegmentacoes } from './db/segmentacoes.js'
 import { makeGrades } from './db/grades.js'
@@ -39,6 +39,7 @@ function createWindow() {
 app.whenReady().then(() => {
   const db = getDb()
   runMigrations(db)
+  seedInitialData(db)
 
   const col  = makeColecoes(db)
   const seg  = makeSegmentacoes(db)
