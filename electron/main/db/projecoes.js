@@ -37,7 +37,18 @@ export function makeProjecoes(db) {
 
   return {
     calcular(segId, targetColId, baseColIds, metodo) {
-      if (baseColIds.length < 2) throw new Error('calcular requer pelo menos 2 coleções base')
+      if (baseColIds.length === 0) throw new Error('calcular requer pelo menos 1 coleção base')
+
+      if (baseColIds.length === 1) {
+        const grade = gradeBySegCol.all(segId, baseColIds[0])
+        return grade.map(r => ({
+          tamanho: r.tamanho,
+          ordem: r.ordem,
+          qtd_projetada: r.qtd_comprada,
+          qtd_ajustada: r.qtd_comprada,
+        }))
+      }
+
       const [idN2, idN1] = baseColIds
       const gradeN2 = gradeBySegCol.all(segId, idN2)
       const gradeN1 = gradeBySegCol.all(segId, idN1)

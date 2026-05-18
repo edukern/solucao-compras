@@ -22,11 +22,12 @@ const noApi = !window.api
 
 export default function App() {
   const [screen, setScreen] = useState(noApi ? 'pendencias' : 'dashboard')
-  const [theme, setTheme] = useState('dark')
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') ?? 'light')
   const [updateStatus, setUpdateStatus] = useState(null)
 
   useEffect(() => {
     document.documentElement.classList.toggle('light', theme === 'light')
+    localStorage.setItem('theme', theme)
   }, [theme])
 
   useEffect(() => {

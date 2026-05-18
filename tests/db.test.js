@@ -235,8 +235,14 @@ describe('makeProjecoes', () => {
     }
   })
 
-  it('calcular: lança erro se menos de 2 coleções base', () => {
-    expect(() => proj.calcular(ids.segId, ids.colId, [colBase1], 'media_simples')).toThrow()
+  it('calcular: com 1 coleção base retorna as quantidades diretamente', () => {
+    const rows = proj.calcular(ids.segId, ids.colId, [colBase1], 'media_simples')
+    expect(rows.length).toBeGreaterThan(0)
+    expect(rows[0].qtd_projetada).toBe(rows[0].qtd_ajustada)
+  })
+
+  it('calcular: lança erro com 0 coleções base', () => {
+    expect(() => proj.calcular(ids.segId, ids.colId, [], 'media_simples')).toThrow()
   })
 
   it('salvar + getProjecao: persiste e recupera projeções', () => {

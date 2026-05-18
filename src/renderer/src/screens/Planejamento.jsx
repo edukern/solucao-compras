@@ -37,21 +37,24 @@ export default function Planejamento() {
     if (!active) return
     setWarning(null)
     const base = findBaseColecoes(collections, active)
-    if (base.length < 2) {
+    if (base.length < 1) {
       setWarning(
-        `São necessárias 2 coleções históricas equivalentes (${active.estacao}). ` +
-        `Encontradas: ${base.length}. Importe o histórico antes de planejar.`
+        `Nenhuma coleção histórica de ${active.estacao} encontrada. ` +
+        `Importe o histórico antes de planejar.`
       )
       setRows([])
       return
     }
 
-    const [n2Id, n1Id] = [base[0].id, base[1].id]
+    const baseIds = base.map(c => c.id)
+    const n2Id = base.length >= 2 ? base[0].id : null
+    const n1Id = base.length >= 2 ? base[1].id : base[0].id
+
     const [gradeN2, gradeN1, projSaved, projCalc] = await Promise.all([
-      window.api.grades.get(sid, n2Id),
+      n2Id ? window.api.grades.get(sid, n2Id) : Promise.resolve([]),
       window.api.grades.get(sid, n1Id),
       window.api.projecoes.get(sid, active.id),
-      window.api.projecoes.calcular(sid, active.id, [n2Id, n1Id], met !== 'manual' ? met : 'media_simples'),
+      window.api.projecoes.calcular(sid, active.id, baseIds, met !== 'manual' ? met : 'media_simples'),
     ])
 
     const savedMap = Object.fromEntries(projSaved.map(r => [r.tamanho, r.qtd_ajustada]))
@@ -80,7 +83,7 @@ export default function Planejamento() {
     }
 
     setRows(merged)
-    setBaseNomes([base[0].nome, base[1].nome])
+    setBaseNomes([base.length >= 2 ? base[0].nome : '—', base[base.length - 1].nome])
   }
 
   function handleAdjust(tamanho, raw) {
@@ -113,6 +116,23 @@ export default function Planejamento() {
         colecao?.estacao ?? 'inverno'
       )
       setImportResult(result)
+
+      // Auto-calcular projeções para todas as segmentações importadas
+      if (result.segIds?.length && active) {
+        const base = findBaseColecoes(collections, active)
+        if (base.length >= 1) {
+          const baseIds = base.map(c => c.id)
+          await Promise.allSettled(
+            result.segIds.map(async sid => {
+              const projRows = await window.api.projecoes.calcular(sid, active.id, baseIds, 'media_simples')
+              if (projRows.length > 0) {
+                await window.api.projecoes.salvar(sid, active.id, projRows, 'media_simples')
+              }
+            })
+          )
+        }
+      }
+
       if (segId) loadPlanejamento(segId, metodo)
     } catch (e) {
       setImportResult({ imported: 0, skipped: 0, errors: [String(e)] })

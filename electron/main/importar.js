@@ -148,5 +148,5 @@ export function importarPlanilha({ filePath, colecaoId, estacao, seg, gr }) {
     gr.importBatch(batchItems)
   }
 
-  return { imported, skipped, errors }
+  return { imported, skipped, errors, segIds: [...new Set(batchItems.map(b => b.segmentacao_id))] }
 }
