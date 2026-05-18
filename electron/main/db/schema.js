@@ -173,6 +173,14 @@ export function runMigrations(db) {
   // Transportadora at session level (shown when frete = FOB)
   try { db.exec(`ALTER TABLE sessoes ADD COLUMN transportadora TEXT`) } catch {}
 
+  // app_config must always exist — used by index.js to guard seedInitialData
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS app_config (
+      key   TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+  `)
+
   // Deduplicate visitas — remove columns now owned by sessoes
   const visitaCols = db.pragma('table_info(visitas)').map(c => c.name)
   if (visitaCols.includes('fornecedor_id')) {
@@ -181,12 +189,6 @@ export function runMigrations(db) {
     // auto-rewrites FK text when we rename the referenced table — by keeping the name
     // "visitas" as the final target, pedidos keeps pointing to the right table.
     // Wrapped in a transaction so a crash mid-migration doesn't leave the DB without a visitas table.
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS app_config (
-      key   TEXT PRIMARY KEY,
-      value TEXT NOT NULL
-    );
-  `)
 
     db.transaction(() => {
       db.exec(`

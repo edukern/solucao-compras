@@ -38,8 +38,15 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  const db = getDb()
-  runMigrations(db)
+  let db
+  try {
+    db = getDb()
+    runMigrations(db)
+  } catch (err) {
+    dialog.showErrorBox('Bolt Compras — erro ao iniciar', err.stack ?? err.message)
+    app.quit()
+    return
+  }
 
   const isSeeded = db.prepare(`SELECT 1 FROM app_config WHERE key='seeded'`).get()
   if (!isSeeded) {
@@ -175,8 +182,8 @@ app.whenReady().then(() => {
 
   // Converte HTML em PDF e salva em pasta/nome.pdf (sem dialog)
   ipcMain.handle('pdf:salvarNaPasta', async (_, { html, nome, pasta }) => {
-    const filePath = path.join(pasta, `${nome}.pdf`)
-    const tmpFile  = path.join(app.getPath('temp'), `sc-${Date.now()}.html`)
+    const filePath = join(pasta, `${nome}.pdf`)
+    const tmpFile  = join(app.getPath('temp'), `sc-${Date.now()}.html`)
     fs.writeFileSync(tmpFile, html, 'utf8')
 
     const pdfWin = new BrowserWindow({ show: false, webPreferences: { sandbox: true } })
