@@ -1,7 +1,7 @@
 # Solução Compras — Contexto do Projeto
 
-> Documentação enxuta de referência. Atualizar ao fim de cada sessão de trabalho.
-> Última atualização: 2026-05-16 (sessão 2)
+> Documentação de referência. Ver HANDOFF.md para estado atual de desenvolvimento.
+> Última atualização: 2026-05-18 (sessão 7)
 
 ---
 
@@ -30,8 +30,10 @@ Sistema de gestão de compras de moda para substituir ~100 planilhas Excel desco
 | Desktop | Electron + React + SQLite (better-sqlite3) |
 | Web demo | Vite + React + React Router (Vercel) |
 | Estilos | CSS Modules + variáveis CSS |
-| Estado | CollectionContext (React Context API) |
-| API | `window.api` via contextBridge (IPC) |
+| Estado global | CollectionContext (React Context API) |
+| API renderer→main | `window.api` via contextBridge (IPC) |
+| Testes | Vitest — 109 testes, 14 arquivos, SQLite in-memory |
+| Auto-update | electron-updater + GitHub Actions |
 
 Demo pública: **https://solucao-compras-demo.vercel.app**
 
@@ -40,39 +42,84 @@ Demo pública: **https://solucao-compras-demo.vercel.app**
 ## Modelo de dados (tabelas SQLite)
 
 ```
-colecoes        id, nome, estacao(verão|inverno), ano, status(em_preparacao|em_compra|finalizada)
-segmentacoes    id, classificacao(AD|EX|INF), tipo_produto, classe(FEM|MASC|UNI), tipo_grade
-                tipo_grade: PP|BB|INF|JUV|AD|EX|AD1|EX1|AD2|EX2|U
-                UNIQUE(classificacao, tipo_produto, classe)
-grades          id, segmentacao_id, colecao_id, tamanho, qtd_comprada, qtd_vendida, estoque
-projecoes       id, segmentacao_id, colecao_id, tamanho, qtd_calculada, qtd_ajustada, metodo
-fornecedores    id, nome, cnpj, contato
-pedidos         id, fornecedor_id, segmentacao_id, colecao_id, tamanho, qtd_pedida,
-                valor_unitario, desconto_pct, data_pedido, status,
-                vendedor, cond_pag, frete(CIF|FOB), transportadora, nota_fiscal, obs
+colecoes          id, nome, estacao(verao|inverno), ano, status
+segmentacoes      id, classificacao, tipo_produto, classe, tipo_grade
+                  tipo_grade: PP|BB|INF|JUV|AD|EX|AD1|EX1|AD2|EX2|U
+                  UNIQUE(classificacao, tipo_produto, classe, tipo_grade)
+fornecedores      id, nome, contato, categoria
+compradores       id, nome, cnpj, cidade
+sessoes           id, fornecedor_id, colecao_id, data_visita,
+                  vendedor, cond_pag, frete(CIF|FOB), transportadora, obs
+visitas           id, sessao_id, comprador_id  ← join table
+pedidos           id, visita_id, comprador_id, segmentacao_id,
+                  valor_unitario, desconto_pct, referencia, icms_pct, obs
+pedido_itens      id, pedido_id, tamanho, qtd
+grade_historica   id, segmentacao_id, colecao_id, tamanho,
+                  qtd_comprada, qtd_vendida, qtd_estoque
+projecoes         id, segmentacao_id, colecao_id, tamanho,
+                  qtd_projetada, qtd_ajustada, metodo
 ```
 
 ---
 
-## Contrato window.api
+## Contrato window.api (IPC)
 
 ```js
 window.api.colecoes.list()
-window.api.colecoes.create(nome, estacao, ano)
+window.api.colecoes.create({ nome, estacao, ano })
+window.api.colecoes.setStatus(id, status)
+
 window.api.segmentacoes.list()
-window.api.segmentacoes.create(classificacao, tipo, classe)
+window.api.segmentacoes.create(data)
+window.api.segmentacoes.upsert(data)
+window.api.segmentacoes.update(id, data)
+window.api.segmentacoes.remove(id)
+window.api.segmentacoes.findOrCreate(data)
+
+window.api.grades.save(segmentacaoId, colecaoId, rows)
+window.api.grades.get(segmentacaoId, colecaoId)
+window.api.grades.importar(filePath, colecaoId)
+
+window.api.projecoes.calcular(segmentacaoId, colecaoId, metodo)
+window.api.projecoes.salvar(segmentacaoId, colecaoId, rows)
+window.api.projecoes.get(segmentacaoId, colecaoId)
+window.api.projecoes.ajustar(segmentacaoId, colecaoId, tamanho, qtd)
+window.api.projecoes.restaurar(segmentacaoId, colecaoId)
+
 window.api.fornecedores.list()
-window.api.fornecedores.create(nome, cnpj, contato)
-window.api.pedidos.salvar(pedido)
+window.api.fornecedores.create(data)
+window.api.fornecedores.update(id, data)
+window.api.fornecedores.remove(id)
+window.api.fornecedores.importarArquivo(filePath)
+
+window.api.compradores.list()
+window.api.compradores.create(data)
+window.api.compradores.update(id, data)
+window.api.compradores.remove(id)
+
+window.api.sessoes.create(data, lojaIds)
+window.api.sessoes.list(colecaoId)
+window.api.sessoes.byId(id)
+window.api.sessoes.update(id, data)
+window.api.sessoes.cancelar(id)
+
+window.api.pedidos.salvar(data)
+window.api.pedidos.byVisita(visitaId)
+window.api.pedidos.totaisPorTamanho(visitaId, segmentacaoId)
 window.api.pedidos.totaisPorFornecedor(colecaoId, segmentacaoId?)
 window.api.pedidos.itensPorFornecedor(fornecedorId, colecaoId)
-window.api.pedidos.totaisPorTamanho(fornecedorId, colecaoId)
-window.api.pedidos.listarVisitas(fornecedorId)
-window.api.pedidos.listarPorColecao(colecaoId)
-window.api.projecoes.get(segmentacaoId, colecaoId)
-window.api.projecoes.calcular(segmentacaoId, colecaoId, metodo)
-window.api.projecoes.salvar(segmentacaoId, colecaoId, tamanho, qtdAjustada)
-window.api.grades.get(segmentacaoId, colecaoId)
+window.api.pedidos.cancelar(pedidoId)
+window.api.pedidos.salvarBatch(batch)
+
+window.api.dashboard.data(colecaoId)
+
+window.api.backup.export(filePath)
+window.api.backup.import(filePath)
+
+window.api.dialog.openFile(options)
+
+window.api.updater.install()
+window.api.updater.onStatus(callback)
 ```
 
 ---
@@ -81,22 +128,19 @@ window.api.grades.get(segmentacaoId, colecaoId)
 
 | Tela | O que faz | Status |
 |------|-----------|--------|
-| Landing | Página de apresentação da demo | ✅ |
-| Dashboard | Visão geral: métricas, progresso, tabela por segmentação | ✅ |
-| Planejamento | Revisão e ajuste de projeções por segmentação e método | ✅ (placeholder na demo) |
-| Compras | Registro de pedidos com tabela de grade por tamanho | ✅ |
-| Compras › Distribuição | Tabela de distribuição por comprador e tamanho, validação de saldo | ✅ |
-| Compras › Geração de PDFs | Talão de pedido por comprador via browser print | ✅ |
-| Relatórios › Por Fornecedor | Lista + detalhe com filtros por segmentação | ✅ |
+| Dashboard | Projeção vs comprado por segmentação, drill-down por tamanho | ✅ |
+| Planejamento | Projeção N-2+N-1, ajuste manual + importar planilha Excel | ✅ |
+| Compras | Sessão → pedidos por loja → PDF (3 fases) + histórico | ✅ |
+| Relatórios › Por Fornecedor | Total comprado por fornecedor + detalhes | ✅ |
 | Relatórios › Por Segmentação | Filtro cascata → detalhe por fornecedor | ✅ |
-| Relatórios › Curva ABC | Desabilitado, "Em breve" | 🔧 |
-| Relatórios › Quebra de Estoque | Desabilitado, "Em breve" | 🔧 |
+| Relatórios › Curva ABC | Desabilitado, sem handler | 🔧 |
+| Relatórios › Quebra de Estoque | Desabilitado, sem handler | 🔧 |
+| Configurações | Coleções, Segmentações, Compradores, Fornecedores, Backup | ✅ |
+| Pendências | Painel do projeto via Supabase (dev tool) | ✅ |
 
 ---
 
-## Tipos de grade (da planilha atual)
-
-Ao registrar um pedido, o tipo de grade determina os tamanhos disponíveis:
+## Tipos de grade
 
 | Tipo | Tamanhos |
 |------|----------|
@@ -110,50 +154,25 @@ Ao registrar um pedido, o tipo de grade determina os tamanhos disponíveis:
 | EX1 | 46 / 48 / 50 / 52 / 54 / 56 / 58 / 60 / 62 / 64 |
 | AD2 | 1 / 2 / 3 / 4 / 5 |
 | EX2 | 6 / 7 / 8 / 9 / 10 |
-| U | F / M / U |
-
-**Atenção:** O sistema digital atual usa apenas classificação (AD/EX/INF). A granularidade de tipos de grade da planilha ainda não está integrada.
-
----
-
-## Campos do pedido na planilha (referência para integração futura)
-
-Cabeçalho do pedido: Fornecedor, Vendedor, Data, Fone, Entrega, Cond. Pagamento, Nota Fiscal, Frete, Transportadora, Crédito, Desconto 10%, Obs, Trocas
-
-Colunas por item: Ref (código), Produto, Grade (tipo), Classe (FEM/MASC/UNI), ICMS, Valor unitário, Valor líquido, T1–T10 (qtd por tamanho)
+| U | F / M / U (tamanho único) |
+| CASAL / KING / QUEEN / SOLT / LAR / GERAL | U (cama/mesa — não aparecem na planilha Análise de Coleção) |
 
 ---
 
-## O que está pronto vs. pendente
+## Fluxo principal de uso
 
-### ✅ Pronto (demo Vercel)
-- Todas as telas: Dashboard, Planejamento (placeholder), Compras, Relatórios completo
-- Tipos de grade granulares: PP/BB/INF/JUV/AD/EX/AD1/EX1/AD2/EX2/U com tamanhos corretos
-- Campos completos do pedido: Vendedor, Cond. Pag., Frete (CIF/FOB), Transportadora, NF, Obs, Desconto %
-- Cálculo de valor líquido com desconto
-- Badge de tipo_grade na tela de Compras
-- **Distribuição por comprador:** tabela por tamanho × comprador com validação de saldo
-- **Geração de PDFs:** talão de pedido individual por comprador via browser print (`window.open` + `print()`)
-- Tema claro, deploy automático no Vercel
-
-### 🔧 Pendente / não iniciado
-- Desktop app (Electron + SQLite) — schema definido, implementação não iniciada
-- Interface para criar/editar coleções
-- Importação de histórico via Excel (TOTAL GRADE)
-- Cadastro completo de fornecedores (~150 do ERP)
-- Exportação de cadastro de produtos para ERP (depende de aprovação da equipe ERP)
-
-### 💡 Features sugeridas (pendentes de aprovação do gestor)
-- **Cálculo automático de grade por proporção:** usuário digita total de peças → sistema distribui por tamanho com base no histórico de projeções
-- **Exportação de cadastro de produtos para ERP:** gera arquivo com marca, grades e detalhes de produto a partir dos pedidos registrados, pronto para subir no ERP
+1. **Preparação:** criar coleção + importar planilha "Análise de Coleção" para popular projeções
+2. **Compra:** para cada fornecedor → criar sessão com lojas participantes → registrar pedidos por segmentação → fechar e gerar PDFs
+3. **Acompanhamento:** Dashboard mostra projeção vs comprado; Relatórios para visão detalhada
 
 ---
 
-## Decisões técnicas importantes
+## Decisões técnicas relevantes
 
-- `window.api` é síncrono internamente (better-sqlite3) mas exposto como Promise para consistência
-- CollectionContext envolve todo o app — toda tela acessa coleção ativa via `useCollection()`
-- Demo usa `mockApi.js` com mesmo contrato que o app desktop — telas são reutilizadas sem alteração
-- Coleções "permanentes" entram em toda projeção independente de estação
-- Projeção usa N−2 e N−1 (duas coleções equivalentes anteriores): média simples ou ponderada (40%/60%)
-- Saldo a comprar = qtd_ajustada − total_já_pedido (por tamanho)
+- **`window.api` é síncrono internamente** (better-sqlite3) mas exposto como Promise para consistência
+- **CollectionContext** envolve todo o renderer — toda tela acessa coleção ativa via `useCollection()`
+- **Demo usa mockApi** com mesmo contrato que o app desktop — telas são reutilizadas sem alteração
+- **Projeção usa N−2 e N−1** (duas coleções equivalentes anteriores): média simples (50/50) ou ponderada (40/60)
+- **`seedInitialData(db)`** separada de `runMigrations(db)` — chamada só em produção (index.js), não nos testes
+- **`sandbox: false` no BrowserWindow** — necessário porque preload usa ESM imports
+- **`xlsx` em dependencies** (não devDependencies) — necessário para build empacotado do Electron

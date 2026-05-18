@@ -16,10 +16,10 @@ It runs entirely offline during trade shows. The only internet-dependent piece i
 - Electron + React/Vite (renderer) + better-sqlite3 (main process)
 - SQLite for all business data — local file, never leaves the machine
 - electron-updater + GitHub Actions for auto-update on release
-- PDF generation via `window.print()` into a hidden iframe
+- PDF generation via `window.open()` + `window.print()` into a dynamically written HTML document
 - Vercel + Supabase only for the Pendências communication screen
 
-**Test suite:** 90 tests, Vitest, all in-memory SQLite databases.
+**Test suite:** 109 tests, Vitest, all in-memory SQLite databases. 14 test files.
 
 ---
 
@@ -29,25 +29,27 @@ It runs entirely offline during trade shows. The only internet-dependent piece i
 electron/
   main/
     db/           ← data layer: one module per entity
-      schema.js   ← single migration function, runs on every app start
-      sessoes.js  ← buying sessions (one per supplier visit)
+      schema.js   ← runMigrations() + seedInitialData() — runs on every app start
+      sessoes.js  ← buying sessions (one per supplier visit, groups multiple stores)
       pedidos.js  ← purchase orders within a session
       projecoes.js← projected quantities per size
-      grades.js   ← size grid definitions (AD, PP, EX, etc.)
+      grades.js   ← historical grade data + import batch
+      importar.js ← xlsx parser for "Análise de Coleção" spreadsheet
       ...
-    index.js      ← IPC handlers — bridges renderer ↔ DB
+    index.js      ← IPC handlers — bridges renderer ↔ DB (~43 handlers, one file)
   preload/
     index.js      ← exposes IPC to renderer via contextBridge
 
 src/renderer/src/
   screens/        ← one file per screen
   lib/            ← shared utilities
+  constants/      ← grade definitions, product types
 
 tests/
   *.test.js       ← one file per DB module
   native/
     index.cjs     ← wrapper to load the correct .node binary for Node.js (not Electron)
-  setup.js        ← shared test DB factory
+  setup.js        ← shared test DB factory (calls runMigrations, NOT seedInitialData)
 ```
 
 ---
@@ -56,17 +58,17 @@ tests/
 
 ```
 colecoes (seasons)
-  └── sessoes (one supplier visit, one or more stores)
-        └── visitas (one row per store within a session)
+  └── sessoes (one supplier visit, groups one or more stores)
+        └── visitas (join table: sessao_id + comprador_id — one row per store)
               └── pedidos (one order per segmentation per store)
                     └── pedido_itens (one row per size: tamanho, qtd)
 
-segmentacoes (product classifications: class × product type × size grid type)
+segmentacoes (product classifications: classificacao × tipo_produto × classe × tipo_grade)
 projecoes (planned buy quantities per segmentation × season × size)
-grade_historica (historical sales data, for future projection calculations)
+grade_historica (historical purchase/sales data, imported from supplier spreadsheet)
 ```
 
-`sessoes` owns `fornecedor_id`, `colecao_id`, `data_visita`. `visitas` is now just a join table — `sessao_id` + `comprador_id`. This was the result of a mid-development refactor: the original design had `visitas` carrying all that context, which made it impossible to group multiple stores into a single supplier visit.
+`sessoes` owns `fornecedor_id`, `colecao_id`, `data_visita`, `frete`, `transportadora`. `visitas` is now just a join table — `sessao_id` + `comprador_id`. This was the result of a mid-development refactor: the original design had `visitas` carrying all that context, which made it impossible to group multiple stores into a single supplier visit.
 
 ---
 
@@ -76,7 +78,7 @@ All migrations live in a single `runMigrations(db)` function in `schema.js`. It 
 
 There is no migration version table, no numbered files, no rollback.
 
-The function started as "create if not exists" and grew by accretion as the schema evolved. The most recent addition was refactoring `visitas` — splitting out session-level data into a new `sessoes` table. That migration does:
+The function started as "create if not exists" and grew by accretion as the schema evolved. The most significant migration was refactoring `visitas` — splitting out session-level data into a new `sessoes` table. That migration does:
 
 ```js
 // 1. Create visitas_new with the new shape
@@ -105,15 +107,19 @@ The binary is not in the repo. Anyone cloning and running tests needs to downloa
 
 - **No TypeScript.** Deliberate — speed during development. But the IPC layer especially (`electron/main/index.js`, `electron/preload/index.js`) has no type safety at all, and the renderer just trusts what comes back.
 
-- **`visitas.js` still exists** as a module in `electron/main/db/`. It's now a thin wrapper that probably shouldn't exist — visitas are fully managed through `sessoes.create()` and `sessoes.cancelar()`. I haven't deleted it because I'm not sure what still imports it.
+- **`visitas.js` still exists** as a module in `electron/main/db/`. It's now a thin wrapper that probably shouldn't exist — visitas are fully managed through `sessoes.create()` and `sessoes.cancelar()`. Haven't deleted it because I'm not sure what still imports it.
 
-- **No test for the upgrade path.** The tests all use fresh in-memory databases via `runMigrations`. I have no test that starts with the *old* schema (visitas with fornecedor_id, no sessoes table) and verifies the migration produces the correct result. I know this is a gap.
+- **`index.js` has 43 IPC handlers in one file** (~190 lines). It's readable today, but one more feature and it becomes a maintenance problem.
 
-- **Inline SQL strings everywhere.** No query builder, no ORM. Prepared statements are used consistently, but the queries are bare strings. Some are getting long.
+- **No test for the upgrade path.** The tests all use fresh in-memory databases via `runMigrations`. There is no test that starts with the *old* schema (visitas with fornecedor_id, no sessoes table) and verifies the migration produces the correct result. That's a real gap.
 
-- **PDF via `window.print()`.** It works. It opens the system print dialogue. But it's not generating a proper PDF file programmatically — the user has to select "Save as PDF" in the print dialogue. There are libraries that would generate a proper binary, but the current approach was faster to ship.
+- **Inline SQL strings everywhere.** No query builder, no ORM. Prepared statements are used consistently, but the queries are bare strings.
 
-- **The Supabase integration is only for one screen.** The Pendências screen (project status + Q&A for Samuel) uses Supabase as a simple key-value store. Everything else is local SQLite. This feels architecturally awkward — two completely different data layers for very different purposes.
+- **PDF via `window.print()`.** It works. Opens the system print dialogue. The user has to select "Save as PDF" manually — the app doesn't programmatically generate a PDF binary. Faster to ship this way, but not ideal.
+
+- **`Compras.jsx` is ~1160 lines** with three phases (IniciarSessao, RegistrarPedidoSessao, FecharSessao) and a full session history (HistoricoSessoes) all in one file. It works but it's dense.
+
+- **The Supabase integration is only for one screen.** The Pendências screen uses Supabase as a simple key-value store. Everything else is local SQLite. Architecturally awkward — two completely different data layers.
 
 ---
 
@@ -125,11 +131,13 @@ The binary is not in the repo. Anyone cloning and running tests needs to downloa
 
 3. **TypeScript** — Worth retrofitting at this stage? The app is functionally complete and mostly stable. I'm not sure the benefit justifies the disruption, but the IPC layer with no types does feel risky.
 
-4. **Test coverage** — What's the highest-value thing missing? I'm testing the DB layer thoroughly but have almost no tests on the renderer side. Given this is an Electron app with a React renderer, I'm not sure what a sensible testing strategy for the UI layer looks like here.
+4. **Test coverage** — What's the highest-value thing missing? Testing the DB layer thoroughly but almost no tests on the renderer side. Given this is Electron + React, what would a sensible UI testing strategy look like?
 
 5. **The `salvarBatch` transaction** in `pedidos.js` — it calls `byId.get(id)` inside the batch loop for each inserted order. That's a SELECT inside a transaction that's already doing INSERTs in a loop. Does this cause any concern, or is it fine because SQLite serialises everything?
 
-6. **Anything else you'd stop me on.** I don't know what I don't know.
+6. **`seedInitialData` separation** — seed data was pulled out of `runMigrations` into its own exported function, called only from `index.js` at app start (not from tests). The pattern feels slightly fragile — is there a cleaner way to handle "run once on first install" logic without a version table?
+
+7. **Anything else you'd stop me on.** I don't know what I don't know.
 
 ---
 
@@ -142,7 +150,7 @@ The binary is not in the repo. Anyone cloning and running tests needs to downloa
 
 npm install
 npx vitest run
-# Expected: 90 tests passing across 13 test files
+# Expected: 109 tests passing across 14 test files
 ```
 
 ---
