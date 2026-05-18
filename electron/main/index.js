@@ -56,8 +56,9 @@ app.whenReady().then(() => {
   // Segmentacoes
   ipcMain.handle('segmentacoes:list',    () => seg.list())
   ipcMain.handle('segmentacoes:create',  (_, d) => seg.create(d))
-  ipcMain.handle('segmentacoes:upsert',  (_, d) => seg.upsert(d))
-  ipcMain.handle('segmentacoes:update',  (_, id, d) => seg.update(id, d))
+  ipcMain.handle('segmentacoes:upsert',       (_, d) => seg.upsert(d))
+  ipcMain.handle('segmentacoes:findOrCreate', (_, d) => seg.findOrCreate(d))
+  ipcMain.handle('segmentacoes:update',       (_, id, d) => seg.update(id, d))
   ipcMain.handle('segmentacoes:remove',  (_, id) => seg.remove(id))
 
   // Grades

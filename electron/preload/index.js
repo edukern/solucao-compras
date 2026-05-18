@@ -10,7 +10,8 @@ contextBridge.exposeInMainWorld('api', {
   segmentacoes: {
     list:   ()        => ipcRenderer.invoke('segmentacoes:list'),
     create: (d)       => ipcRenderer.invoke('segmentacoes:create', d),
-    upsert: (d)       => ipcRenderer.invoke('segmentacoes:upsert', d),
+    upsert:       (d) => ipcRenderer.invoke('segmentacoes:upsert', d),
+    findOrCreate: (d) => ipcRenderer.invoke('segmentacoes:findOrCreate', d),
     update: (id, d)   => ipcRenderer.invoke('segmentacoes:update', id, d),
     remove: (id)      => ipcRenderer.invoke('segmentacoes:remove', id),
   },
