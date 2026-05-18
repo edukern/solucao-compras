@@ -144,6 +144,10 @@ export function runMigrations(db) {
     db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_fornecedores_nome ON fornecedores(nome)`)
   } catch {}
 
+  // Add referencia and icms_pct to pedidos (introduced 2026-05)
+  try { db.exec(`ALTER TABLE pedidos ADD COLUMN referencia TEXT`) } catch {}
+  try { db.exec(`ALTER TABLE pedidos ADD COLUMN icms_pct REAL NOT NULL DEFAULT 0`) } catch {}
+
   // Sessoes: groups multiple lojas into a single buying session
   db.exec(`
     CREATE TABLE IF NOT EXISTS sessoes (

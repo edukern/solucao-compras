@@ -128,12 +128,12 @@ describe('makePedidos', () => {
   it('salvar: persiste pedido e retorna com itens', () => {
     const result = ped.salvar({
       visita_id: visitaId, comprador_id: ids.compIds[0], segmentacao_id: ids.segId,
-      valor_unitario: 99.9, desconto_pct: 10, transportadora: 'Azul', nota_fiscal: 'NF-001',
+      valor_unitario: 99.9, desconto_pct: 10, referencia: 'REF-001', icms_pct: 12,
       itens: [{ tamanho: 'P', qtd: 5 }, { tamanho: 'M', qtd: 10 }, { tamanho: 'G', qtd: 3 }]
     })
     expect(result.id).toBeGreaterThan(0)
-    expect(result.transportadora).toBe('Azul')
-    expect(result.nota_fiscal).toBe('NF-001')
+    expect(result.referencia).toBe('REF-001')
+    expect(result.icms_pct).toBe(12)
     expect(result.itens).toHaveLength(3)
     expect(result.itens.find(i => i.tamanho === 'M').qtd).toBe(10)
   })
