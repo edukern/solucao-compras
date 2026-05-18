@@ -201,7 +201,9 @@ export function runMigrations(db) {
         INSERT INTO visitas_new (id, sessao_id, comprador_id)
           SELECT id, sessao_id, comprador_id
           FROM visitas
-          WHERE sessao_id IS NOT NULL AND comprador_id IS NOT NULL;
+          WHERE sessao_id IS NOT NULL AND comprador_id IS NOT NULL
+            AND sessao_id IN (SELECT id FROM sessoes)
+            AND comprador_id IN (SELECT id FROM compradores);
 
         DROP TABLE visitas;
 
