@@ -19,6 +19,9 @@ export default function Planejamento() {
   const [baseNomes, setBaseNomes] = useState(['', ''])
   const [warning,   setWarning]   = useState(null)
   const [saved,     setSaved]     = useState(false)
+  const [importColId,  setImportColId]  = useState('')
+  const [importing,    setImporting]    = useState(false)
+  const [importResult, setImportResult] = useState(null)
 
   useEffect(() => {
     window.api.segmentacoes.list().then(setSegs)
@@ -92,6 +95,32 @@ export default function Planejamento() {
     setRows(prev => prev.map(r => ({ ...r, qtd_ajustada: r.qtd_projetada })))
   }
 
+  async function handleImportar() {
+    if (!importColId) return
+    const filePath = await window.api.dialog.openFile({
+      title: 'Selecionar Análise de Coleção',
+      filters: [{ name: 'Excel', extensions: ['xlsx', 'xls'] }],
+      properties: ['openFile'],
+    })
+    if (!filePath) return
+    setImporting(true)
+    setImportResult(null)
+    try {
+      const colecao = collections.find(c => c.id === Number(importColId))
+      const result = await window.api.grades.importar(
+        filePath,
+        Number(importColId),
+        colecao?.estacao ?? 'inverno'
+      )
+      setImportResult(result)
+      if (segId) loadPlanejamento(segId, metodo)
+    } catch (e) {
+      setImportResult({ imported: 0, skipped: 0, errors: [String(e)] })
+    } finally {
+      setImporting(false)
+    }
+  }
+
   async function handleSave() {
     if (!segId || !active || rows.length === 0) return
     const toSave = rows.map(({ tamanho, ordem, qtd_projetada, qtd_ajustada }) =>
@@ -107,6 +136,36 @@ export default function Planejamento() {
   return (
     <div className={styles.page}>
       <h1 className={styles.title}>Planejamento{active ? ` — ${active.nome}` : ''}</h1>
+
+      <details className={styles.importSection}>
+        <summary className={styles.importSummary}>Importar Análise de Coleção</summary>
+        <div className={styles.importBody}>
+          <div className={styles.importRow}>
+            <label className={styles.importLabel}>Coleção:</label>
+            <select value={importColId} onChange={e => setImportColId(e.target.value)}>
+              <option value="">Selecione a coleção…</option>
+              {collections.map(c => (
+                <option key={c.id} value={c.id}>{c.nome}</option>
+              ))}
+            </select>
+            <button
+              className={styles.btnImportar}
+              disabled={!importColId || importing}
+              onClick={handleImportar}
+            >
+              {importing ? 'Importando…' : 'Escolher arquivo e importar →'}
+            </button>
+          </div>
+          {importResult && (
+            <div className={importResult.errors.length ? styles.importError : styles.importSuccess}>
+              {importResult.errors.length === 0
+                ? `✓ ${importResult.imported} produto(s) importado(s)${importResult.skipped > 0 ? `, ${importResult.skipped} ignorado(s)` : ''}.`
+                : `${importResult.imported} importado(s), ${importResult.skipped} ignorado(s). Erros: ${importResult.errors.slice(0, 3).join('; ')}`
+              }
+            </div>
+          )}
+        </div>
+      </details>
 
       {warning && <div className={styles.warning}>{warning}</div>}
 
