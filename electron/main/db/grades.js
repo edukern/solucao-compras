@@ -19,12 +19,23 @@ export function makeGrades(db) {
     `SELECT * FROM grade_historica WHERE segmentacao_id = ? AND colecao_id = ? ORDER BY ordem`
   )
 
+  const importBatchTx = db.transaction((items) => {
+    for (const { segmentacao_id, colecao_id, rows } of items) {
+      for (const r of rows) {
+        upsert.run({ segmentacao_id, colecao_id, ...r })
+      }
+    }
+  })
+
   return {
     saveGrade(segId, colId, rows) {
       saveMany(segId, colId, rows)
     },
     getGrade(segId, colId) {
       return bySegCol.all(segId, colId)
-    }
+    },
+    importBatch(items) {
+      importBatchTx(items)
+    },
   }
 }
