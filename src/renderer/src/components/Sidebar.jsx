@@ -24,7 +24,7 @@ export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
 
   return (
     <aside className={styles.sidebar}>
-      <div className={styles.brand}>Solução Compras</div>
+      <div className={styles.brand}>⚡ Bolt Compras</div>
 
       <div className={styles.collectionSection}>
         <div className={styles.colHeader}>

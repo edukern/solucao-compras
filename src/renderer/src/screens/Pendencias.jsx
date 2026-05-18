@@ -99,7 +99,7 @@ export default function Pendencias() {
   return (
     <div className={styles.page}>
       <div className={styles.header}>
-        <h1 className={styles.title}>Solução Compras — Painel do Projeto</h1>
+        <h1 className={styles.title}>Bolt Compras — Painel do Projeto</h1>
         <p className={styles.subtitle}>
           Acompanhamento do desenvolvimento, informações sobre o sistema e perguntas em aberto.
         </p>
@@ -171,7 +171,7 @@ export default function Pendencias() {
           <div className={styles.infoBloco}>
             <div className={styles.infoBlocoTitulo}>O que é o programa</div>
             <p className={styles.infoTexto}>
-              O Solução Compras é um programa feito sob medida para organizar as compras das coleções.
+              O Bolt Compras é um programa feito sob medida para organizar as compras das coleções.
               Ele roda no computador do Samuel — não precisa de internet para funcionar no dia a dia.
               Todos os dados (pedidos, coleções, fornecedores) ficam salvos no computador, em um arquivo
               seguro chamado <strong>compras.db</strong>.

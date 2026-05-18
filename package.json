@@ -1,7 +1,7 @@
 {
   "name": "solucao-compras",
   "version": "1.1.0",
-  "description": "Solução Compras - Desktop app for purchase management",
+  "description": "Bolt Compras - Desktop app for purchase management",
   "main": "./out/main/index.js",
   "author": "",
   "homepage": "https://electron-vite.org",
@@ -25,7 +25,7 @@
   },
   "build": {
     "appId": "com.backes.solucao-compras",
-    "productName": "Solução Compras",
+    "productName": "Bolt Compras",
     "copyright": "Copyright © 2026 Grupo Backes/Streit",
     "directories": {
       "output": "dist-electron"
@@ -50,7 +50,7 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "shortcutName": "Solução Compras",
+      "shortcutName": "Bolt Compras",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     },
