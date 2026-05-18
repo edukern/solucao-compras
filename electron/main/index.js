@@ -14,6 +14,7 @@ import { makePedidos } from './db/pedidos.js'
 import { makeSessoes } from './db/sessoes.js'
 import fs from 'fs'
 import * as XLSX from 'xlsx'
+import { importarPlanilha } from './importar.js'
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -64,6 +65,9 @@ app.whenReady().then(() => {
   // Grades
   ipcMain.handle('grades:save',  (_, segId, colId, rows) => gr.saveGrade(segId, colId, rows))
   ipcMain.handle('grades:get',   (_, segId, colId) => gr.getGrade(segId, colId))
+  ipcMain.handle('grades:importar', (_, filePath, colecaoId, estacao) => {
+    return importarPlanilha({ filePath, colecaoId, estacao, seg, gr })
+  })
 
   // Projecoes
   ipcMain.handle('projecoes:calcular',  (_, segId, colId, baseIds, metodo) => proj.calcular(segId, colId, baseIds, metodo))
