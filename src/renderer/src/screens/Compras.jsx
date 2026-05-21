@@ -515,6 +515,8 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
   const [distribTargets,setDistribTargets]= useState({})
   const RECOVERY_KEY = `SC_RECOVERY_${colId}`
   const firstInputRef = useRef(null)
+  const [showAddForm,    setShowAddForm]    = useState(true)
+  const addFormFirstRef = useRef(null)
 
   const activeItem = items.find(it => it.localId === activeId) ?? null
 
@@ -528,6 +530,13 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
   useEffect(() => {
     firstInputRef.current?.focus()
   }, [activeId, lojaIdx])
+
+  // Focus first add-form input when form is reopened
+  useEffect(() => {
+    if (showAddForm && items.length > 0) {
+      addFormFirstRef.current?.focus()
+    }
+  }, [showAddForm])
 
   function getQtd(localId, visitaId, tam) {
     return qtds[localId]?.[visitaId]?.[tam] ?? ''
@@ -567,6 +576,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
     setActiveId(localId)
     setLojaIdx(0)
     setForm(prev => ({ ...prev, ref: '', valor: '' }))
+    setShowAddForm(false)
   }
 
   function removeItem(localId, e) {
@@ -724,10 +734,12 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
         {TIPOS_PRODUTO.map(t => <option key={t} value={t} />)}
       </datalist>
 
+      {(showAddForm || items.length === 0) && (
       <div className={styles.addItemForm}>
         <div className={styles.field}>
           <span className={styles.label}>Ref</span>
           <input
+            ref={addFormFirstRef}
             type="text"
             className={styles.addItemRef}
             placeholder="Cód. forn."
@@ -798,6 +810,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
           + Adicionar
         </button>
       </div>
+      )}
 
       {/* ── Items table with inline grade expansion ── */}
       {items.length > 0 ? (
@@ -925,6 +938,14 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
       {error && <div className={styles.errorBanner}>{error}</div>}
 
       <div className={styles.phaseActions}>
+        {!showAddForm && (
+          <button
+            className={styles.btnSecondary}
+            onClick={() => setShowAddForm(true)}
+          >
+            + Novo item
+          </button>
+        )}
         <button
           className={styles.btnSecondary}
           disabled={saving || items.every(it => totalQtdItem(it.localId) === 0)}
