@@ -940,7 +940,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                     /* ── Normal row ── */
                     <tr
                       className={`${styles.itemRow} ${isActive ? styles.itemRowActive : ''}`}
-                      onClick={() => { setActiveId(isActive ? null : it.localId); setLojaIdx(0) }}
+                      onClick={() => { setEditingId(null); setEditForm(null); setActiveId(isActive ? null : it.localId); setLojaIdx(0) }}
                     >
                       <td>{it.ref || <span className={styles.itemDot}>—</span>}</td>
                       <td>{it.tipo_produto} · {it.tipo_grade} · {it.classe}</td>
