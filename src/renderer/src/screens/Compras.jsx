@@ -56,16 +56,64 @@ function TutorialOverlay({ onClose }) {
 // ─── Phase 1: Start Session ───────────────────────────────────────────────
 
 function IniciarSessao({ forns, compradores, colId, onStart }) {
-  const [fornId,    setFornId]    = useState('')
-  const [data,      setData]      = useState(today())
-  const [vendedor,  setVendedor]  = useState('')
-  const [condPag,   setCondPag]   = useState('')
+  const [fornId,         setFornId]         = useState('')
+  const [fornFilter,     setFornFilter]     = useState('')
+  const [fornFocusIdx,   setFornFocusIdx]   = useState(0)
+  const [data,           setData]           = useState(today())
+  const [vendedor,       setVendedor]       = useState('')
+  const [condPag,        setCondPag]        = useState('')
   const [frete,          setFrete]          = useState('')
   const [transportadora, setTransportadora] = useState('')
   const [obs,            setObs]            = useState('')
   const [lojas,          setLojas]          = useState([])
-  const [saving,    setSaving]    = useState(false)
-  const [error,     setError]     = useState(null)
+  const [saving,         setSaving]         = useState(false)
+  const [error,          setError]          = useState(null)
+  const [activeField,    setActiveField]    = useState('fornecedor')
+  const [showTutorial,   setShowTutorial]   = useState(
+    () => localStorage.getItem('sessionFormTutorialSeen') !== 'true'
+  )
+  const activeRef = useRef(null)
+
+  const ORDER = [
+    'fornecedor', 'data', 'vendedor', 'condPag', 'frete',
+    ...(frete === 'FOB' ? ['transportadora'] : []),
+    'lojas',
+  ]
+  const activeIdx   = ORDER.indexOf(activeField)
+  const progressPct = Math.round((activeIdx / (ORDER.length - 1)) * 100)
+
+  const fornFiltered = forns.filter(f =>
+    f.nome.toLowerCase().includes(fornFilter.toLowerCase())
+  )
+
+  useEffect(() => { activeRef.current?.focus() }, [activeField])
+
+  function stateOf(name) {
+    const i = ORDER.indexOf(name)
+    if (i === activeIdx) return 'active'
+    if (i < activeIdx)   return 'done'
+    return 'upcoming'
+  }
+
+  function fieldCls(name) {
+    const s = stateOf(name)
+    return [
+      styles.kbField,
+      s === 'active'   ? styles.kbFieldActive   : '',
+      s === 'done'     ? styles.kbFieldDone     : '',
+      s === 'upcoming' ? styles.kbFieldUpcoming : '',
+    ].filter(Boolean).join(' ')
+  }
+
+  function advance() {
+    const next = ORDER[activeIdx + 1]
+    if (next) setActiveField(next)
+  }
+
+  function goBack() {
+    const prev = ORDER[activeIdx - 1]
+    if (prev) setActiveField(prev)
+  }
 
   function toggleLoja(id) {
     setLojas(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -78,13 +126,13 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
     try {
       const sessao = await window.api.sessoes.create({
         fornecedor_id: Number(fornId),
-        colecao_id: colId,
-        data_visita: data,
+        colecao_id:    colId,
+        data_visita:   data,
         vendedor,
-        cond_pag: condPag,
+        cond_pag:      condPag,
         frete,
         transportadora: frete === 'FOB' ? transportadora : '',
-        obs
+        obs,
       }, lojas)
       const lojasPresentes = compradores.filter(c => lojas.includes(c.id))
       onStart(sessao, lojasPresentes)
@@ -95,79 +143,359 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
     }
   }
 
-  return (
-    <div className={styles.phase}>
-      <h2 className={styles.phaseTitle}>Fase 1 — Iniciar Sessão de Compras</h2>
+  function dismissTutorial() {
+    localStorage.setItem('sessionFormTutorialSeen', 'true')
+    setShowTutorial(false)
+  }
 
-      <div className={styles.formGrid}>
-        <div className={styles.field}>
-          <span className={styles.label}>Fornecedor</span>
-          <select value={fornId} onChange={e => setFornId(e.target.value)}>
-            <option value="">Selecione…</option>
-            {forns.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
-          </select>
+  // ── Keyboard handlers ────────────────────────────────────────────────────
+
+  function onFornKey(e) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setFornFocusIdx(i => Math.min(i + 1, fornFiltered.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setFornFocusIdx(i => Math.max(i - 1, 0))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      const sel = fornFiltered[fornFocusIdx] ?? fornFiltered[0]
+      if (sel) { setFornId(String(sel.id)); setFornFilter(sel.nome); advance() }
+    }
+  }
+
+  function onTextKey(e) {
+    if (e.key === 'Enter')  { e.preventDefault(); advance() }
+    if (e.key === 'Escape') { e.preventDefault(); goBack() }
+  }
+
+  function onFreteKey(e) {
+    const k = e.key.toLowerCase()
+    if (k === 'c')               { setFrete('CIF'); setTransportadora(''); advance() }
+    else if (k === 'f')          { setFrete('FOB'); advance() }
+    else if (e.key === 'Enter')  { setFrete(''); advance() }
+    else if (e.key === 'Escape') { goBack() }
+  }
+
+  function onLojasKey(e) {
+    const n = parseInt(e.key, 10)
+    if (n >= 1 && n <= compradores.length) {
+      toggleLoja(compradores[n - 1].id)
+    } else if (e.key === 'Enter' && lojas.length > 0) {
+      handleStart()
+    } else if (e.key === 'Escape') {
+      goBack()
+    }
+  }
+
+  // ── Field-label helpers ──────────────────────────────────────────────────
+
+  const FIELD_NAMES = {
+    fornecedor:     'Fornecedor',
+    data:           'Data da visita',
+    vendedor:       'Vendedor',
+    condPag:        'Cond. de pagamento',
+    frete:          'Frete',
+    transportadora: 'Transportadora',
+    lojas:          'Lojas participantes',
+  }
+
+  function DoneLabel({ name }) {
+    return (
+      <div className={styles.kbFieldLabel}>
+        <span className={styles.kbCheck}>✓</span> {FIELD_NAMES[name]}
+      </div>
+    )
+  }
+
+  function UpcomingLabel({ name }) {
+    return <div className={styles.kbFieldLabel}>{FIELD_NAMES[name]}</div>
+  }
+
+  const freteDisplay = { CIF: 'CIF', FOB: 'FOB', '': 'Sem frete' }
+
+  // ── Render ───────────────────────────────────────────────────────────────
+
+  return (
+    <div className={styles.kbForm}>
+
+      {/* Header: title + progress bar + help button */}
+      <div className={styles.kbHeader}>
+        <span className={styles.kbHeaderTitle}>Iniciar Sessão de Compras</span>
+        <div className={styles.kbProgressWrap}>
+          <div className={styles.kbProgressBar} style={{ width: `${progressPct}%` }} />
         </div>
-        <div className={styles.field}>
-          <span className={styles.label}>Data da visita</span>
-          <input type="date" value={data} onChange={e => setData(e.target.value)} />
+        <button
+          className={styles.kbHelpBtn}
+          onClick={() => setShowTutorial(true)}
+          title="Ver atalhos de teclado"
+        >?</button>
+      </div>
+
+      {/* Fields */}
+      <div className={styles.kbFields}>
+
+        {/* 1 — Fornecedor */}
+        <div
+          className={fieldCls('fornecedor')}
+          onClick={stateOf('fornecedor') === 'done' ? () => setActiveField('fornecedor') : undefined}
+        >
+          {stateOf('fornecedor') === 'active' ? (
+            <>
+              <div className={styles.kbFieldLabel}>{FIELD_NAMES.fornecedor}</div>
+              <input
+                ref={activeRef}
+                className={styles.kbFieldInput}
+                value={fornFilter}
+                onChange={e => { setFornFilter(e.target.value); setFornFocusIdx(0) }}
+                onKeyDown={onFornKey}
+                placeholder="Digite para buscar…"
+                autoComplete="off"
+              />
+              {fornFilter.length > 0 && fornFiltered.length > 0 && (
+                <div className={styles.kbDropdown}>
+                  {fornFiltered.slice(0, 6).map((f, i) => (
+                    <div
+                      key={f.id}
+                      className={`${styles.kbDropItem} ${i === fornFocusIdx ? styles.kbDropItemFocused : ''}`}
+                      onMouseDown={() => { setFornId(String(f.id)); setFornFilter(f.nome); advance() }}
+                    >
+                      {f.nome}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className={styles.kbHint}>↑↓ navega · <kbd>Enter</kbd> seleciona</div>
+            </>
+          ) : stateOf('fornecedor') === 'done' ? (
+            <>
+              <DoneLabel name="fornecedor" />
+              <div className={styles.kbFieldValue}>
+                {forns.find(f => String(f.id) === fornId)?.nome ?? '—'}
+              </div>
+            </>
+          ) : (
+            <UpcomingLabel name="fornecedor" />
+          )}
         </div>
-        <div className={styles.field}>
-          <span className={styles.label}>Vendedor</span>
-          <input type="text" placeholder="Nome do vendedor" value={vendedor}
-            onChange={e => setVendedor(e.target.value)} />
+
+        {/* 2 — Data */}
+        <div
+          className={fieldCls('data')}
+          onClick={stateOf('data') === 'done' ? () => setActiveField('data') : undefined}
+        >
+          {stateOf('data') === 'active' ? (
+            <>
+              <div className={styles.kbFieldLabel}>{FIELD_NAMES.data}</div>
+              <input
+                ref={activeRef}
+                type="date"
+                className={styles.kbFieldInput}
+                value={data}
+                onChange={e => setData(e.target.value)}
+                onKeyDown={onTextKey}
+              />
+              <div className={styles.kbHint}><kbd>Enter</kbd> confirma · padrão: hoje</div>
+            </>
+          ) : stateOf('data') === 'done' ? (
+            <>
+              <DoneLabel name="data" />
+              <div className={styles.kbFieldValue}>{fmtDate(data)}</div>
+            </>
+          ) : (
+            <UpcomingLabel name="data" />
+          )}
         </div>
-        <div className={styles.field}>
-          <span className={styles.label}>Cond. pagamento</span>
-          <input type="text" placeholder="Ex: 30/60 dias" value={condPag}
-            onChange={e => setCondPag(e.target.value)} />
+
+        {/* 3 — Vendedor */}
+        <div
+          className={fieldCls('vendedor')}
+          onClick={stateOf('vendedor') === 'done' ? () => setActiveField('vendedor') : undefined}
+        >
+          {stateOf('vendedor') === 'active' ? (
+            <>
+              <div className={styles.kbFieldLabel}>{FIELD_NAMES.vendedor}</div>
+              <input
+                ref={activeRef}
+                type="text"
+                className={styles.kbFieldInput}
+                value={vendedor}
+                onChange={e => setVendedor(e.target.value)}
+                onKeyDown={onTextKey}
+                placeholder="Nome do vendedor"
+              />
+              <div className={styles.kbHint}><kbd>Enter</kbd> avança · <kbd>Esc</kbd> volta</div>
+            </>
+          ) : stateOf('vendedor') === 'done' ? (
+            <>
+              <DoneLabel name="vendedor" />
+              <div className={styles.kbFieldValue}>{vendedor || '—'}</div>
+            </>
+          ) : (
+            <UpcomingLabel name="vendedor" />
+          )}
         </div>
-        <div className={styles.field}>
-          <span className={styles.label}>Frete</span>
-          <select value={frete} onChange={e => { setFrete(e.target.value); if (e.target.value !== 'FOB') setTransportadora('') }}>
-            <option value="">—</option>
-            <option value="CIF">CIF</option>
-            <option value="FOB">FOB</option>
-          </select>
+
+        {/* 4 — Cond. Pagamento */}
+        <div
+          className={fieldCls('condPag')}
+          onClick={stateOf('condPag') === 'done' ? () => setActiveField('condPag') : undefined}
+        >
+          {stateOf('condPag') === 'active' ? (
+            <>
+              <div className={styles.kbFieldLabel}>{FIELD_NAMES.condPag}</div>
+              <input
+                ref={activeRef}
+                type="text"
+                className={styles.kbFieldInput}
+                value={condPag}
+                onChange={e => setCondPag(e.target.value)}
+                onKeyDown={onTextKey}
+                placeholder="Ex: 30/60 dias"
+              />
+              <div className={styles.kbHint}><kbd>Enter</kbd> avança · <kbd>Esc</kbd> volta</div>
+            </>
+          ) : stateOf('condPag') === 'done' ? (
+            <>
+              <DoneLabel name="condPag" />
+              <div className={styles.kbFieldValue}>{condPag || '—'}</div>
+            </>
+          ) : (
+            <UpcomingLabel name="condPag" />
+          )}
         </div>
+
+        {/* 5 — Frete */}
+        <div
+          className={fieldCls('frete')}
+          ref={stateOf('frete') === 'active' ? activeRef : null}
+          tabIndex={stateOf('frete') === 'active' ? 0 : undefined}
+          onKeyDown={stateOf('frete') === 'active' ? onFreteKey : undefined}
+          onClick={stateOf('frete') === 'done' ? () => setActiveField('frete') : undefined}
+        >
+          {stateOf('frete') === 'active' ? (
+            <>
+              <div className={styles.kbFieldLabel}>{FIELD_NAMES.frete}</div>
+              <div className={styles.kbFreteOpts}>
+                {[['CIF', 'C'], ['FOB', 'F'], ['', '↵']].map(([val, key]) => (
+                  <button
+                    key={val || 'none'}
+                    className={`${styles.kbFreteOpt} ${frete === val ? styles.kbFreteOptOn : ''}`}
+                    onMouseDown={e => {
+                      e.preventDefault()
+                      setFrete(val)
+                      if (val !== 'FOB') setTransportadora('')
+                      advance()
+                    }}
+                  >
+                    <span className={styles.kbKey}>{key}</span>
+                    {val || 'Sem frete'}
+                  </button>
+                ))}
+              </div>
+              <div className={styles.kbHint}>
+                <kbd>C</kbd> CIF · <kbd>F</kbd> FOB · <kbd>Enter</kbd> sem frete · <kbd>Esc</kbd> volta
+              </div>
+            </>
+          ) : stateOf('frete') === 'done' ? (
+            <>
+              <DoneLabel name="frete" />
+              <div className={styles.kbFieldValue}>{freteDisplay[frete] ?? '—'}</div>
+            </>
+          ) : (
+            <UpcomingLabel name="frete" />
+          )}
+        </div>
+
+        {/* 5b — Transportadora (only when FOB) */}
         {frete === 'FOB' && (
-          <div className={styles.field}>
-            <span className={styles.label}>Transportadora</span>
-            <input type="text" placeholder="Nome da transportadora" value={transportadora}
-              onChange={e => setTransportadora(e.target.value)} />
+          <div
+            className={fieldCls('transportadora')}
+            onClick={stateOf('transportadora') === 'done' ? () => setActiveField('transportadora') : undefined}
+          >
+            {stateOf('transportadora') === 'active' ? (
+              <>
+                <div className={styles.kbFieldLabel}>{FIELD_NAMES.transportadora}</div>
+                <input
+                  ref={activeRef}
+                  type="text"
+                  className={styles.kbFieldInput}
+                  value={transportadora}
+                  onChange={e => setTransportadora(e.target.value)}
+                  onKeyDown={onTextKey}
+                  placeholder="Nome da transportadora"
+                />
+                <div className={styles.kbHint}><kbd>Enter</kbd> avança · <kbd>Esc</kbd> volta</div>
+              </>
+            ) : stateOf('transportadora') === 'done' ? (
+              <>
+                <DoneLabel name="transportadora" />
+                <div className={styles.kbFieldValue}>{transportadora || '—'}</div>
+              </>
+            ) : (
+              <UpcomingLabel name="transportadora" />
+            )}
           </div>
         )}
-      </div>
 
-      <div className={styles.field} style={{ flexBasis: '100%' }}>
-        <span className={styles.label}>Observações (opcional)</span>
-        <input
-          type="text"
-          value={obs}
-          onChange={e => setObs(e.target.value)}
-          style={{ width: '100%', boxSizing: 'border-box' }}
-        />
-      </div>
-
-      <div className={styles.presentesSection}>
-        <span className={styles.label}>Lojas participantes desta sessão</span>
-        <div className={styles.checkGrid}>
-          {compradores.map(c => (
-            <label key={c.id} className={styles.checkItem}>
-              <input type="checkbox" checked={lojas.includes(c.id)} onChange={() => toggleLoja(c.id)} />
-              <span>{c.nome}</span>
-              {c.cidade && <span className={styles.cidade}>{c.cidade}</span>}
-            </label>
-          ))}
+        {/* 6 — Lojas */}
+        <div
+          className={fieldCls('lojas')}
+          ref={stateOf('lojas') === 'active' ? activeRef : null}
+          tabIndex={stateOf('lojas') === 'active' ? 0 : undefined}
+          onKeyDown={stateOf('lojas') === 'active' ? onLojasKey : undefined}
+        >
+          {stateOf('lojas') === 'active' ? (
+            <>
+              <div className={styles.kbFieldLabel}>{FIELD_NAMES.lojas}</div>
+              <div className={styles.kbLojaGrid}>
+                {compradores.map((c, i) => (
+                  <div
+                    key={c.id}
+                    className={`${styles.kbLojaChip} ${lojas.includes(c.id) ? styles.kbLojaChipOn : ''}`}
+                    onMouseDown={() => toggleLoja(c.id)}
+                  >
+                    <div className={`${styles.kbLojaNum} ${lojas.includes(c.id) ? styles.kbLojaNumOn : ''}`}>
+                      {i + 1}
+                    </div>
+                    <div>
+                      <div className={styles.kbLojaName}>{c.nome}</div>
+                      {c.cidade && <div className={styles.kbLojaCity}>{c.cidade}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className={styles.kbHint}>
+                <kbd>1</kbd>–<kbd>8</kbd> seleciona loja participante · <kbd>Enter</kbd> iniciar · <kbd>Esc</kbd> volta
+              </div>
+            </>
+          ) : stateOf('lojas') === 'done' ? (
+            <>
+              <DoneLabel name="lojas" />
+              <div className={styles.kbFieldValue}>{lojas.length} loja(s) selecionada(s)</div>
+            </>
+          ) : (
+            <UpcomingLabel name="lojas" />
+          )}
         </div>
+
       </div>
 
+      {/* Error + fallback submit button */}
       {error && <div className={styles.errorBanner}>{error}</div>}
-
       <div className={styles.phaseActions}>
-        <button className={styles.btnPrimary} disabled={!fornId || lojas.length === 0 || saving} onClick={handleStart}>
+        <button
+          className={styles.btnPrimary}
+          disabled={!fornId || lojas.length === 0 || saving}
+          onClick={handleStart}
+        >
           Iniciar Sessão →
         </button>
       </div>
+
+      {/* Tutorial overlay */}
+      {showTutorial && <TutorialOverlay onClose={dismissTutorial} />}
+
     </div>
   )
 }
