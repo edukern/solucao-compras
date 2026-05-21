@@ -967,10 +967,14 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                         <div className={styles.gradeInlineWrap}>
                           <div className={styles.gradeInlineHeader}>
                             <div className={styles.gradeInlineLoja}>Loja</div>
+                            <div
+                              className={styles.gradeInlineDist}
+                              title="Auto Distribuir pela projeção: clique na célula, digite o total e pressione Enter"
+                            >Dist.</div>
                             {tams.map(t => (
                               <div key={t} className={styles.gradeInlineSize}>{t}</div>
                             ))}
-                            <div className={styles.gradeInlineTotal}>Total</div>
+                            <div className={styles.gradeInlineTotalReadonly}>Total</div>
                           </div>
                           {visitas.map((v, i) => {
                             const targetKey = `${it.localId}__${v.id}`
@@ -984,25 +988,11 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                                 onClick={() => setLojaIdx(i)}
                               >
                                 <div className={styles.gradeInlineLoja}>{v.comprador_nome}</div>
-                                {tams.map((tam, tamIdx) => (
-                                  <div key={tam} className={styles.gradeInlineSize}>
-                                    <input
-                                      ref={tamIdx === 0 && i === lojaIdx ? firstInputRef : null}
-                                      type="number"
-                                      min="0"
-                                      className={styles.qtyInput}
-                                      value={getQtd(it.localId, v.id, tam)}
-                                      onChange={e => setQtd(it.localId, v.id, tam, e.target.value)}
-                                      onFocus={() => setLojaIdx(i)}
-                                      onKeyDown={e => handleEnterOnInput(e, tamIdx, i)}
-                                      placeholder="0"
-                                    />
-                                  </div>
-                                ))}
                                 <div className={styles.gradeInlineTotalCell}>
                                   <input
                                     type="number"
                                     min="1"
+                                    tabIndex={-1}
                                     className={styles.totalDistribInput}
                                     value={targetEditing !== undefined ? targetEditing : (computedTotal || '')}
                                     placeholder={computedTotal || '—'}
@@ -1021,17 +1011,34 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                                     onClick={e => e.stopPropagation()}
                                   />
                                 </div>
+                                {tams.map((tam, tamIdx) => (
+                                  <div key={tam} className={styles.gradeInlineSize}>
+                                    <input
+                                      ref={tamIdx === 0 && i === lojaIdx ? firstInputRef : null}
+                                      type="number"
+                                      min="0"
+                                      className={styles.qtyInput}
+                                      value={getQtd(it.localId, v.id, tam)}
+                                      onChange={e => setQtd(it.localId, v.id, tam, e.target.value)}
+                                      onFocus={() => setLojaIdx(i)}
+                                      onKeyDown={e => handleEnterOnInput(e, tamIdx, i)}
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                ))}
+                                <div className={styles.gradeInlineTotalReadonly}>{computedTotal || '—'}</div>
                               </div>
                             )
                           })}
                           {visitas.length > 1 && (
                             <div className={`${styles.gradeInlineRow} ${styles.gradeInlineTotalsRow}`}>
                               <div className={styles.gradeInlineLoja}>Total lojas</div>
+                              <div className={styles.gradeInlineDist}></div>
                               {tams.map(tam => {
                                 const tot = visitas.reduce((s, v2) => s + (parseInt(qtds[it.localId]?.[v2.id]?.[tam]) || 0), 0)
                                 return <div key={tam} className={styles.gradeInlineSize}>{tot || ''}</div>
                               })}
-                              <div className={styles.gradeInlineTotal}>{totalQtdItem(it.localId) || ''}</div>
+                              <div className={styles.gradeInlineTotalReadonly}>{totalQtdItem(it.localId) || ''}</div>
                             </div>
                           )}
                         </div>
