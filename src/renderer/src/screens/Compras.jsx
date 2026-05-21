@@ -517,6 +517,8 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
   const firstInputRef = useRef(null)
   const [showAddForm,    setShowAddForm]    = useState(true)
   const addFormFirstRef = useRef(null)
+  const [editingId,      setEditingId]      = useState(null)
+  const [editForm,       setEditForm]       = useState(null)
 
   const activeItem = items.find(it => it.localId === activeId) ?? null
 
@@ -584,6 +586,37 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
     setItems(prev => prev.filter(it => it.localId !== localId))
     setQtds(prev => { const n = { ...prev }; delete n[localId]; return n })
     if (activeId === localId) setActiveId(null)
+  }
+
+  function startEdit(item) {
+    setEditingId(item.localId)
+    setEditForm({
+      ref:          item.ref,
+      tipo_produto: item.tipo_produto,
+      tipo_grade:   item.tipo_grade,
+      classe:       item.classe,
+      icms_pct:     item.icms_pct,
+      valor:        item.valor,
+    })
+    setActiveId(null)
+  }
+
+  function confirmEdit() {
+    const original = items.find(it => it.localId === editingId)
+    const gradeChanged = original && editForm.tipo_grade !== original.tipo_grade
+    setItems(prev => prev.map(it =>
+      it.localId === editingId ? { ...it, ...editForm } : it
+    ))
+    if (gradeChanged) {
+      setQtds(prev => { const n = { ...prev }; delete n[editingId]; return n })
+    }
+    setEditingId(null)
+    setEditForm(null)
+  }
+
+  function cancelEdit() {
+    setEditingId(null)
+    setEditForm(null)
   }
 
   function handleEnterOnInput(e, tamIdx, visIdx) {
@@ -832,24 +865,103 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
               const total = totalQtdItem(it.localId)
               return (
                 <Fragment key={it.localId}>
-                  <tr
-                    className={`${styles.itemRow} ${isActive ? styles.itemRowActive : ''}`}
-                    onClick={() => { setActiveId(isActive ? null : it.localId); setLojaIdx(0) }}
-                  >
-                    <td>{it.ref || <span className={styles.itemDot}>—</span>}</td>
-                    <td>{it.tipo_produto} · {it.tipo_grade} · {it.classe}</td>
-                    <td>{it.icms_pct || '0'}%</td>
-                    <td>{it.valor ? `R$ ${it.valor}` : <span className={styles.itemDot}>—</span>}</td>
-                    <td><strong>{total > 0 ? total : <span className={styles.itemDot}>—</span>}</strong></td>
-                    <td>
-                      <button
-                        className={styles.btnRemoveItem}
-                        onClick={e => removeItem(it.localId, e)}
-                        title="Remover item"
-                      >✕</button>
-                    </td>
-                  </tr>
-                  {isActive && (
+                  {editingId === it.localId ? (
+                    /* ── Edit mode row ── */
+                    <tr
+                      className={styles.editItemRow}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') confirmEdit()
+                        if (e.key === 'Escape') cancelEdit()
+                      }}
+                    >
+                      <td>
+                        <input
+                          value={editForm.ref}
+                          placeholder="Cód. forn."
+                          onChange={e => setEditForm(p => ({ ...p, ref: e.target.value }))}
+                          style={{ width: 70 }}
+                        />
+                      </td>
+                      <td style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <input
+                          value={editForm.tipo_produto}
+                          placeholder="Produto"
+                          list="tipos-produto-list"
+                          onChange={e => setEditForm(p => ({ ...p, tipo_produto: e.target.value }))}
+                          style={{ width: 110 }}
+                        />
+                        <select
+                          value={editForm.tipo_grade}
+                          onChange={e => setEditForm(p => ({ ...p, tipo_grade: e.target.value }))}
+                        >
+                          {Object.keys(GRADE_DEFINITIONS).map(g => <option key={g} value={g}>{g}</option>)}
+                        </select>
+                        <select
+                          value={editForm.classe}
+                          onChange={e => setEditForm(p => ({ ...p, classe: e.target.value }))}
+                        >
+                          <option value="FEM">FEM</option>
+                          <option value="MASC">MASC</option>
+                          <option value="UNI">UNI</option>
+                        </select>
+                      </td>
+                      <td>
+                        <input
+                          value={editForm.icms_pct}
+                          placeholder="0"
+                          onChange={e => setEditForm(p => ({ ...p, icms_pct: e.target.value }))}
+                          style={{ width: 45 }}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          value={editForm.valor}
+                          placeholder="0,00"
+                          onChange={e => setEditForm(p => ({ ...p, valor: e.target.value }))}
+                          style={{ width: 70 }}
+                        />
+                      </td>
+                      <td></td>
+                      <td style={{ display: 'flex', gap: '0.25rem' }}>
+                        <button
+                          className={styles.btnAdd}
+                          style={{ padding: '2px 8px', fontSize: '0.8rem' }}
+                          onClick={e => { e.stopPropagation(); confirmEdit() }}
+                          title="Salvar (Enter)"
+                        >✓</button>
+                        <button
+                          className={styles.btnRemoveItem}
+                          onClick={e => { e.stopPropagation(); cancelEdit() }}
+                          title="Cancelar (Esc)"
+                        >✕</button>
+                      </td>
+                    </tr>
+                  ) : (
+                    /* ── Normal row ── */
+                    <tr
+                      className={`${styles.itemRow} ${isActive ? styles.itemRowActive : ''}`}
+                      onClick={() => { setActiveId(isActive ? null : it.localId); setLojaIdx(0) }}
+                    >
+                      <td>{it.ref || <span className={styles.itemDot}>—</span>}</td>
+                      <td>{it.tipo_produto} · {it.tipo_grade} · {it.classe}</td>
+                      <td>{it.icms_pct || '0'}%</td>
+                      <td>{it.valor ? `R$ ${it.valor}` : <span className={styles.itemDot}>—</span>}</td>
+                      <td><strong>{total > 0 ? total : <span className={styles.itemDot}>—</span>}</strong></td>
+                      <td style={{ display: 'flex', gap: '0.1rem' }}>
+                        <button
+                          className={styles.btnEditItem}
+                          onClick={e => { e.stopPropagation(); startEdit(it) }}
+                          title="Editar item"
+                        >✎</button>
+                        <button
+                          className={styles.btnRemoveItem}
+                          onClick={e => removeItem(it.localId, e)}
+                          title="Remover item"
+                        >✕</button>
+                      </td>
+                    </tr>
+                  )}
+                  {isActive && editingId !== it.localId && (
                     <tr className={styles.gradeExpansionRow}>
                       <td colSpan={6} className={styles.gradeExpansionCell}>
                         <div className={styles.gradeInlineWrap}>
