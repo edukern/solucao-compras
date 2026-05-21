@@ -1655,7 +1655,7 @@ export default function Compras() {
         </div>
       )}
 
-      {(inSession || view === 'nova') && (
+      {(inSession || view === 'nova') && phase === 1 && (
         <div className={styles.stepBar}>
           {['Iniciar sessão', 'Registrar pedidos', 'Gerar PDFs'].map((label, i) => (
             <div key={i} className={`${styles.step} ${phase === i + 1 ? styles.stepActive : ''} ${phase > i + 1 ? styles.stepDone : ''}`}>
