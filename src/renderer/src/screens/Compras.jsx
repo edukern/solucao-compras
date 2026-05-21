@@ -10,6 +10,49 @@ const fmtDate = iso => { if (!iso) return ''; const [y,m,d] = iso.split('-'); re
 const today = () => new Date().toISOString().slice(0, 10)
 const esc = s => (s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
 
+// ─── Tutorial overlay ─────────────────────────────────────────────────────
+
+function TutorialOverlay({ onClose }) {
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); onClose() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div className={styles.kbTutOverlay}>
+      <div className={styles.kbTutCard}>
+        <div className={styles.kbTutTitle}>⌨️ Preenchimento por teclado</div>
+        <div className={styles.kbTutSub}>Este formulário é otimizado para velocidade.</div>
+        <div className={styles.kbTutRows}>
+          {[
+            { keys: ['Enter'],  desc: 'Avança para o próximo campo' },
+            { keys: ['Esc'],    desc: 'Volta ao campo anterior' },
+            { keys: ['C', 'F'], desc: 'Frete CIF ou FOB (auto-avança)' },
+            { keys: ['1–8'],    desc: 'Seleciona loja participante' },
+          ].map(({ keys, desc }) => (
+            <div key={desc} className={styles.kbTutRow}>
+              <div className={styles.kbTutKeys}>
+                {keys.map(k => <kbd key={k} className={styles.kbTutKbd}>{k}</kbd>)}
+              </div>
+              <div className={styles.kbTutDesc}>{desc}</div>
+            </div>
+          ))}
+        </div>
+        <div className={styles.kbTutFooter}>
+          <span className={styles.kbTutSkip} onClick={onClose}>Não mostrar novamente</span>
+          <button className={styles.kbTutDismiss} onClick={onClose}>
+            Entendido <kbd className={styles.kbTutKbd}>Enter</kbd>
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
 // ─── Phase 1: Start Session ───────────────────────────────────────────────
 
 function IniciarSessao({ forns, compradores, colId, onStart }) {
