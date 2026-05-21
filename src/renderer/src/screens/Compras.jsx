@@ -55,6 +55,28 @@ function TutorialOverlay({ onClose }) {
 
 // ─── Phase 1: Start Session ───────────────────────────────────────────────
 
+const FIELD_NAMES = {
+  fornecedor:     'Fornecedor',
+  data:           'Data da visita',
+  vendedor:       'Vendedor',
+  condPag:        'Cond. de pagamento',
+  frete:          'Frete',
+  transportadora: 'Transportadora',
+  lojas:          'Lojas participantes',
+}
+
+function DoneLabel({ name }) {
+  return (
+    <div className={styles.kbFieldLabel}>
+      <span className={styles.kbCheck}>✓</span> {FIELD_NAMES[name]}
+    </div>
+  )
+}
+
+function UpcomingLabel({ name }) {
+  return <div className={styles.kbFieldLabel}>{FIELD_NAMES[name]}</div>
+}
+
 function IniciarSessao({ forns, compradores, colId, onStart }) {
   const [fornId,         setFornId]         = useState('')
   const [fornFilter,     setFornFilter]     = useState('')
@@ -159,8 +181,10 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
       setFornFocusIdx(i => Math.max(i - 1, 0))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      const sel = fornFiltered[fornFocusIdx] ?? fornFiltered[0]
-      if (sel) { setFornId(String(sel.id)); setFornFilter(sel.nome); advance() }
+      if (fornFilter.length > 0) {
+        const sel = fornFiltered[fornFocusIdx] ?? fornFiltered[0]
+        if (sel) { setFornId(String(sel.id)); setFornFilter(sel.nome); advance() }
+      }
     }
   }
 
@@ -171,10 +195,10 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
 
   function onFreteKey(e) {
     const k = e.key.toLowerCase()
-    if (k === 'c')               { setFrete('CIF'); setTransportadora(''); advance() }
-    else if (k === 'f')          { setFrete('FOB'); advance() }
-    else if (e.key === 'Enter')  { setFrete(''); advance() }
-    else if (e.key === 'Escape') { goBack() }
+    if (k === 'c')               { e.preventDefault(); setFrete('CIF'); setTransportadora(''); advance() }
+    else if (k === 'f')          { e.preventDefault(); setFrete('FOB'); advance() }
+    else if (e.key === 'Enter')  { e.preventDefault(); setFrete(''); advance() }
+    else if (e.key === 'Escape') { e.preventDefault(); goBack() }
   }
 
   function onLojasKey(e) {
@@ -186,30 +210,6 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
     } else if (e.key === 'Escape') {
       goBack()
     }
-  }
-
-  // ── Field-label helpers ──────────────────────────────────────────────────
-
-  const FIELD_NAMES = {
-    fornecedor:     'Fornecedor',
-    data:           'Data da visita',
-    vendedor:       'Vendedor',
-    condPag:        'Cond. de pagamento',
-    frete:          'Frete',
-    transportadora: 'Transportadora',
-    lojas:          'Lojas participantes',
-  }
-
-  function DoneLabel({ name }) {
-    return (
-      <div className={styles.kbFieldLabel}>
-        <span className={styles.kbCheck}>✓</span> {FIELD_NAMES[name]}
-      </div>
-    )
-  }
-
-  function UpcomingLabel({ name }) {
-    return <div className={styles.kbFieldLabel}>{FIELD_NAMES[name]}</div>
   }
 
   const freteDisplay = { CIF: 'CIF', FOB: 'FOB', '': 'Sem frete' }
@@ -466,7 +466,7 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
                 ))}
               </div>
               <div className={styles.kbHint}>
-                <kbd>1</kbd>–<kbd>8</kbd> seleciona loja participante · <kbd>Enter</kbd> iniciar · <kbd>Esc</kbd> volta
+                <kbd>1</kbd>–<kbd>{compradores.length}</kbd> seleciona loja participante · <kbd>Enter</kbd> iniciar · <kbd>Esc</kbd> volta
               </div>
             </>
           ) : stateOf('lojas') === 'done' ? (
