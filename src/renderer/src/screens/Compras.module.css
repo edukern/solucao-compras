@@ -1085,3 +1085,326 @@
   letter-spacing: 0.05em;
   color: var(--text-muted);
 }
+
+/* ── Keyboard-first session form ──────────────────────────────────── */
+.kbForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+}
+.kbHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  margin-bottom: 0.25rem;
+}
+.kbHeaderTitle {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.kbProgressWrap {
+  flex: 1;
+  height: 3px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.kbProgressBar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+.kbHelpBtn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.kbHelpBtn:hover { background: var(--border); }
+
+.kbFields {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.kbField {
+  padding: 0.65rem 1rem;
+  border-left: 3px solid transparent;
+  transition: opacity 0.2s, border-color 0.2s, background 0.2s;
+  position: relative;
+}
+.kbField + .kbField { border-top: 1px solid var(--border); }
+.kbFieldDone {
+  opacity: 0.5;
+  cursor: pointer;
+}
+.kbFieldDone:hover { opacity: 0.75; }
+.kbFieldActive {
+  border-left-color: var(--accent);
+  background: rgba(99, 102, 241, 0.06);
+}
+.kbFieldUpcoming {
+  opacity: 0.2;
+  pointer-events: none;
+}
+.kbFieldLabel {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 0.3rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.kbCheck { color: var(--accent); }
+.kbFieldValue {
+  font-size: 0.88rem;
+  color: var(--text-primary);
+}
+.kbFieldInput {
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid var(--accent);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  padding: 0.2rem 0;
+  outline: none;
+  width: 100%;
+}
+.kbHint {
+  margin-top: 0.4rem;
+  font-size: 0.65rem;
+  color: var(--accent);
+  opacity: 0.8;
+}
+.kbHint kbd {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-size: 0.6rem;
+  color: var(--accent);
+  font-family: monospace;
+}
+
+/* Frete options */
+.kbFreteOpts {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  flex-wrap: wrap;
+}
+.kbFreteOpt {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 6px;
+  background: var(--bg-hover);
+  border: 1.5px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.kbFreteOptOn {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.kbKey {
+  font-size: 0.62rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: monospace;
+  color: var(--accent);
+}
+
+/* Lojas grid */
+.kbLojaGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+.kbLojaChip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 7px;
+  background: var(--bg-hover);
+  border: 1.5px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+.kbLojaChipOn {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: var(--accent);
+}
+.kbLojaNum {
+  width: 18px;
+  height: 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-family: monospace;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-weight: 700;
+}
+.kbLojaNumOn {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+.kbLojaName {
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kbLojaCity {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+}
+
+/* Fornecedor autocomplete dropdown */
+.kbDropdown {
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  top: calc(100% - 4px);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  z-index: 10;
+  overflow: hidden;
+}
+.kbDropItem {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.kbDropItem:hover { background: var(--bg-hover); }
+.kbDropItemFocused {
+  background: var(--accent);
+  color: white;
+}
+
+/* Tutorial overlay */
+.kbTutOverlay {
+  position: absolute;
+  inset: -0.5rem;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  border-radius: 10px;
+  backdrop-filter: blur(2px);
+}
+.kbTutCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  width: 90%;
+  max-width: 340px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.kbTutTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.2rem;
+}
+.kbTutSub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+.kbTutRows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-bottom: 1.25rem;
+}
+.kbTutRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.kbTutKeys {
+  display: flex;
+  gap: 0.25rem;
+  min-width: 80px;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+.kbTutKbd {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-bottom: 2px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.68rem;
+  color: var(--accent);
+  font-family: monospace;
+}
+.kbTutDesc {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+.kbTutFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.kbTutSkip {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.kbTutSkip:hover { color: var(--text-secondary); }
+.kbTutDismiss {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 7px;
+  padding: 0.45rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+}
