@@ -1,6 +1,6 @@
 {
   "name": "solucao-compras",
-  "version": "1.1.12",
+  "version": "1.1.13",
   "description": "Bolt Compras - Desktop app for purchase management",
   "main": "./out/main/index.js",
   "author": "",
