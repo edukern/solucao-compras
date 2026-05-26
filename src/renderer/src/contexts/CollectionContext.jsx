@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
+import { colecoes as colecoesService } from '../services/colecoes'
 
 const CollectionContext = createContext(null)
 
@@ -7,10 +8,10 @@ export function CollectionProvider({ children }) {
   const [activeId, setActiveId] = useState(null)
 
   useEffect(() => {
-    window.api.colecoes.list().then(list => {
+    colecoesService.list().then(list => {
       setCollections(list)
       if (list.length > 0) setActiveId(list[0].id)
-    })
+    }).catch(console.error)
   }, [])
 
   const active = collections.find(c => c.id === activeId) ?? null
