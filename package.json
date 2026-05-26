@@ -59,7 +59,8 @@
       {
         "provider": "github",
         "owner": "edukern",
-        "repo": "solucao-compras"
+        "repo": "solucao-compras",
+        "releaseType": "release"
       }
     ]
   },
