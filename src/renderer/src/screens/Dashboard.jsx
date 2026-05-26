@@ -3,6 +3,7 @@ import { useCollection } from '../contexts/CollectionContext'
 import { aggregateSegmentacao, aggregateDashboard } from '../utils/dashboard'
 import { tamanhosDeTipoGrade } from '../constants/grades'
 import styles from './Dashboard.module.css'
+import { dashboard as dashboardService } from '../services/dashboard'
 
 function ProgressBar({ pct, height = 8 }) {
   const safe = Math.min(100, Math.max(0, pct))
@@ -37,7 +38,7 @@ export default function Dashboard() {
   }, [active?.id])
 
   async function loadData(colId) {
-    const flatRows = await window.api.dashboard.data(colId)
+    const flatRows = await dashboardService.data(colId)
     // Group flat rows (one per seg+tamanho) into per-seg structure
     const bySegId = {}
     for (const r of flatRows) {

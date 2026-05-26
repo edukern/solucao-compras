@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useCollection } from '../contexts/CollectionContext'
 import { findBaseColecoes } from '../utils/colecoes'
 import SegmentacaoSelect from '../components/SegmentacaoSelect'
 import styles from './Planejamento.module.css'
+import { segmentacoes as segmentacoesService } from '../services/segmentacoes'
+import { grades as gradesService } from '../services/grades'
+import { projecoes as projecoesService } from '../services/projecoes'
 
 const METODOS = [
   { id: 'media_simples',   label: 'Média simples'   },
@@ -24,7 +27,7 @@ export default function Planejamento() {
   const [importResult, setImportResult] = useState(null)
 
   useEffect(() => {
-    window.api.segmentacoes.list().then(setSegs)
+    segmentacoesService.list().then(setSegs)
   }, [])
 
   useEffect(() => {
@@ -51,10 +54,10 @@ export default function Planejamento() {
     const n1Id = base.length >= 2 ? base[1].id : base[0].id
 
     const [gradeN2, gradeN1, projSaved, projCalc] = await Promise.all([
-      n2Id ? window.api.grades.get(sid, n2Id) : Promise.resolve([]),
-      window.api.grades.get(sid, n1Id),
-      window.api.projecoes.get(sid, active.id),
-      window.api.projecoes.calcular(sid, active.id, baseIds, met !== 'manual' ? met : 'media_simples'),
+      n2Id ? gradesService.get(sid, n2Id) : Promise.resolve([]),
+      gradesService.get(sid, n1Id),
+      projecoesService.get(sid, active.id),
+      projecoesService.calcular(sid, active.id, baseIds, met !== 'manual' ? met : 'media_simples'),
     ])
 
     const savedMap = Object.fromEntries(projSaved.map(r => [r.tamanho, r.qtd_ajustada]))
@@ -98,46 +101,42 @@ export default function Planejamento() {
     setRows(prev => prev.map(r => ({ ...r, qtd_ajustada: r.qtd_projetada })))
   }
 
-  async function handleImportar() {
-    if (!importColId) return
-    const filePath = await window.api.dialog.openFile({
-      title: 'Selecionar Análise de Coleção',
-      filters: [{ name: 'Excel', extensions: ['xlsx', 'xls'] }],
-      properties: ['openFile'],
-    })
-    if (!filePath) return
+  const fileInputRef = useRef(null)
+
+  function handleImportClick() {
+    if (!importColId || !segId) return
+    fileInputRef.current?.click()
+  }
+
+  async function handleFileChange(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
     setImporting(true)
     setImportResult(null)
     try {
-      const colecao = collections.find(c => c.id === Number(importColId))
-      const result = await window.api.grades.importar(
-        filePath,
-        Number(importColId),
-        colecao?.estacao ?? 'inverno'
-      )
+      const rows = await gradesService.importar(file, segId, Number(importColId))
+      const result = { imported: rows.length, skipped: 0, segIds: [segId] }
       setImportResult(result)
-
-      // Auto-calcular projeções para todas as segmentações importadas
-      if (result.segIds?.length && active) {
+      if (active) {
         const base = findBaseColecoes(collections, active)
         if (base.length >= 1) {
           const baseIds = base.map(c => c.id)
           await Promise.allSettled(
             result.segIds.map(async sid => {
-              const projRows = await window.api.projecoes.calcular(sid, active.id, baseIds, 'media_simples')
+              const projRows = await projecoesService.calcular(sid, active.id, baseIds, 'media_simples')
               if (projRows.length > 0) {
-                await window.api.projecoes.salvar(sid, active.id, projRows, 'media_simples')
+                await projecoesService.salvar(sid, active.id, projRows, 'media_simples')
               }
             })
           )
         }
       }
-
       if (segId) loadPlanejamento(segId, metodo)
-    } catch (e) {
-      setImportResult({ imported: 0, skipped: 0, errors: [String(e)] })
+    } catch (err) {
+      setImportResult({ imported: 0, skipped: 0, errors: [String(err)] })
     } finally {
       setImporting(false)
+      e.target.value = ''
     }
   }
 
@@ -146,7 +145,7 @@ export default function Planejamento() {
     const toSave = rows.map(({ tamanho, ordem, qtd_projetada, qtd_ajustada }) =>
       ({ tamanho, ordem, qtd_projetada, qtd_ajustada })
     )
-    await window.api.projecoes.salvar(segId, active.id, toSave, metodo)
+    await projecoesService.salvar(segId, active.id, toSave, metodo)
     setSaved(true)
   }
 
@@ -170,11 +169,18 @@ export default function Planejamento() {
             </select>
             <button
               className={styles.btnImportar}
-              disabled={!importColId || importing}
-              onClick={handleImportar}
+              disabled={!importColId || !segId || importing}
+              onClick={handleImportClick}
             >
               {importing ? 'Importando…' : 'Escolher arquivo e importar →'}
             </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              style={{ display: 'none' }}
+              onChange={handleFileChange}
+            />
           </div>
           {importResult && (
             <div className={importResult.errors.length ? styles.importError : styles.importSuccess}>
