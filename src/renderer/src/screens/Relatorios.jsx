@@ -39,12 +39,12 @@ export default function Relatorios() {
 
   return (
     <div className={styles.container}>
-      <aside className={styles.sidebar}>
+      <nav className={styles.tabs}>
         {REPORTS.map(r => (
           <button
             key={r.id}
             className={[
-              styles.sidebarBtn,
+              styles.tab,
               activeReport === r.id ? styles.active : '',
               r.disabled ? styles.disabled : '',
             ].join(' ')}
@@ -54,7 +54,7 @@ export default function Relatorios() {
             {r.disabled && <span className={styles.soon}>Em breve</span>}
           </button>
         ))}
-      </aside>
+      </nav>
 
       <div className={styles.content}>
         {activeReport === 'por_fornecedor' && (
