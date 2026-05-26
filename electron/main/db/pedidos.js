@@ -2,10 +2,10 @@ export function makePedidos(db) {
   const insertHeader = db.prepare(`
     INSERT INTO pedidos
       (visita_id, comprador_id, segmentacao_id, valor_unitario, desconto_pct,
-       referencia, icms_pct, obs)
+       referencia, icms_pct, markup_pct, preco_venda, cor, detalhe, obs)
     VALUES
       (@visita_id, @comprador_id, @segmentacao_id, @valor_unitario, @desconto_pct,
-       @referencia, @icms_pct, @obs)
+       @referencia, @icms_pct, @markup_pct, @preco_venda, @cor, @detalhe, @obs)
   `)
 
   const insertItem = db.prepare(`
@@ -23,9 +23,12 @@ export function makePedidos(db) {
   const salvarBatchTx = db.transaction((pedidosData) => {
     const results = []
     for (const { visita_id, comprador_id, segmentacao_id, valor_unitario,
-                  desconto_pct = 0, referencia = '', icms_pct = 0, obs = '', itens } of pedidosData) {
+                  desconto_pct = 0, referencia = '', icms_pct = 0,
+                  markup_pct = 0, preco_venda = 0, cor = '', detalhe = '',
+                  obs = '', itens } of pedidosData) {
       const id = insertHeader.run({ visita_id, comprador_id, segmentacao_id, valor_unitario,
-                                    desconto_pct, referencia, icms_pct, obs }).lastInsertRowid
+                                    desconto_pct, referencia, icms_pct,
+                                    markup_pct, preco_venda, cor, detalhe, obs }).lastInsertRowid
       for (const item of itens) {
         insertItem.run(id, item.tamanho, item.qtd)
       }
@@ -124,10 +127,11 @@ export function makePedidos(db) {
 
   return {
     salvar({ visita_id, comprador_id, segmentacao_id, valor_unitario, desconto_pct = 0,
-             referencia = '', icms_pct = 0, obs = '', itens }) {
+             referencia = '', icms_pct = 0, markup_pct = 0, preco_venda = 0,
+             cor = '', detalhe = '', obs = '', itens }) {
       const id = salvarTx(
         { visita_id, comprador_id, segmentacao_id, valor_unitario, desconto_pct,
-          referencia, icms_pct, obs },
+          referencia, icms_pct, markup_pct, preco_venda, cor, detalhe, obs },
         itens
       )
       return { ...byId.get(id), itens: itensByPedido.all(id) }

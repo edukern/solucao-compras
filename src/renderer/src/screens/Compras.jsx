@@ -44,7 +44,7 @@ function TutorialOverlay({ onClose }) {
         <div className={styles.kbTutFooter}>
           <span className={styles.kbTutSkip} onClick={onClose}>Não mostrar novamente</span>
           <button className={styles.kbTutDismiss} onClick={onClose}>
-            Entendido <kbd className={styles.kbTutKbd}>Enter</kbd>
+            Entendido
           </button>
         </div>
       </div>
@@ -510,7 +510,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
   const [qtds,          setQtds]          = useState(initialQtds)
   const [saving,        setSaving]        = useState(false)
   const [error,         setError]         = useState(null)
-  const [form,          setForm]          = useState({ ref: '', tipo_produto: '', tipo_grade: 'AD', classe: 'FEM', icms_pct: '', valor: '' })
+  const [form,          setForm]          = useState({ ref: '', tipo_produto: '', tipo_grade: 'AD', classe: 'FEM', icms_pct: '', valor: '', markup_pct: '', preco_venda: '' })
   const [projCache,     setProjCache]     = useState({})
   const [distribTargets,setDistribTargets]= useState({})
   const RECOVERY_KEY = `SC_RECOVERY_${colId}`
@@ -519,6 +519,8 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
   const addFormFirstRef = useRef(null)
   const [editingId,      setEditingId]      = useState(null)
   const [editForm,       setEditForm]       = useState(null)
+  const [gradeExtremes,  setGradeExtremes]  = useState({})
+  const [showItemFields, setShowItemFields] = useState({})
 
   const activeItem = items.find(it => it.localId === activeId) ?? null
 
@@ -561,9 +563,37 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
     return visitas.reduce((s, v) => s + totalQtdLoja(localId, v.id), 0)
   }
 
+  function hasExtremeData(localId, tam) {
+    return visitas.some(v => (parseInt(qtds[localId]?.[v.id]?.[tam]) || 0) > 0)
+  }
+
+  function getVisibleTams(localId, allTams) {
+    if (allTams.length < 5) return allTams
+    const showFirst = gradeExtremes[localId]?.first || hasExtremeData(localId, allTams[0])
+    const showLast  = gradeExtremes[localId]?.last  || hasExtremeData(localId, allTams[allTams.length - 1])
+    return allTams.filter((_, i) => {
+      if (i === 0) return showFirst
+      if (i === allTams.length - 1) return showLast
+      return true
+    })
+  }
+
+  function roundTo99(x) {
+    if (!x || x <= 0) return ''
+    const rounded = Math.ceil(x + 0.01) - 0.01
+    return rounded.toFixed(2)
+  }
+
+  function calcPrecoVenda(valorStr, markupStr) {
+    const v = parseFloat((valorStr ?? '').replace(',', '.'))
+    const m = parseFloat((markupStr ?? '').replace(',', '.'))
+    if (!v || isNaN(v) || !m || isNaN(m)) return ''
+    return roundTo99(v * (1 + m / 100))
+  }
+
   function addItem() {
-    const { ref, tipo_produto, tipo_grade, classe, icms_pct, valor } = form
-    if (!tipo_produto.trim() || !tipo_grade) return
+    const { ref, tipo_produto, tipo_grade, classe, icms_pct, valor, markup_pct, preco_venda } = form
+    if (!ref.trim() || !tipo_produto.trim() || !tipo_grade || !valor.trim()) return
     const localId = `item_${Date.now()}_${Math.random()}`
     const novoItem = {
       localId,
@@ -573,11 +603,15 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
       classe,
       icms_pct: icms_pct || '0',
       valor: valor || '',
+      markup_pct: markup_pct || '0',
+      preco_venda: preco_venda || '',
+      cor: '',
+      detalhe: '',
     }
     setItems(prev => [...prev, novoItem])
     setActiveId(localId)
     setLojaIdx(0)
-    setForm(prev => ({ ...prev, ref: '', valor: '' }))
+    setForm(prev => ({ ...prev, ref: '', valor: '', preco_venda: '' }))
     setShowAddForm(false)
   }
 
@@ -597,6 +631,8 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
       classe:       item.classe,
       icms_pct:     item.icms_pct,
       valor:        item.valor,
+      markup_pct:   item.markup_pct ?? '0',
+      preco_venda:  item.preco_venda ?? '',
     })
     setActiveId(null)
   }
@@ -619,16 +655,14 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
     setEditForm(null)
   }
 
-  function handleEnterOnInput(e, tamIdx, visIdx) {
+  function handleEnterOnInput(e, vTamIdx, visIdx, totalVisTams) {
     if (e.key !== 'Enter' && !(e.key === 'Tab' && !e.shiftKey)) return
     e.preventDefault()
-    const item = items.find(it => it.localId === activeId)
-    if (!item) return
-    const tams = tamanhosDeTipoGrade(item.tipo_grade)
-    if (tamIdx < tams.length - 1) {
+    if (vTamIdx < totalVisTams - 1) {
       const row = e.target.closest('[data-grade-row]')
-      const inputs = row?.querySelectorAll('input[type=number]')
-      if (inputs?.[tamIdx + 1]) { inputs[tamIdx + 1].focus(); return }
+      const inputs = Array.from(row?.querySelectorAll('input[type=number]') || [])
+      const curIdx = inputs.indexOf(e.target)
+      if (curIdx >= 0 && curIdx < inputs.length - 1) { inputs[curIdx + 1].focus(); return }
     }
     if (visIdx < visitas.length - 1) {
       setLojaIdx(visIdx + 1)
@@ -706,9 +740,12 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
       const batch = []
       const meta  = []
       for (const item of items) {
-        const { localId, ref, tipo_produto, tipo_grade, classe, icms_pct, valor } = item
-        const valorNum = parseFloat((valor ?? '').replace(',', '.')) || 0
-        const icmsNum  = parseFloat((icms_pct ?? '').replace(',', '.')) || 0
+        const { localId, ref, tipo_produto, tipo_grade, classe, icms_pct, valor,
+                markup_pct, preco_venda, cor, detalhe } = item
+        const valorNum      = parseFloat((valor ?? '').replace(',', '.')) || 0
+        const icmsNum       = parseFloat((icms_pct ?? '').replace(',', '.')) || 0
+        const markupNum     = parseFloat((markup_pct ?? '').replace(',', '.')) || 0
+        const precoVendaNum = parseFloat((preco_venda ?? '').replace(',', '.')) || 0
         const classDef = GRADE_DEFINITIONS[tipo_grade]
         if (!classDef) continue
         const classificacao = classDef.classificacao
@@ -727,7 +764,10 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
           batch.push({
             visita_id: v.id, comprador_id: v.comprador_id, segmentacao_id: segId,
             valor_unitario: valorNum, desconto_pct: 0,
-            referencia: ref, icms_pct: icmsNum, obs: '', itens,
+            referencia: ref, icms_pct: icmsNum,
+            markup_pct: markupNum, preco_venda: precoVendaNum,
+            cor: cor || '', detalhe: detalhe || '',
+            obs: '', itens,
           })
           meta.push({
             comprador_nome: v.comprador_nome, comprador_cnpj: v.comprador_cnpj ?? '',
@@ -770,7 +810,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
       {(showAddForm || items.length === 0) && (
       <div className={styles.addItemForm}>
         <div className={styles.field}>
-          <span className={styles.label}>Ref</span>
+          <span className={styles.label}>Ref *</span>
           <input
             ref={addFormFirstRef}
             type="text"
@@ -825,19 +865,53 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
           />
         </div>
         <div className={styles.field}>
-          <span className={styles.label}>Valor unit.</span>
+          <span className={styles.label}>Valor unit. *</span>
           <input
             type="text"
             className={styles.addItemValor}
             placeholder="0,00"
             value={form.valor}
-            onChange={e => setForm(p => ({ ...p, valor: e.target.value }))}
+            onChange={e => {
+              const valor = e.target.value
+              setForm(p => ({
+                ...p, valor,
+                preco_venda: calcPrecoVenda(valor, p.markup_pct),
+              }))
+            }}
+            onKeyDown={e => { if (e.key === 'Enter') addItem() }}
+          />
+        </div>
+        <div className={styles.field}>
+          <span className={styles.label}>Markup %</span>
+          <input
+            type="text"
+            className={styles.addItemMarkup}
+            placeholder="0"
+            value={form.markup_pct}
+            onChange={e => {
+              const markup_pct = e.target.value
+              setForm(p => ({
+                ...p, markup_pct,
+                preco_venda: calcPrecoVenda(p.valor, markup_pct),
+              }))
+            }}
+            onKeyDown={e => { if (e.key === 'Enter') addItem() }}
+          />
+        </div>
+        <div className={styles.field}>
+          <span className={styles.label}>Preço venda</span>
+          <input
+            type="text"
+            className={styles.addItemValor}
+            placeholder="0,00"
+            value={form.preco_venda}
+            onChange={e => setForm(p => ({ ...p, preco_venda: e.target.value }))}
             onKeyDown={e => { if (e.key === 'Enter') addItem() }}
           />
         </div>
         <button
           className={styles.btnAdd}
-          disabled={!form.tipo_produto.trim() || !form.tipo_grade}
+          disabled={!form.ref.trim() || !form.tipo_produto.trim() || !form.tipo_grade || !form.valor.trim()}
           onClick={addItem}
         >
           + Adicionar
@@ -854,6 +928,8 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
               <th>Produto · Grade · Classe</th>
               <th>ICMS</th>
               <th>Valor unit.</th>
+              <th>Markup</th>
+              <th>Preço venda</th>
               <th>Peças</th>
               <th></th>
             </tr>
@@ -862,6 +938,9 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
             {items.map(it => {
               const isActive = it.localId === activeId
               const tams = tamanhosDeTipoGrade(it.tipo_grade)
+              const vTams = getVisibleTams(it.localId, tams)
+              const hideFirst = vTams[0] !== tams[0]
+              const hideLast  = vTams[vTams.length - 1] !== tams[tams.length - 1]
               const total = totalQtdItem(it.localId)
               return (
                 <Fragment key={it.localId}>
@@ -917,7 +996,35 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                         <input
                           value={editForm.valor}
                           placeholder="0,00"
-                          onChange={e => setEditForm(p => ({ ...p, valor: e.target.value }))}
+                          onChange={e => {
+                            const valor = e.target.value
+                            setEditForm(p => ({
+                              ...p, valor,
+                              preco_venda: calcPrecoVenda(valor, p.markup_pct),
+                            }))
+                          }}
+                          style={{ width: 70 }}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          value={editForm.markup_pct ?? ''}
+                          placeholder="0"
+                          onChange={e => {
+                            const markup_pct = e.target.value
+                            setEditForm(p => ({
+                              ...p, markup_pct,
+                              preco_venda: calcPrecoVenda(p.valor, markup_pct),
+                            }))
+                          }}
+                          style={{ width: 55 }}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          value={editForm.preco_venda ?? ''}
+                          placeholder="0,00"
+                          onChange={e => setEditForm(p => ({ ...p, preco_venda: e.target.value }))}
                           style={{ width: 70 }}
                         />
                       </td>
@@ -946,6 +1053,8 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                       <td>{it.tipo_produto} · {it.tipo_grade} · {it.classe}</td>
                       <td>{it.icms_pct || '0'}%</td>
                       <td>{it.valor ? `R$ ${it.valor}` : <span className={styles.itemDot}>—</span>}</td>
+                      <td className={styles.itemMarkupCell}>{it.markup_pct && it.markup_pct !== '0' ? `${it.markup_pct}%` : <span className={styles.itemDot}>—</span>}</td>
+                      <td className={styles.itemPrecoVendaCell}>{it.preco_venda ? `R$ ${it.preco_venda}` : <span className={styles.itemDot}>—</span>}</td>
                       <td><strong>{total > 0 ? total : <span className={styles.itemDot}>—</span>}</strong></td>
                       <td style={{ display: 'flex', gap: '0.1rem' }}>
                         <button
@@ -963,7 +1072,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                   )}
                   {isActive && editingId !== it.localId && (
                     <tr className={styles.gradeExpansionRow}>
-                      <td colSpan={6} className={styles.gradeExpansionCell}>
+                      <td colSpan={8} className={styles.gradeExpansionCell}>
                         <div className={styles.gradeInlineWrap}>
                           <div className={styles.gradeInlineHeader}>
                             <div className={styles.gradeInlineLoja}>Loja</div>
@@ -971,9 +1080,35 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                               className={styles.gradeInlineDist}
                               title="Auto Distribuir pela projeção: clique na célula, digite o total e pressione Enter"
                             >Dist.</div>
-                            {tams.map(t => (
+                            {hideFirst ? (
+                              <button
+                                className={styles.btnShowExtreme}
+                                onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], first: true } }))}
+                                title={`Mostrar ${tams[0]}`}
+                              >+{tams[0]}</button>
+                            ) : tams.length >= 5 ? (
+                              <button
+                                className={`${styles.btnShowExtreme} ${styles.btnShowExtremeActive}`}
+                                onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], first: false } }))}
+                                title={`Ocultar ${tams[0]}`}
+                              >−{tams[0]}</button>
+                            ) : null}
+                            {vTams.map(t => (
                               <div key={t} className={styles.gradeInlineSize}>{t}</div>
                             ))}
+                            {hideLast ? (
+                              <button
+                                className={styles.btnShowExtreme}
+                                onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], last: true } }))}
+                                title={`Mostrar ${tams[tams.length - 1]}`}
+                              >+{tams[tams.length - 1]}</button>
+                            ) : tams.length >= 5 ? (
+                              <button
+                                className={`${styles.btnShowExtreme} ${styles.btnShowExtremeActive}`}
+                                onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], last: false } }))}
+                                title={`Ocultar ${tams[tams.length - 1]}`}
+                              >−{tams[tams.length - 1]}</button>
+                            ) : null}
                             <div className={styles.gradeInlineTotalReadonly}>Total</div>
                           </div>
                           {visitas.map((v, i) => {
@@ -1011,21 +1146,23 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                                     onClick={e => e.stopPropagation()}
                                   />
                                 </div>
-                                {tams.map((tam, tamIdx) => (
+                                {hideFirst && <div className={styles.gradeInlineSizeSpacer} />}
+                                {vTams.map((tam, vTamIdx) => (
                                   <div key={tam} className={styles.gradeInlineSize}>
                                     <input
-                                      ref={tamIdx === 0 && i === lojaIdx ? firstInputRef : null}
+                                      ref={vTamIdx === 0 && i === lojaIdx ? firstInputRef : null}
                                       type="number"
                                       min="0"
                                       className={styles.qtyInput}
                                       value={getQtd(it.localId, v.id, tam)}
                                       onChange={e => setQtd(it.localId, v.id, tam, e.target.value)}
                                       onFocus={() => setLojaIdx(i)}
-                                      onKeyDown={e => handleEnterOnInput(e, tamIdx, i)}
+                                      onKeyDown={e => handleEnterOnInput(e, vTamIdx, i, vTams.length)}
                                       placeholder="0"
                                     />
                                   </div>
                                 ))}
+                                {hideLast && <div className={styles.gradeInlineSizeSpacer} />}
                                 <div className={styles.gradeInlineTotalReadonly}>{computedTotal || '—'}</div>
                               </div>
                             )
@@ -1034,12 +1171,50 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                             <div className={`${styles.gradeInlineRow} ${styles.gradeInlineTotalsRow}`}>
                               <div className={styles.gradeInlineLoja}>Total lojas</div>
                               <div className={styles.gradeInlineDist}></div>
-                              {tams.map(tam => {
+                              {hideFirst && <div className={styles.gradeInlineSizeSpacer} />}
+                              {vTams.map(tam => {
                                 const tot = visitas.reduce((s, v2) => s + (parseInt(qtds[it.localId]?.[v2.id]?.[tam]) || 0), 0)
                                 return <div key={tam} className={styles.gradeInlineSize}>{tot || ''}</div>
                               })}
+                              {hideLast && <div className={styles.gradeInlineSizeSpacer} />}
                               <div className={styles.gradeInlineTotalReadonly}>{totalQtdItem(it.localId) || ''}</div>
                             </div>
+                          )}
+                          {showItemFields[it.localId] ? (
+                            <div className={styles.itemFieldsPanel}>
+                              <label className={styles.itemFieldLabel}>
+                                Cor
+                                <input
+                                  type="text"
+                                  className={styles.itemFieldInput}
+                                  placeholder="Ex: azul índigo"
+                                  value={it.cor || ''}
+                                  onChange={e => setItems(prev => prev.map(x => x.localId === it.localId ? { ...x, cor: e.target.value } : x))}
+                                />
+                              </label>
+                              <label className={styles.itemFieldLabel}>
+                                Detalhe
+                                <input
+                                  type="text"
+                                  className={styles.itemFieldInput}
+                                  style={{ width: 200 }}
+                                  placeholder="Ex: listra lateral, bordado"
+                                  value={it.detalhe || ''}
+                                  onChange={e => setItems(prev => prev.map(x => x.localId === it.localId ? { ...x, detalhe: e.target.value } : x))}
+                                />
+                              </label>
+                              <button
+                                className={styles.btnHideFields}
+                                onClick={() => setShowItemFields(prev => ({ ...prev, [it.localId]: false }))}
+                              >ocultar</button>
+                            </div>
+                          ) : (
+                            <button
+                              className={styles.btnShowFields}
+                              onClick={() => setShowItemFields(prev => ({ ...prev, [it.localId]: true }))}
+                            >
+                              {it.cor || it.detalhe ? `✎ ${[it.cor, it.detalhe].filter(Boolean).join(' · ')}` : '+ cor / detalhe'}
+                            </button>
                           )}
                         </div>
                       </td>
@@ -1204,7 +1379,7 @@ async function salvarPDFVisita(sessao, vis, visPedidos, pasta) {
     gerarHTMLOrdem(sessao, vis, visPedidos, true),
     `Pedido — ${esc(sessao.fornecedor_nome)} — ${esc(vis.comprador_nome)}`
   )
-  const nome = `${fmtDataPDF(sessao.data_visita)} ${vis.comprador_nome} ${sessao.fornecedor_nome}`
+  const nome = `${vis.comprador_nome} _ ${sessao.fornecedor_nome} _ ${fmtDataPDF(sessao.data_visita)}`
     .replace(/[/\\?%*:|"<>]/g, '-')
   return window.api.pdf.salvarNaPasta(html, nome, pasta)
 }

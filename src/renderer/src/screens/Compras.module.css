@@ -1086,6 +1086,106 @@
   color: var(--text-muted);
 }
 
+.itemMarkupCell {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+.itemPrecoVendaCell {
+  font-weight: 600;
+  color: var(--success, #22c55e);
+  font-size: 0.82rem;
+}
+
+.addItemMarkup {
+  width: 55px;
+}
+
+.itemFieldsPanel {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0.75rem 0.25rem;
+  border-top: 1px dashed var(--border);
+  margin-top: 0.25rem;
+  flex-wrap: wrap;
+}
+.itemFieldLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.itemFieldInput {
+  width: 120px;
+  font-size: 0.82rem;
+  padding: 0.2rem 0.4rem;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+}
+.itemFieldInput:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.btnShowFields {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  border-top: 1px dashed var(--border);
+  width: 100%;
+  text-align: left;
+  margin-top: 0.2rem;
+}
+.btnShowFields:hover {
+  color: var(--accent);
+}
+.btnHideFields {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.1rem 0.25rem;
+  text-decoration: underline;
+}
+.btnHideFields:hover { color: var(--accent); }
+
+.btnShowExtreme {
+  min-width: 40px;
+  padding: 2px 4px;
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 0.62rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  align-self: center;
+  line-height: 1.4;
+  transition: background 0.12s, border-color 0.12s;
+}
+.btnShowExtreme:hover {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: var(--accent);
+}
+.btnShowExtremeActive {
+  background: rgba(99, 102, 241, 0.06);
+  border-style: solid;
+  opacity: 0.6;
+}
+.gradeInlineSizeSpacer {
+  min-width: 40px;
+}
+
 /* ── Keyboard-first session form ──────────────────────────────────── */
 .kbForm {
   display: flex;
@@ -1453,7 +1553,11 @@
   min-width: 52px;
   text-align: center;
   font-size: 0.82rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--accent-light);
-  padding: 0.2rem 0.35rem;
+  padding: 0.2rem 0.5rem;
+  background: rgba(99,102,241,0.07);
+  border-radius: 4px;
+  pointer-events: none;
+  user-select: none;
 }

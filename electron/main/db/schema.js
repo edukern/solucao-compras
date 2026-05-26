@@ -151,6 +151,11 @@ export function runMigrations(db) {
   // Add referencia and icms_pct to pedidos (introduced 2026-05)
   try { db.exec(`ALTER TABLE pedidos ADD COLUMN referencia TEXT`) } catch {}
   try { db.exec(`ALTER TABLE pedidos ADD COLUMN icms_pct REAL NOT NULL DEFAULT 0`) } catch {}
+  // Add markup, preco_venda, cor, detalhe to pedidos (introduced 2026-05)
+  try { db.prepare(`ALTER TABLE pedidos ADD COLUMN markup_pct REAL NOT NULL DEFAULT 0`).run() } catch {}
+  try { db.prepare(`ALTER TABLE pedidos ADD COLUMN preco_venda REAL NOT NULL DEFAULT 0`).run() } catch {}
+  try { db.prepare(`ALTER TABLE pedidos ADD COLUMN cor TEXT`).run() } catch {}
+  try { db.prepare(`ALTER TABLE pedidos ADD COLUMN detalhe TEXT`).run() } catch {}
 
   // Sessoes: groups multiple lojas into a single buying session
   db.exec(`
