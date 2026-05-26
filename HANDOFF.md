@@ -1,128 +1,103 @@
 # HANDOFF — Solução Compras
 
-> Última atualização: 2026-05-18 — Sessão 7 (FOB transportadora + seed + release v1.1.0)
+> Última atualização: 2026-05-26 — Sessão 8 (arquitetura multi-usuário + plano de implementação)
 
 ---
 
-## Objetivo principal
+## Prompt para colar na nova sessão
 
-Sistema desktop (Electron + SQLite) para Samuel Backes gerenciar compras de moda para ~8 empresas compradoras. Substitui ~100 planilhas Excel.
-
-Demo ao vivo: **https://solucao-compras-demo.vercel.app**
-
-Branch de trabalho: `main` (tudo mergeado)
+> Estou continuando o desenvolvimento da **Solução Compras** — app de gestão de pedidos de compra para a rede de 8 lojas Irmãos Backes. Na última sessão finalizamos o design da arquitetura multi-usuário e escrevemos o plano de implementação completo. O próximo passo é **executar o plano** em `docs/superpowers/plans/2026-05-26-migracao-core-web.md`, começando pela **Task 1: Schema no Supabase**. Por favor leia o HANDOFF.md e o plano antes de qualquer ação.
 
 ---
 
-## Estado atual (pós v1.1.0)
+## ✅ O que foi concluído nesta sessão (Sessão 8)
 
-### O que está 100% pronto
+1. **Análise histórica dos 3.000 xlsx** em `Pedidos/` — estrutura de dados mapeada, 8 compradores identificados, 4 campos faltantes no schema detectados
+2. **Relatório DOCX executivo** gerado em `docs/Análise Histórico de Pedidos.docx`
+3. **Brainstorming de arquitetura completo** — 3 opções de arquitetura comparadas, 4 opções de infra zero-custo analisadas, estratégia de compactação de dados definida
+4. **Design doc aprovado e commitado** — `docs/superpowers/specs/2026-05-26-arquitetura-multi-usuario-design.md`
+5. **Plano de implementação completo commitado** — `docs/superpowers/plans/2026-05-26-migracao-core-web.md`
 
-| Funcionalidade | Status |
+---
+
+## ⏳ Próximos passos (em ordem)
+
+### PRÓXIMA TAREFA IMEDIATA: Executar Task 1 do plano
+
+Abrir `docs/superpowers/plans/2026-05-26-migracao-core-web.md` e executar a **Task 1: Schema no Supabase**:
+
+1. Criar os arquivos SQL (o plano tem o conteúdo completo):
+   - `supabase/migrations/001_schema_inicial.sql`
+   - `supabase/migrations/002_hist_tables.sql`
+   - `supabase/seed.sql`
+2. Rodar os 3 SQLs no Supabase Dashboard → SQL Editor (nessa ordem)
+3. Verificar que as tabelas aparecem em Database → Tables
+
+**Depois da Task 1, seguir em sequência:**
+- Task 2: Criar `src/renderer/src/services/` (9 arquivos de serviços Supabase)
+- Task 3: Instalar `xlsx`, migrar `CollectionContext.jsx`, limpar `App.jsx`
+- Task 4: Migrar `Compras.jsx` (~20 chamadas window.api)
+- Task 5: Migrar `Dashboard.jsx` e `Planejamento.jsx`
+- Task 6: Auth (AuthContext + tela Login + guard + RLS)
+- Task 7: Deploy Cloudflare Pages + keep-alive cron GitHub Actions
+
+### Planos follow-on (após o core):
+- Script de import histórico dos 3.000 xlsx → tabelas `hist_*`
+- Relatórios: Curva ABC, Quebra de Estoque, Análise por Lojista
+
+---
+
+## 📁 Arquivos modificados nesta sessão
+
+| Arquivo | Motivo |
 |---|---|
-| Fluxo de compra: sessão → pedidos por loja → PDF | ✓ |
-| Dashboard com projeção vs comprado por segmentação | ✓ |
-| Histórico de sessões com edição e exclusão | ✓ |
-| Recuperação automática de sessão interrompida | ✓ |
-| Importação de Análise de Coleção (planilha Excel) | ✓ |
-| Dados iniciais pré-carregados (8 compradores, 8 fornecedores) | ✓ |
-| Campo Transportadora quando Frete = FOB | ✓ |
-| Auto-update via electron-updater + GitHub Actions | ✓ |
-| 109 testes Vitest passando | ✓ |
-| Release v1.1.0 publicado (build em andamento) | ✓ |
-
-### Pendências remanescentes
-
-| Prioridade | Item |
-|---|---|
-| Média | **Curva ABC** — botão na UI existe (disabled), handler não implementado |
-| Média | **Quebra de Estoque** — mesmo caso que Curva ABC |
-| Baixa | Configuracoes ausente na demo web |
-| Baixa | Testes cobrem só DB modules — handlers IPC de backup/dialog/updater sem teste |
+| `docs/Análise Histórico de Pedidos.docx` | Relatório executivo da análise histórica |
+| `docs/gerar-relatorio-pedidos.js` | Script Node.js que gerou o DOCX |
+| `docs/superpowers/specs/2026-05-26-arquitetura-multi-usuario-design.md` | Design doc aprovado pelo usuário |
+| `docs/superpowers/plans/2026-05-26-migracao-core-web.md` | Plano de implementação completo (7 tasks) |
+| `.claude/handoff-memory.json` | Controle de handoffs (criado) |
 
 ---
 
-## Arquitetura
+## 🧠 Decisões técnicas que não estão no código
 
-### IPC: 43 handlers (1:1 com preload)
+### Arquitetura escolhida: Web App + Supabase Free + Cloudflare Pages + keep-alive cron
+- **Por que não Firebase:** Firestore é NoSQL — dificulta Curva ABC (`GROUP BY`) e joins de grade. PostgreSQL resolve naturalmente.
+- **Por que não Supabase Pro:** O único problema do free é a pausa de 1 semana. Um cron SELECT a cada 4 dias resolve. Com dados compactados, 500MB é mais que suficiente por anos.
+- **Por que Cloudflare Pages e não Vercel:** Vercel Hobby tem restrição "non-commercial only" nos ToS — viola para app empresarial. Cloudflare é gratuito e comercial OK.
 
-```
-colecoes      → list, create, setStatus
-segmentacoes  → list, create, upsert, update, remove, findOrCreate
-grades        → save, get, importar
-projecoes     → calcular, salvar, get, ajustar, restaurar
-fornecedores  → list, create, update, remove, importarArquivo
-compradores   → list, create, update, remove
-sessoes       → create, list, byId, update, cancelar
-pedidos       → salvar, byVisita, totaisPorTamanho, totaisPorFornecedor,
-                itensPorFornecedor, cancelar, salvarBatch
-dashboard     → data
-backup        → export, import
-dialog        → openFile
-updater       → install (+ onStatus listener)
-```
+### Estratégia de compactação de dados (decisão central desta sessão)
+- Os 3.000 xlsx (~400MB) são reduzidos a 4 tabelas de resumo (~10MB):
+  - `hist_grade` — grade por produto/temporada → alimenta projeções
+  - `hist_fornecedor` — volume por fornecedor/temporada → Curva ABC
+  - `hist_comprador_fornecedor` — quem compra quanto de quem
+  - `hist_comprador_produto` — mix de produto por lojista
+- Import é feito **1× por script standalone** (não faz parte do app).
+- xlsx originais ficam no Google Drive como arquivo (app não acessa mais).
 
-### Screens do renderer
+### Data layer: window.api.* (não window.electron diretamente)
+- O app usa uma abstração `window.api.*` via preload bridge do Electron.
+- A migração cria `src/renderer/src/services/` com funções de mesma assinatura.
+- `Pendencias.jsx` já usa Supabase diretamente — é o modelo a seguir.
+- Mapeamento completo das ~20 chamadas está na Task 2 do plano.
 
-| Screen | Função |
-|--------|--------|
-| `Dashboard.jsx` | Projeção vs comprado por segmentação, drill-down por tamanho |
-| `Planejamento.jsx` | Projeção via N-2+N-1, métodos: média simples/ponderada/manual + importar planilha |
-| `Compras.jsx` | Fluxo: IniciarSessão → InserirPedidos → Resumo/PDF |
-| `Relatorios.jsx` | Por Fornecedor ✓ / Por Segmentação ✓ / Curva ABC ✗ / Quebra de Estoque ✗ |
-| `Configuracoes.jsx` | Coleções, Segmentações, Compradores, Fornecedores, Backup |
-| `Pendencias.jsx` | Painel do projeto via Supabase |
+### Campos do schema: maioria já existe
+- `cor` → já em `pedidos.cor` (adicionado maio/2026)
+- `icms_pct` → já em `pedidos.icms_pct`
+- `nota_fiscal` → já em `pedidos.nota_fiscal`
+- **Só `prazo_entrega DATE` é genuinamente novo** (está no plano, Task 1)
 
-### DB modules (electron/main/db/)
-
-colecoes, segmentacoes, fornecedores, compradores, grades, projecoes, pedidos, sessoes, visitas, schema, connection
-
-### Schema do banco (tabelas principais)
-
-- `colecoes`: id, nome, estacao, ano, status
-- `segmentacoes`: id, classificacao, tipo_produto, classe, tipo_grade, estacao
-- `fornecedores`: id, nome, contato, categoria
-- `compradores`: id, nome, cnpj, cidade
-- `sessoes`: id, fornecedor_id, colecao_id, data_visita, vendedor, cond_pag, frete, **transportadora**, obs
-- `visitas`: id, sessao_id, comprador_id
-- `pedidos`: id, visita_id, comprador_id, segmentacao_id, valor_unitario, desconto_pct, referencia, icms_pct
-- `pedido_itens`: id, pedido_id, tamanho, qtd
-- `grade_historica`: segmentacao_id, colecao_id, tamanho, qtd_comprada, qtd_vendida, qtd_estoque
-- `projecoes`: segmentacao_id, colecao_id, tamanho, qtd_projetada, qtd_ajustada, metodo
-
-**Banco em produção:** `C:\Users\eduke\AppData\Roaming\solucao-compras\solucao-compras.db`
+### Branch e estado do git
+- Commits desta sessão em: `release/v1.1.13`
+- Verificar com `git branch` antes de começar a próxima sessão
 
 ---
 
-## Decisões técnicas registradas
+## 🔑 Contexto permanente do projeto
 
-- **Grades CASAL, KING, QUEEN, SOLT, LAR, GERAL** → tamanho único (1 SKU), não aparecem na planilha Análise de Coleção
-- **`importar.js`** — parser construído com base na planilha real "ANALISE DE INVERNO.xlsx" (198 blocos, 55 com compra, 143 zero corretamente ignorados)
-- **`seedInitialData(db)`** — separada de `runMigrations` para não quebrar testes; chamada apenas em `index.js`
-- **`transportadora` em sessoes** — campo session-level (não por pedido) porque a transportadora é definida na sessão de compra, não individualmente
-- **`parsePlanilhaRows` usa avanço dinâmico** — quando Venda/Estoque ausentes, avança 1 posição
-- **`pedidos.salvarBatch`** — transação única para múltiplos pedidos (um por loja por visita)
-- **sandbox: false no BrowserWindow** — necessário porque preload usa ESM imports
-- **`xlsx` em dependencies** (não devDependencies) — necessário para Electron packaged build
-
----
-
-## Releases
-
-| Versão | Data | Destaques |
-|---|---|---|
-| v1.0.0 | 2026-05-17 | Build inicial, fluxo de compras completo |
-| v1.1.0 | 2026-05-18 | Importação planilha, FOB transportadora, seed de dados |
-
----
-
-## Para rodar
-
-```
-cd "C:\Users\eduke\Solução Compras"
-npm run dev
-```
-
-## Próxima ação recomendada
-
-Aguardar Samuel testar o app atualizado (v1.1.0). Se reportar problemas, corrigir e publicar patch. Próximas features não-bloqueantes: Curva ABC e Quebra de Estoque.
+- **Supabase URL:** `https://bhxpkysueyoblizkvomb.supabase.co`
+- **Supabase anon key:** `sb_publishable_Pe-o7iG5jjV0n0qTTKQI-Q_DUZ8-tHm`
+- **Demo atual:** `solucao-compras-demo.vercel.app` (usa mock data — será substituído por Cloudflare Pages)
+- **8 compradores:** Irmãos Backes, Samuel Paulo Backes, PSM Backes, Alexandre Backes, Elisangela M. Backes, Rafael J. Backes, Streit Conf, FMV Streit Conf
+- **Pasta de pedidos históricos:** `C:\Users\eduke\Solução Compras\Pedidos\` (sincronizada no Google Drive, ~3.000 xlsx, 2015–2026)
+- **Email do usuário:** gptlojaspontoe@gmail.com
