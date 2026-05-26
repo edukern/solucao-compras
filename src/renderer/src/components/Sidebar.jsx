@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useCollection } from '../contexts/CollectionContext'
+import { useAuth } from '../contexts/AuthContext'
+import { colecoes as colecoesService } from '../services/colecoes'
 import ColecaoModal from './ColecaoModal'
 import styles from './Sidebar.module.css'
 
@@ -13,15 +15,11 @@ const NAV_ITEMS = [
 
 export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
   const { collections, setCollections, activeId, setActiveId } = useCollection()
+  const { signOut } = useAuth()
   const [showModal, setShowModal] = useState(false)
-  const [version,   setVersion]   = useState(null)
-
-  useEffect(() => {
-    window.api.app?.version().then(setVersion)
-  }, [])
 
   async function handleCreate(dados) {
-    const nova = await window.api.colecoes.create(dados)
+    const nova = await colecoesService.create(dados)
     setCollections(prev => [...prev, nova])
     setActiveId(nova.id)
     setShowModal(false)
@@ -62,9 +60,24 @@ export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
       </nav>
 
       <div className={styles.bottom}>
-        {version && <div className={styles.version}>v{version}</div>}
         <button className={styles.themeBtn} onClick={onToggleTheme}>
           {theme === 'dark' ? '☀️ Modo claro' : '🌙 Modo escuro'}
+        </button>
+        <button
+          onClick={signOut}
+          style={{
+            marginTop: '8px',
+            padding: '8px 12px',
+            background: 'none',
+            border: '1px solid #ddd',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '12px',
+            color: '#888',
+            width: '100%',
+          }}
+        >
+          Sair
         </button>
       </div>
 

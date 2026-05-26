@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { CollectionProvider } from './contexts/CollectionContext'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
 import ErrorBoundary from './components/ErrorBoundary'
 import Sidebar from './components/Sidebar'
 import Dashboard from './screens/Dashboard'
@@ -7,7 +8,7 @@ import Planejamento from './screens/Planejamento'
 import Compras from './screens/Compras'
 import Relatorios from './screens/Relatorios'
 import Configuracoes from './screens/Configuracoes'
-import Pendencias from './screens/Pendencias'
+import Login from './screens/Login'
 
 const SCREENS = {
   dashboard:     () => <Dashboard />,
@@ -15,27 +16,24 @@ const SCREENS = {
   compras:       () => <Compras />,
   relatorios:    () => <Relatorios />,
   configuracoes: () => <Configuracoes />,
-  pendencias:    () => <Pendencias />,
 }
 
-const noApi = !window.api
-
-export default function App() {
-  const [screen, setScreen] = useState(noApi ? 'pendencias' : 'dashboard')
+function AppInner() {
+  const { user } = useAuth()
+  const [screen, setScreen] = useState('dashboard')
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') ?? 'light')
+
   useEffect(() => {
     document.documentElement.classList.toggle('light', theme === 'light')
     localStorage.setItem('theme', theme)
   }, [theme])
 
-  // No Vercel: só mostra a tela de Pendências, sem CollectionProvider nem Sidebar
-  if (noApi) {
-    return (
-      <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-        <Pendencias />
-      </div>
-    )
-  }
+  if (user === undefined) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+      Carregando…
+    </div>
+  )
+  if (user === null) return <Login />
 
   const Screen = SCREENS[screen] ?? SCREENS.dashboard
 
@@ -57,5 +55,13 @@ export default function App() {
         </div>
       </div>
     </CollectionProvider>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppInner />
+    </AuthProvider>
   )
 }
