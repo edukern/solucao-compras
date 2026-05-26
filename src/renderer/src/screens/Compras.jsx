@@ -4,6 +4,12 @@ import { tamanhosDeTipoGrade, GRADE_DEFINITIONS } from '../constants/grades'
 import { TIPOS_PRODUTO } from '../constants/tipoProduto'
 import ConfirmModal from '../components/ConfirmModal'
 import styles from './Compras.module.css'
+import { sessoes as sessoesService } from '../services/sessoes'
+import { pedidos as pedidosService } from '../services/pedidos'
+import { segmentacoes as segmentacoesService } from '../services/segmentacoes'
+import { fornecedores as fornecedoresService } from '../services/fornecedores'
+import { compradores as compradoresService } from '../services/compradores'
+import { projecoes as projecoesService } from '../services/projecoes'
 
 const fmt = n => (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtDate = iso => { if (!iso) return ''; const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}` }
@@ -146,7 +152,7 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
     setSaving(true)
     setError(null)
     try {
-      const sessao = await window.api.sessoes.create({
+      const sessao = await sessoesService.create({
         fornecedor_id: Number(fornId),
         colecao_id:    colId,
         data_visita:   data,
@@ -690,7 +696,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
 
   async function getProjecao(segId) {
     if (projCache[segId]) return projCache[segId]
-    const rows = await window.api.projecoes.get(segId, colId)
+    const rows = await projecoesService.get(segId, colId)
     setProjCache(prev => ({ ...prev, [segId]: rows }))
     return rows
   }
@@ -750,10 +756,11 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
         if (!classDef) continue
         const classificacao = classDef.classificacao
 
-        const segId = await window.api.segmentacoes.findOrCreate({
+        const seg = await segmentacoesService.findOrCreate({
           classificacao, tipo_produto, classe, tipo_grade,
           estacao: colEstacao ?? 'inverno',
         })
+        const segId = seg.id
 
         for (const v of visitas) {
           const lojaTams = qtds[localId]?.[v.id] ?? {}
@@ -776,7 +783,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
           })
         }
       }
-      const salvos = await window.api.pedidos.salvarBatch(batch)
+      const salvos = await pedidosService.salvarBatch(batch, sessao.id)
       localStorage.removeItem(RECOVERY_KEY)
       onFechar(salvos.map((p, i) => ({ ...p, ...meta[i] })))
     } catch {
@@ -1374,25 +1381,31 @@ function gerarPDFSessao(sessao, visitas, pedidosPorVisita) {
 // DD-MM-AA a partir de YYYY-MM-DD
 const fmtDataPDF = iso => { const [y,m,d] = iso.split('-'); return `${d}-${m}-${y.slice(2)}` }
 
-async function salvarPDFVisita(sessao, vis, visPedidos, pasta) {
+async function salvarPDFVisita(sessao, vis, visPedidos) {
   const html = wrapDoc(
     gerarHTMLOrdem(sessao, vis, visPedidos, true),
     `Pedido — ${esc(sessao.fornecedor_nome)} — ${esc(vis.comprador_nome)}`
   )
   const nome = `${vis.comprador_nome} _ ${sessao.fornecedor_nome} _ ${fmtDataPDF(sessao.data_visita)}`
     .replace(/[/\\?%*:|"<>]/g, '-')
-  return window.api.pdf.salvarNaPasta(html, nome, pasta)
+  const blob = new Blob([`<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${html}</body></html>`], { type: 'text/html' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${nome}.html`
+  a.click()
+  URL.revokeObjectURL(url)
+  return { ok: true }
 }
 
 // ─── Phase 3: Close Session + PDFs ───────────────────────────────────────
 
 function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
-  const [pastaDestino, setPastaDestino] = useState(null)
   const [salvandoPDF,  setSalvandoPDF]  = useState(null) // vis.id em andamento
   const [salvos,       setSalvos]       = useState(new Set())
   const [erroPDF,      setErroPDF]      = useState(null)
 
-  const podeSalvarPDF    = !!window.api?.pdf?.salvarNaPasta
+  const podeSalvarPDF = true
   const visitasComPedidos = visitas.filter(v => pedidos.some(p => p.visita_id === v.id))
   const totalGeral = pedidos.reduce((s, p) => {
     const q = p.itens.reduce((s2, i) => s2 + i.qtd, 0)
@@ -1410,19 +1423,10 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
 
   async function handleSalvarPDF(vis) {
     setErroPDF(null)
-    let pasta = pastaDestino
-
-    // Primeira vez: abre dialog de pasta (uma única vez para a sessão)
-    if (!pasta) {
-      pasta = await window.api.pdf.escolherPasta()
-      if (!pasta) return // usuário cancelou
-      setPastaDestino(pasta)
-    }
-
     const visPedidos = pedidos.filter(p => p.visita_id === vis.id)
     setSalvandoPDF(vis.id)
     try {
-      const result = await salvarPDFVisita(sessao, vis, visPedidos, pasta)
+      const result = await salvarPDFVisita(sessao, vis, visPedidos)
       if (result?.ok) {
         setSalvos(prev => new Set([...prev, vis.id]))
       } else {
@@ -1437,18 +1441,12 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
 
   async function handleSalvarTodos() {
     setErroPDF(null)
-    let pasta = pastaDestino
-    if (!pasta) {
-      pasta = await window.api.pdf.escolherPasta()
-      if (!pasta) return
-      setPastaDestino(pasta)
-    }
     for (const vis of visitasComPedidos) {
       if (salvos.has(vis.id)) continue
       setSalvandoPDF(vis.id)
       try {
         const visPedidos = pedidos.filter(p => p.visita_id === vis.id)
-        const result = await salvarPDFVisita(sessao, vis, visPedidos, pasta)
+        const result = await salvarPDFVisita(sessao, vis, visPedidos)
         if (result?.ok) setSalvos(prev => new Set([...prev, vis.id]))
       } catch {
         setErroPDF(`Erro ao salvar PDF de ${vis.comprador_nome}.`)
@@ -1470,18 +1468,6 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
       </div>
 
       <h2 className={styles.phaseTitle}>Fase 3 — Resumo da Sessão</h2>
-
-      {pastaDestino && (
-        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
-          Pasta: <strong style={{ color: 'var(--text-secondary)' }}>{pastaDestino}</strong>
-          <button
-            style={{ marginLeft: '0.75rem', background: 'none', border: 'none', color: 'var(--accent)', fontSize: '0.78rem', cursor: 'pointer', padding: 0 }}
-            onClick={async () => { const p = await window.api.pdf.escolherPasta(); if (p) { setPastaDestino(p); setSalvos(new Set()) } }}
-          >
-            trocar
-          </button>
-        </div>
-      )}
 
       {erroPDF && <div className={styles.errorBanner}>{erroPDF}</div>}
 
@@ -1567,7 +1553,7 @@ function Historico({ colId }) {
   const [confirmDeleteSessao, setConfirmDeleteSessao] = useState(null) // sessaoId
 
   useEffect(() => {
-    window.api.sessoes.list(colId).then(list => {
+    sessoesService.list(colId).then(list => {
       setSessoesList(list)
       setLoading(false)
     })
@@ -1577,7 +1563,7 @@ function Historico({ colId }) {
     if (expandedVisita === visitaId) { setExpandedVisita(null); return }
     setExpandedVisita(visitaId)
     if (!pedidosPorVisita[visitaId]) {
-      const peds = await window.api.pedidos.byVisita(visitaId)
+      const peds = await pedidosService.byVisita(visitaId)
       setPedidosPorVisita(prev => ({ ...prev, [visitaId]: peds }))
     }
   }
@@ -1586,7 +1572,7 @@ function Historico({ colId }) {
     if (!confirmCancelar) return
     const { pedidoId, visitaId } = confirmCancelar
     setConfirmCancelar(null)
-    await window.api.pedidos.cancelar(pedidoId)
+    await pedidosService.cancelar(pedidoId)
     setPedidosPorVisita(prev => ({
       ...prev,
       [visitaId]: (prev[visitaId] ?? []).filter(p => p.id !== pedidoId)
@@ -1608,7 +1594,7 @@ function Historico({ colId }) {
   async function handleSaveEditSessao(id) {
     setSavingEditSessao(true)
     try {
-      const updated = await window.api.sessoes.update(id, editSessaoForm)
+      const updated = await sessoesService.update(id, editSessaoForm)
       setSessoesList(prev => prev.map(s => s.id === id ? { ...updated, visitas: s.visitas } : s))
       setEditSessaoId(null)
     } finally {
@@ -1619,7 +1605,7 @@ function Historico({ colId }) {
   async function executarDeleteSessao() {
     const id = confirmDeleteSessao
     setConfirmDeleteSessao(null)
-    await window.api.sessoes.cancelar(id)
+    await sessoesService.cancelar(id)
     setSessoesList(prev => prev.filter(s => s.id !== id))
   }
 
@@ -1631,7 +1617,7 @@ function Historico({ colId }) {
       let allPeds = pedidosPorVisita
       if (toLoad.length > 0) {
         const loaded = await Promise.all(
-          toLoad.map(v => window.api.pedidos.byVisita(v.visita_id).then(peds => [v.visita_id, peds]))
+          toLoad.map(v => pedidosService.byVisita(v.visita_id).then(peds => [v.visita_id, peds]))
         )
         allPeds = { ...pedidosPorVisita, ...Object.fromEntries(loaded) }
         setPedidosPorVisita(allPeds)
@@ -1850,9 +1836,9 @@ export default function Compras() {
 
   useEffect(() => {
     Promise.all([
-      window.api.segmentacoes.list(),
-      window.api.fornecedores.list(),
-      window.api.compradores.list(),
+      segmentacoesService.list(),
+      fornecedoresService.list(),
+      compradoresService.list(),
     ]).then(([s, f, c]) => { setSegs(s); setForns(f); setCompradores(c) })
   }, [])
 
@@ -1864,7 +1850,7 @@ export default function Compras() {
     if (!saved) { setRecoveryData(null); return }
     try {
       const data = JSON.parse(saved)
-      window.api.sessoes.byId(data.sessao_id).then(sessaoDb => {
+      sessoesService.byId(data.sessao_id).then(sessaoDb => {
         if (!sessaoDb) { localStorage.removeItem(key); setRecoveryData(null); return }
         const visEnriquecidas = sessaoDb.visitas.map(v => ({
           id: v.visita_id,
