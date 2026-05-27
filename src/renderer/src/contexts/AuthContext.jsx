@@ -54,8 +54,18 @@ export function AuthProvider({ children }) {
     await loadComprador(user.id)
   }
 
+  async function desvincularComprador() {
+    if (!user) return
+    const { error } = await supabase
+      .from('user_compradores')
+      .delete()
+      .eq('user_id', user.id)
+    if (error) throw error
+    setComprador(null)
+  }
+
   return (
-    <AuthContext.Provider value={{ user, comprador, signIn, signUp, signOut, vincularComprador }}>
+    <AuthContext.Provider value={{ user, comprador, signIn, signUp, signOut, vincularComprador, desvincularComprador }}>
       {children}
     </AuthContext.Provider>
   )

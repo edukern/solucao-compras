@@ -15,7 +15,7 @@ const NAV_ITEMS = [
 
 export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
   const { collections, setCollections, activeId, setActiveId } = useCollection()
-  const { signOut } = useAuth()
+  const { signOut, comprador, desvincularComprador } = useAuth()
   const [showModal, setShowModal] = useState(false)
 
   async function handleCreate(dados) {
@@ -63,6 +63,17 @@ export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
         <button className={styles.themeBtn} onClick={onToggleTheme}>
           {theme === 'dark' ? '☀️ Modo claro' : '🌙 Modo escuro'}
         </button>
+        {comprador && (
+          <div style={{ marginTop: '8px', fontSize: '12px', color: '#888', textAlign: 'center' }}>
+            <span>{comprador.nome}</span>
+            <button
+              onClick={desvincularComprador}
+              style={{ background: 'none', border: 'none', color: '#3ecf8e', fontSize: '11px', cursor: 'pointer', display: 'block', margin: '2px auto 0', textDecoration: 'underline' }}
+            >
+              Trocar loja
+            </button>
+          </div>
+        )}
         <button
           onClick={signOut}
           style={{

@@ -11,3 +11,12 @@ CREATE POLICY "select_own" ON user_compradores
 
 CREATE POLICY "insert_own" ON user_compradores
   FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "delete_own" ON user_compradores
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- GRANTs necessários (tabelas criadas via SQL não recebem grants automáticos)
+GRANT SELECT ON compradores TO authenticated;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+GRANT DELETE ON user_compradores TO authenticated;
