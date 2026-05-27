@@ -38,4 +38,9 @@ check-db.py
 seed-test.py
 SPEC-compras-redesign.md
 
+# Arquivos de seed/import grandes (não vão pro repositório)
+docs/historico-seed.sql
+docs/historico-seed-backup.sql
+docs/apply-seed-log.txt
+
 .vercel
