@@ -1,4 +1,4 @@
-/* src/renderer/src/screens/Compras.module.css */
+﻿/* src/renderer/src/screens/Compras.module.css */
 .page { padding: 1.5rem; max-width: 1000px; }
 .title { font-size: 1.5rem; font-weight: 600; margin-bottom: 1.25rem; }
 
@@ -320,7 +320,7 @@
 .step:last-child { border-right: none; }
 .stepActive {
   color: var(--accent-light);
-  background: rgba(99,102,241,0.1);
+  background: rgba(96,165,250,0.1);
   font-weight: 600;
 }
 .stepDone {
@@ -338,7 +338,7 @@
   font-weight: 700;
   flex-shrink: 0;
 }
-.stepActive .stepNum { background: rgba(99,102,241,0.25); color: var(--accent-light); }
+.stepActive .stepNum { background: rgba(96,165,250,0.25); color: var(--accent-light); }
 .stepDone .stepNum   { background: rgba(34,197,94,0.15);  color: var(--green); }
 
 .phase {
@@ -527,7 +527,7 @@
 }
 .resumoGeralTotal strong { color: var(--text-primary); font-size: 1rem; }
 
-/* ─── SKU layout (Phase 2) ─── */
+/* â”€â”€â”€ SKU layout (Phase 2) â”€â”€â”€ */
 .skuLayout {
   display: flex;
   gap: 1rem;
@@ -562,7 +562,7 @@
 .skuItem:hover { background: var(--bg-hover); }
 
 .skuItemActive {
-  background: rgba(99,102,241,0.1) !important;
+  background: rgba(96,165,250,0.1) !important;
   border-left: 3px solid var(--accent);
 }
 
@@ -655,7 +655,7 @@
 
 .lojaTabActive {
   color: var(--accent-light) !important;
-  background: rgba(99,102,241,0.08) !important;
+  background: rgba(96,165,250,0.08) !important;
   border-color: var(--border) var(--border) var(--bg-card) var(--border);
   border-bottom-color: var(--bg-card) !important;
   font-weight: 600;
@@ -756,7 +756,7 @@
   letter-spacing: 0.05em;
 }
 
-/* ─── View Toggle (Nova sessão / Histórico) ─────────────────────────────── */
+/* â”€â”€â”€ View Toggle (Nova sessÃ£o / HistÃ³rico) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .viewToggle {
   display: flex;
   gap: 0.5rem;
@@ -781,7 +781,7 @@
   font-weight: 500;
 }
 
-/* ─── Histórico ──────────────────────────────────────────────────────────── */
+/* â”€â”€â”€ HistÃ³rico â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .historico { display: flex; flex-direction: column; gap: 0.75rem; }
 
 .histSessao {
@@ -919,14 +919,14 @@
 }
 .recoveryBanner strong { color: var(--text-primary); }
 
-/* Edit form inside Histórico */
+/* Edit form inside HistÃ³rico */
 .histEditForm {
   padding: 0.75rem 1rem;
   background: var(--bg-primary);
   border-top: 1px solid var(--border);
 }
 
-/* ─── Phase 2: Add item form ─────────────────────────────────────────────── */
+/* â”€â”€â”€ Phase 2: Add item form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .addItemForm {
   display: flex;
   flex-wrap: wrap;
@@ -954,13 +954,13 @@
 }
 .btnAdd:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* ─── Phase 2: Items table ───────────────────────────────────────────────── */
+/* â”€â”€â”€ Phase 2: Items table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .itemsTable { width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: 0.85rem; }
 .itemsTable th { background: var(--bg-alt, #f0f0f0); padding: 6px 10px; text-align: left; border-bottom: 2px solid var(--border); white-space: nowrap; }
 .itemsTable td { padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .itemRow { cursor: pointer; }
 .itemRow:hover td { background: var(--bg-alt, #f5f5f5); }
-.itemRowActive td { background: rgba(var(--accent-rgb, 99,102,241), 0.07) !important; }
+.itemRowActive td { background: rgba(var(--accent-rgb, 96,165,250), 0.07) !important; }
 .itemRowActive td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .itemRowActive { font-weight: 500; }
 .itemDot { color: var(--accent); }
@@ -975,12 +975,12 @@
 }
 .btnRemoveItem:hover { color: #900; }
 
-/* ─── Phase 2: Grade section ─────────────────────────────────────────────── */
+/* â”€â”€â”€ Phase 2: Grade section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .gradeSection { margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem; }
 .gradeCaption { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.75rem; display: flex; gap: 0.5rem; align-items: center; color: var(--text); }
 .gradeCaptionRef { background: var(--bg-alt, #eee); padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); }
 
-/* ─── Phase 2: Inline grade expansion ──────────────────────────────────────── */
+/* â”€â”€â”€ Phase 2: Inline grade expansion â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .gradeExpansionRow > td {
   padding: 0 !important;
   background: var(--bg-secondary) !important;
@@ -1013,7 +1013,7 @@
   transition: background 0.1s;
 }
 .gradeInlineRow:hover { background: var(--bg-hover); }
-.gradeInlineRowActive { background: rgba(var(--accent-rgb, 99,102,241), 0.06); }
+.gradeInlineRowActive { background: rgba(var(--accent-rgb, 96,165,250), 0.06); }
 
 .gradeInlineLoja {
   width: 140px;
@@ -1080,7 +1080,7 @@
   outline: none;
   border-color: var(--accent);
   border-style: solid;
-  background: rgba(var(--accent-rgb, 99,102,241), 0.06);
+  background: rgba(var(--accent-rgb, 96,165,250), 0.06);
 }
 .totalDistribInput::placeholder { color: var(--text-muted); font-weight: 400; }
 
@@ -1206,7 +1206,7 @@
   min-width: 40px;
 }
 
-/* ── Keyboard-first session form ──────────────────────────────────── */
+/* â”€â”€ Keyboard-first session form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .kbForm {
   display: flex;
   flex-direction: column;
@@ -1529,7 +1529,7 @@
   cursor: pointer;
 }
 
-/* ── Registrar Pedidos UX improvements ───────────────────────────── */
+/* â”€â”€ Registrar Pedidos UX improvements â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .btnEditItem {
   background: none;
   border: none;
@@ -1553,7 +1553,7 @@
 .btnDuplicateItem:hover { color: var(--green); }
 
 .editItemRow td {
-  background: rgba(var(--accent-rgb, 99,102,241), 0.04) !important;
+  background: rgba(var(--accent-rgb, 96,165,250), 0.04) !important;
   padding: 4px 6px !important;
 }
 .editItemRow input,
@@ -1591,8 +1591,9 @@
   font-weight: 700;
   color: var(--accent-light);
   padding: 0.2rem 0.5rem;
-  background: rgba(99,102,241,0.07);
+  background: rgba(96,165,250,0.07);
   border-radius: 4px;
   pointer-events: none;
   user-select: none;
 }
+

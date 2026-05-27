@@ -594,7 +594,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
     const v = parseFloat((valorStr ?? '').replace(',', '.'))
     const m = parseFloat((markupStr ?? '').replace(',', '.'))
     if (!v || isNaN(v) || !m || isNaN(m)) return ''
-    return roundTo99(v * m)
+    return roundTo99(v * (1 + m))
   }
 
   function addItem() {
@@ -1092,7 +1092,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                       <td>{it.tipo_produto} · {it.tipo_grade} · {it.classe}</td>
                       <td>{it.icms_pct || '0'}%</td>
                       <td>{it.valor ? `R$ ${it.valor}` : <span className={styles.itemDot}>—</span>}</td>
-                      <td className={styles.itemMarkupCell}>{it.markup_pct && it.markup_pct !== '0' ? `×${it.markup_pct}` : <span className={styles.itemDot}>—</span>}</td>
+                      <td className={styles.itemMarkupCell}>{it.markup_pct && it.markup_pct !== '0' ? `+${it.markup_pct}` : <span className={styles.itemDot}>—</span>}</td>
                       <td className={styles.itemPrecoVendaCell}>{it.preco_venda ? `R$ ${it.preco_venda}` : <span className={styles.itemDot}>—</span>}</td>
                       <td><strong>{total > 0 ? total : <span className={styles.itemDot}>—</span>}</strong></td>
                       <td>

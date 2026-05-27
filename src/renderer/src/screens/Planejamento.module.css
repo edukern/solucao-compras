@@ -1,4 +1,4 @@
-.page { padding: 1.5rem; max-width: 900px; }
+﻿.page { padding: 1.5rem; max-width: 900px; }
 .title { font-size: 1.5rem; font-weight: 600; margin-bottom: 1.25rem; }
 
 .panel {
@@ -39,8 +39,8 @@
 }
 .method:hover { color: var(--text-primary); }
 .methodActive {
-  background: rgba(99,102,241,0.2) !important;
-  border-color: rgba(99,102,241,0.5) !important;
+  background: rgba(96,165,250,0.2) !important;
+  border-color: rgba(96,165,250,0.5) !important;
   color: var(--accent-light) !important;
 }
 
@@ -83,7 +83,7 @@
   outline: none;
   border-color: var(--accent);
 }
-.adjModified { border-color: rgba(99,102,241,0.6) !important; }
+.adjModified { border-color: rgba(96,165,250,0.6) !important; }
 
 .actions {
   display: flex;
@@ -102,14 +102,14 @@
 }
 .btnSecondary:hover { color: var(--text-primary); }
 .btnPrimary {
-  background: rgba(99,102,241,0.25);
-  border: 1px solid rgba(99,102,241,0.5);
+  background: rgba(96,165,250,0.25);
+  border: 1px solid rgba(96,165,250,0.5);
   border-radius: 4px;
   color: var(--accent-light);
   padding: 0.4rem 1rem;
   font-size: 0.85rem;
 }
-.btnPrimary:hover { background: rgba(99,102,241,0.35); }
+.btnPrimary:hover { background: rgba(96,165,250,0.35); }
 
 .warning {
   background: rgba(251,146,60,0.1);
@@ -133,7 +133,7 @@
   font-size: 0.9rem;
 }
 
-/* ── Importar Análise de Coleção ─────────────────────────────────────── */
+/* â”€â”€ Importar AnÃ¡lise de ColeÃ§Ã£o â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .importSection {
   margin-bottom: 1.25rem;
   border: 1px solid var(--border);
@@ -150,8 +150,8 @@
   user-select: none;
 }
 .importSummary::-webkit-details-marker { display: none; }
-.importSummary::before { content: '▶  '; font-size: 0.7rem; }
-details[open] .importSummary::before { content: '▼  '; }
+.importSummary::before { content: 'â–¶  '; font-size: 0.7rem; }
+details[open] .importSummary::before { content: 'â–¼  '; }
 .importBody {
   padding: 0.75rem 1rem;
   border-top: 1px solid var(--border);
@@ -186,3 +186,4 @@ details[open] .importSummary::before { content: '▼  '; }
   font-size: 0.85rem;
   color: var(--red, #c00);
 }
+
