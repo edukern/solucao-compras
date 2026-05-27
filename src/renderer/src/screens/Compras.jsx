@@ -1603,10 +1603,11 @@ function Historico({ colId }) {
   const [confirmDeleteSessao, setConfirmDeleteSessao] = useState(null) // sessaoId
 
   useEffect(() => {
+    let cancelled = false
     sessoesService.list(colId).then(list => {
-      setSessoesList(list)
-      setLoading(false)
+      if (!cancelled) { setSessoesList(list); setLoading(false) }
     })
+    return () => { cancelled = true }
   }, [colId])
 
   async function handleExpandVisita(visitaId) {
@@ -1885,22 +1886,26 @@ export default function Compras() {
   const [recoveryInitial, setRecoveryInitial] = useState(null)
 
   useEffect(() => {
+    let cancelled = false
     Promise.all([
       segmentacoesService.list(),
       fornecedoresService.list(),
       compradoresService.list(),
-    ]).then(([s, f, c]) => { setSegs(s); setForns(f); setCompradores(c) })
+    ]).then(([s, f, c]) => { if (!cancelled) { setSegs(s); setForns(f); setCompradores(c) } })
+    return () => { cancelled = true }
   }, [])
 
   // Verifica se há sessão interrompida para recuperar
   useEffect(() => {
     if (!active?.id) return
+    let cancelled = false
     const key = `SC_RECOVERY_${active.id}`
     const saved = localStorage.getItem(key)
     if (!saved) { setRecoveryData(null); return }
     try {
       const data = JSON.parse(saved)
       sessoesService.byId(data.sessao_id).then(sessaoDb => {
+        if (cancelled) return
         if (!sessaoDb) { localStorage.removeItem(key); setRecoveryData(null); return }
         const visEnriquecidas = sessaoDb.visitas.map(v => ({
           id: v.visita_id,
@@ -1915,6 +1920,7 @@ export default function Compras() {
       localStorage.removeItem(key)
       setRecoveryData(null)
     }
+    return () => { cancelled = true }
   }, [active?.id])
 
   function handleStart(novaSessao, lojas) {

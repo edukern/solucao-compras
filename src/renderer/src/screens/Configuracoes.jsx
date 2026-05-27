@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import * as XLSX from 'xlsx'
 import styles from './Configuracoes.module.css'
 import { CLASSIFICACOES, gradesPorClassificacao } from '../constants/grades'
 import { TIPOS_PRODUTO } from '../constants/tipoProduto'
@@ -775,6 +774,7 @@ function AbaFornecedores() {
     setErro(null)
     setSucesso(null)
     try {
+      const XLSX = await import('xlsx')
       const buffer = await file.arrayBuffer()
       const wb = XLSX.read(buffer)
       const ws = wb.Sheets[wb.SheetNames[0]]

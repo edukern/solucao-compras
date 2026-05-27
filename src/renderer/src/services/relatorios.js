@@ -49,6 +49,43 @@ export const relatorios = {
       .sort((a, b) => a.fornecedor_nome.localeCompare(b.fornecedor_nome))
   },
 
+  async totaisPorComprador(colecao_id) {
+    const { data: sessoes, error: se } = await supabase
+      .from('sessoes')
+      .select('id')
+      .eq('colecao_id', colecao_id)
+    if (se) throw se
+
+    const sessaoIds = (sessoes ?? []).map(s => s.id)
+    if (!sessaoIds.length) return []
+
+    const { data, error } = await supabase
+      .from('visitas')
+      .select(`
+        comprador_id,
+        comprador:compradores(id, nome, ordem),
+        pedidos(valor_unitario, desconto_pct, pedido_itens(qtd))
+      `)
+      .in('sessao_id', sessaoIds)
+    if (error) throw error
+
+    const mapa = new Map()
+    for (const v of data ?? []) {
+      const comp = v.comprador
+      if (!comp) continue
+      for (const p of v.pedidos ?? []) {
+        const qtd = (p.pedido_itens ?? []).reduce((s, i) => s + (Number(i.qtd) || 0), 0)
+        const bruto = qtd * (p.valor_unitario ?? 0)
+        const desconto = p.desconto_pct ? bruto * p.desconto_pct / 100 : 0
+        const cur = mapa.get(comp.id) ?? { id: comp.id, nome: comp.nome, ordem: comp.ordem, pecas: 0, valor: 0 }
+        cur.pecas += qtd
+        cur.valor += bruto - desconto
+        mapa.set(comp.id, cur)
+      }
+    }
+    return [...mapa.values()].sort((a, b) => a.ordem - b.ordem)
+  },
+
   async itensPorFornecedor(fornecedor_id, colecao_id) {
     const { data: sessoes, error } = await supabase
       .from('sessoes')

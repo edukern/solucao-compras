@@ -1,5 +1,4 @@
 import { supabase } from '../lib/supabase'
-import * as XLSX from 'xlsx'
 
 export const grades = {
   async get(segmentacao_id, colecao_id) {
@@ -13,6 +12,7 @@ export const grades = {
     return data
   },
   async importar(file, segmentacao_id, colecao_id) {
+    const XLSX = await import('xlsx')
     const buffer = await file.arrayBuffer()
     const wb = XLSX.read(buffer)
     const ws = wb.Sheets[wb.SheetNames[0]]

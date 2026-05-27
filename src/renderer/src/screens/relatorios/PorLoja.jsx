@@ -1,47 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useCollection } from '../../contexts/CollectionContext'
-import { supabase } from '../../lib/supabase'
+import { relatorios } from '../../services/relatorios'
 import styles from './PorLoja.module.css'
-
-async function totaisPorComprador(colecaoId) {
-  // 1. IDs das sessões dessa coleção
-  const { data: sessoes, error: se } = await supabase
-    .from('sessoes')
-    .select('id')
-    .eq('colecao_id', colecaoId)
-  if (se) throw se
-
-  const sessaoIds = (sessoes ?? []).map(s => s.id)
-  if (!sessaoIds.length) return []
-
-  // 2. Visitas com pedidos e itens
-  const { data, error } = await supabase
-    .from('visitas')
-    .select(`
-      comprador_id,
-      comprador:compradores(id, nome, ordem),
-      pedidos(valor_unitario, desconto_pct, pedido_itens(qtd))
-    `)
-    .in('sessao_id', sessaoIds)
-  if (error) throw error
-
-  // 3. Agregar por comprador
-  const mapa = new Map()
-  for (const v of data ?? []) {
-    const comp = v.comprador
-    if (!comp) continue
-    for (const p of v.pedidos ?? []) {
-      const qtdTotal = (p.pedido_itens ?? []).reduce((s, i) => s + (Number(i.qtd) || 0), 0)
-      const bruto    = qtdTotal * (p.valor_unitario ?? 0)
-      const desconto = p.desconto_pct ? bruto * p.desconto_pct / 100 : 0
-      const cur = mapa.get(comp.id) ?? { id: comp.id, nome: comp.nome, ordem: comp.ordem, pecas: 0, valor: 0 }
-      cur.pecas += qtdTotal
-      cur.valor += bruto - desconto
-      mapa.set(comp.id, cur)
-    }
-  }
-  return [...mapa.values()].sort((a, b) => a.ordem - b.ordem)
-}
 
 export default function PorLoja() {
   const { active } = useCollection()
@@ -53,7 +13,7 @@ export default function PorLoja() {
     if (!active?.id) { setRows([]); return }
     setLoading(true)
     setErro(null)
-    totaisPorComprador(active.id)
+    relatorios.totaisPorComprador(active.id)
       .then(setRows)
       .catch(e => setErro(e.message))
       .finally(() => setLoading(false))
