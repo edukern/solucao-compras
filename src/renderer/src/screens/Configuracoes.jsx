@@ -1,7 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import * as XLSX from 'xlsx'
 import styles from './Configuracoes.module.css'
 import { CLASSIFICACOES, gradesPorClassificacao } from '../constants/grades'
 import { TIPOS_PRODUTO } from '../constants/tipoProduto'
+import { colecoes as colecoesService } from '../services/colecoes'
+import { segmentacoes as segmentacoesService } from '../services/segmentacoes'
+import { compradores as compradoresService } from '../services/compradores'
+import { fornecedores as fornecedoresService } from '../services/fornecedores'
 
 // Bonus fix #4: module-level constant
 const anoAtual = new Date().getFullYear()
@@ -21,7 +26,7 @@ function AbaColecoes() {
   async function carregar() {
     setLoading(true)
     try {
-      const lista = await window.api.colecoes.list()
+      const lista = await colecoesService.list()
       setColecoes(lista)
     } finally {
       setLoading(false)
@@ -35,7 +40,7 @@ function AbaColecoes() {
     if (!nome.trim()) return
     setSaving(true)
     try {
-      await window.api.colecoes.create({ nome: nome.trim(), estacao, ano: Number(ano) })
+      await colecoesService.create({ nome: nome.trim(), estacao, ano: Number(ano) })
       setNome('')
       setEstacao('verao')
       setAno(anoAtual)
@@ -48,7 +53,7 @@ function AbaColecoes() {
   async function handleStatusChange(id, novoStatus) {
     setErro(null)
     try {
-      await window.api.colecoes.setStatus(id, novoStatus)
+      await colecoesService.setStatus(id, novoStatus)
       setColecoes(prev => prev.map(c => c.id === id ? { ...c, status: novoStatus } : c))
     } catch (e) {
       setErro('Erro ao atualizar status da coleção.')
@@ -193,7 +198,7 @@ function AbaSegmentacoes() {
   async function carregar() {
     setLoading(true)
     try {
-      const lista = await window.api.segmentacoes.list()
+      const lista = await segmentacoesService.list()
       setSegmentacoes(lista)
     } finally {
       setLoading(false)
@@ -221,7 +226,7 @@ function AbaSegmentacoes() {
     setErro(null)
     setSaving(true)
     try {
-      await window.api.segmentacoes.create({ ...form, tipo_produto: tipoProdutoNorm })
+      await segmentacoesService.create({ ...form, tipo_produto: tipoProdutoNorm })
       setForm(makeDefaultForm(form.classificacao))
       await carregar()
     } finally {
@@ -232,7 +237,7 @@ function AbaSegmentacoes() {
   async function handleRemover(id) {
     setErro(null)
     try {
-      await window.api.segmentacoes.remove(id)
+      await segmentacoesService.remove(id)
       setSegmentacoes(prev => prev.filter(s => s.id !== id))
     } catch {
       setErro('Erro ao remover segmentação.')
@@ -248,7 +253,7 @@ function AbaSegmentacoes() {
     setErro(null)
     setSavingEdit(true)
     try {
-      await window.api.segmentacoes.update(id, editForm)
+      await segmentacoesService.update(id, editForm)
       setEditId(null)
       await carregar()
     } catch {
@@ -454,7 +459,7 @@ function AbaCompradores() {
   async function carregar() {
     setLoading(true)
     try {
-      const lista = await window.api.compradores.list()
+      const lista = await compradoresService.list()
       setCompradores(lista)
     } finally {
       setLoading(false)
@@ -469,7 +474,7 @@ function AbaCompradores() {
     setErro(null)
     setSavingNovo(true)
     try {
-      await window.api.compradores.create(novoForm)
+      await compradoresService.create(novoForm)
       setNovoForm({ nome: '', cnpj: '', cidade: '' })
       await carregar()
     } catch (e) {
@@ -493,7 +498,7 @@ function AbaCompradores() {
     setErro(null)
     setSavingEdit(true)
     try {
-      await window.api.compradores.update(id, editForm)
+      await compradoresService.update(id, editForm)
       setEditId(null)
       await carregar()
     } catch (e) {
@@ -506,7 +511,7 @@ function AbaCompradores() {
   async function handleRemover(id) {
     setErro(null)
     try {
-      await window.api.compradores.remove(id)
+      await compradoresService.remove(id)
       setCompradores(prev => prev.filter(c => c.id !== id))
     } catch (e) {
       setErro('Erro ao remover comprador.')
@@ -648,6 +653,7 @@ function AbaCompradores() {
 function AbaBackup() {
   const [status, setStatus] = useState(null)
   const [working, setWorking] = useState(false)
+  const hasBackup = !!window.api?.backup
 
   async function handleExport() {
     setWorking(true)
@@ -668,7 +674,6 @@ function AbaBackup() {
     setStatus(null)
     try {
       await window.api.backup.import()
-      // ok=false: usuário cancelou o dialog de arquivo
     } catch {
       setStatus('Erro ao restaurar backup.')
     } finally {
@@ -680,20 +685,28 @@ function AbaBackup() {
     <div className={styles.section}>
       <div className={styles.backupCard}>
         <h2 className={styles.sectionTitle}>Backup do banco de dados</h2>
-        <p className={styles.hint}>
-          Exporta ou restaura o arquivo <code>.db</code> com todos os dados do sistema.
-        </p>
-        <div className={styles.backupActions}>
-          <button className={styles.btnPrimary} onClick={handleExport} disabled={working}>
-            ↓ Exportar backup
-          </button>
-          <button className={styles.btnDanger} onClick={handleImport} disabled={working}>
-            ↑ Restaurar backup
-          </button>
-        </div>
-        {status && (
-          <p className={status.startsWith('Erro') ? styles.backupError : styles.backupStatus}>
-            {status}
+        {hasBackup ? (
+          <>
+            <p className={styles.hint}>
+              Exporta ou restaura o arquivo <code>.db</code> com todos os dados do sistema.
+            </p>
+            <div className={styles.backupActions}>
+              <button className={styles.btnPrimary} onClick={handleExport} disabled={working}>
+                ↓ Exportar backup
+              </button>
+              <button className={styles.btnDanger} onClick={handleImport} disabled={working}>
+                ↑ Restaurar backup
+              </button>
+            </div>
+            {status && (
+              <p className={status.startsWith('Erro') ? styles.backupError : styles.backupStatus}>
+                {status}
+              </p>
+            )}
+          </>
+        ) : (
+          <p className={styles.hint}>
+            Backup disponível apenas no app instalado. Os dados ficam armazenados na nuvem (Supabase).
           </p>
         )}
       </div>
@@ -716,11 +729,12 @@ function AbaFornecedores() {
   const [editForm, setEditForm] = useState({ nome: '', contato: '', categoria: '' })
   const [novoForm, setNovoForm] = useState({ nome: '', contato: '', categoria: '' })
   const [savingEdit, setSavingEdit] = useState(false)
+  const fileInputRef = useRef(null)
 
   async function carregar() {
     setLoading(true)
     try {
-      const lista = await window.api.fornecedores.list()
+      const lista = await fornecedoresService.list()
       setFornecedores(lista)
     } finally {
       setLoading(false)
@@ -732,21 +746,52 @@ function AbaFornecedores() {
   async function handleImportar() {
     setErro(null)
     setSucesso(null)
-    const filePath = await window.api.dialog.openFile({
-      title: 'Selecione o arquivo do ERP',
-      filters: [{ name: 'Excel', extensions: ['xlsx', 'xls'] }],
-      properties: ['openFile']
-    })
-    if (!filePath) return
+    if (window.api?.dialog) {
+      const filePath = await window.api.dialog.openFile({
+        title: 'Selecione o arquivo do ERP',
+        filters: [{ name: 'Excel', extensions: ['xlsx', 'xls'] }],
+        properties: ['openFile']
+      })
+      if (!filePath) return
+      setImporting(true)
+      try {
+        const result = await window.api.fornecedores.importarArquivo(filePath)
+        setFornecedores(result.fornecedores)
+        setSucesso(`${result.inserted} fornecedores importados, ${result.skipped} já existiam.`)
+      } catch (e) {
+        setErro('Erro ao importar arquivo.')
+      } finally {
+        setImporting(false)
+      }
+    } else {
+      fileInputRef.current?.click()
+    }
+  }
+
+  async function handleFileChange(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
     setImporting(true)
+    setErro(null)
+    setSucesso(null)
     try {
-      const result = await window.api.fornecedores.importarArquivo(filePath)
-      setFornecedores(result.fornecedores)
-      setSucesso(`${result.inserted} fornecedores importados, ${result.skipped} já existiam.`)
+      const buffer = await file.arrayBuffer()
+      const wb = XLSX.read(buffer)
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const rows = XLSX.utils.sheet_to_json(ws)
+      const parsed = rows.map(r => ({
+        nome: String(r.nome ?? r.Nome ?? '').trim(),
+        contato: String(r.contato ?? r.Contato ?? '').trim(),
+        categoria: String(r.categoria ?? r.Categoria ?? '').trim(),
+      })).filter(r => r.nome)
+      const data = await fornecedoresService.importarDados(parsed)
+      await carregar()
+      setSucesso(`${data.length} fornecedores importados/atualizados.`)
     } catch (e) {
       setErro('Erro ao importar arquivo.')
     } finally {
       setImporting(false)
+      e.target.value = ''
     }
   }
 
@@ -757,7 +802,7 @@ function AbaFornecedores() {
     setSucesso(null)
     setSaving(true)
     try {
-      await window.api.fornecedores.create({ nome: novoForm.nome.trim(), contato: novoForm.contato.trim(), categoria: novoForm.categoria.trim() })
+      await fornecedoresService.create({ nome: novoForm.nome.trim(), contato: novoForm.contato.trim(), categoria: novoForm.categoria.trim() })
       setNovoForm({ nome: '', contato: '', categoria: '' })
       await carregar()
     } catch (e) {
@@ -781,7 +826,7 @@ function AbaFornecedores() {
     setErro(null)
     setSavingEdit(true)
     try {
-      await window.api.fornecedores.update(id, { nome: editForm.nome.trim(), contato: editForm.contato.trim(), categoria: editForm.categoria.trim() })
+      await fornecedoresService.update(id, { nome: editForm.nome.trim(), contato: editForm.contato.trim(), categoria: editForm.categoria.trim() })
       setEditId(null)
       setSucesso(null)
       await carregar()
@@ -796,7 +841,7 @@ function AbaFornecedores() {
     setErro(null)
     setSucesso(null)
     try {
-      await window.api.fornecedores.remove(id)
+      await fornecedoresService.remove(id)
       setFornecedores(prev => prev.filter(f => f.id !== id))
     } catch (e) {
       setErro('Erro ao remover fornecedor.')
@@ -811,6 +856,13 @@ function AbaFornecedores() {
     <div className={styles.section}>
       {erro && <div className={styles.erro}>{erro}</div>}
       {sucesso && <div className={styles.sucesso}>{sucesso}</div>}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".xlsx,.xls"
+        style={{ display: 'none' }}
+        onChange={handleFileChange}
+      />
 
       <div className={styles.listSection}>
         <div className={styles.listHeader}>
@@ -951,7 +1003,7 @@ function AbaAtualizacoes() {
   const [checking, setChecking] = useState(false)
 
   useEffect(() => {
-    window.api.app?.version().then(setVersao)
+    window.api?.app?.version().then(setVersao)
     if (!window.api?.updater) return
     return window.api.updater.onStatus(s => {
       setChecking(false)

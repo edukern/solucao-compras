@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useCollection } from '../../contexts/CollectionContext'
+import { segmentacoes as segmentacoesService } from '../../services/segmentacoes'
+import { relatorios } from '../../services/relatorios'
 import styles from './PorSegmentacao.module.css'
 
 export default function PorSegmentacao({ onSelectForn }) {
@@ -12,7 +14,7 @@ export default function PorSegmentacao({ onSelectForn }) {
   const [results,  setResults]  = useState([])
 
   useEffect(() => {
-    window.api.segmentacoes.list().then(setSegs)
+    segmentacoesService.list().then(setSegs)
   }, [])
 
   const classificacoes = useMemo(() => [...new Set(segs.map(s => s.classificacao))].sort(), [segs])
@@ -32,7 +34,7 @@ export default function PorSegmentacao({ onSelectForn }) {
 
   useEffect(() => {
     if (!active || !selectedSeg) { setResults([]); return }
-    window.api.pedidos.totaisPorFornecedor(active.id, selectedSeg.id).then(setResults)
+    relatorios.totaisPorFornecedor(active.id, selectedSeg.id).then(setResults)
   }, [active?.id, selectedSeg?.id])
 
   function handleClass(v)  { setSelClass(v); setSelTipo(''); setSelClasse('') }

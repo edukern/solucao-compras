@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useCollection } from '../../contexts/CollectionContext'
+import { relatorios } from '../../services/relatorios'
+import { projecoes as projecoesService } from '../../services/projecoes'
 import styles from './PorFornecedor.module.css'
 
 export default function PorFornecedor({ selectedForn, segFilter, onSelectForn, onClearForn, onClearSegFilter }) {
@@ -14,15 +16,15 @@ export default function PorFornecedor({ selectedForn, segFilter, onSelectForn, o
 
   useEffect(() => {
     if (!active) return
-    window.api.pedidos.totaisPorFornecedor(active.id).then(setList)
+    relatorios.totaisPorFornecedor(active.id).then(setList)
   }, [active?.id])
 
   const loadDetail = useCallback(async (fornId, colId, filter) => {
-    const rows = await window.api.pedidos.itensPorFornecedor(fornId, colId)
+    const rows = await relatorios.itensPorFornecedor(fornId, colId)
     setItems(rows)
     const projMap = {}
     await Promise.all(rows.map(async r => {
-      const proj = await window.api.projecoes.get(r.segmentacao_id, colId)
+      const proj = await projecoesService.get(r.segmentacao_id, colId)
       projMap[r.segmentacao_id] = proj.reduce((s, p) => s + p.qtd_ajustada, 0)
     }))
     setProjecoes(projMap)
