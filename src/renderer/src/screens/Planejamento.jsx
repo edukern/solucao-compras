@@ -123,9 +123,9 @@ export default function Planejamento() {
           const baseIds = base.map(c => c.id)
           await Promise.allSettled(
             result.segIds.map(async sid => {
-              const projRows = await projecoesService.calcular(sid, active.id, baseIds, 'media_simples')
+              const projRows = await projecoesService.calcular(sid, active.id, baseIds, metodo)
               if (projRows.length > 0) {
-                await projecoesService.salvar(sid, active.id, projRows, 'media_simples')
+                await projecoesService.salvar(sid, active.id, projRows, metodo)
               }
             })
           )

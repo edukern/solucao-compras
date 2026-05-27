@@ -22,10 +22,11 @@ export const projecoes = {
     if (!historico?.length) return []
     const byTam = {}
     for (const row of historico) {
-      if (!byTam[row.tamanho]) byTam[row.tamanho] = { qtds: [], ordem: row.ordem }
-      byTam[row.tamanho].qtds.push(row.qtd_comprada)
+      if (!byTam[row.tamanho]) byTam[row.tamanho] = { entries: [], ordem: row.ordem }
+      byTam[row.tamanho].entries.push({ qtd: row.qtd_comprada, col: row.colecao_id })
     }
-    return Object.entries(byTam).map(([tamanho, { qtds, ordem }]) => {
+    return Object.entries(byTam).map(([tamanho, { entries, ordem }]) => {
+      const qtds = [...entries].sort((a, b) => a.col.localeCompare(b.col)).map(e => e.qtd)
       let qtd_projetada
       if (metodo === 'media_simples') {
         qtd_projetada = Math.round(qtds.reduce((s, v) => s + v, 0) / qtds.length)

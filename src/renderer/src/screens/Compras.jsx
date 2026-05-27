@@ -1648,6 +1648,8 @@ function Historico({ colId }) {
       const updated = await sessoesService.update(id, editSessaoForm)
       setSessoesList(prev => prev.map(s => s.id === id ? { ...updated, visitas: s.visitas } : s))
       setEditSessaoId(null)
+    } catch (e) {
+      alert(`Erro ao salvar sessão: ${e.message}`)
     } finally {
       setSavingEditSessao(false)
     }

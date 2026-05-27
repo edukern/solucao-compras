@@ -10,7 +10,7 @@ export const fornecedores = {
     const { data, error } = await supabase
       .from('fornecedores')
       .select('*')
-      .not('frete_padrao', 'is', null)
+      .not('categoria', 'is', null)
       .order('nome')
     if (error) throw error
     return data

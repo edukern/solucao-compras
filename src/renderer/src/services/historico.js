@@ -110,7 +110,7 @@ export const historico = {
 
     return [...mapa.values()].map(({ tamanho, qtds }) => ({
       tamanho,
-      qtd_projetada: Math.round(qtds.reduce((a, b) => a + b, 0) / colecoesUsadas.size),
+      qtd_projetada: Math.round(qtds.reduce((a, b) => a + b, 0) / qtds.length),
       colecoes_base: qtds.length,
     }))
   },
