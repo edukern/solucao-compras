@@ -594,7 +594,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
     const v = parseFloat((valorStr ?? '').replace(',', '.'))
     const m = parseFloat((markupStr ?? '').replace(',', '.'))
     if (!v || isNaN(v) || !m || isNaN(m)) return ''
-    return roundTo99(v * (1 + m / 100))
+    return roundTo99(v * m)
   }
 
   function addItem() {
