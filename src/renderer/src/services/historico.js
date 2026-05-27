@@ -14,17 +14,30 @@ export const historico = {
 
   // Lista segmentações que têm dados históricos
   async segmentacoesComHistorico() {
-    const { data, error } = await supabase
-      .from('hist_grade')
-      .select('segmentacao_id, segmentacoes(id, tipo_produto, classe, tipo_grade)')
-      .limit(2000)
-    if (error) throw error
-    const seen = new Map()
-    for (const r of data ?? []) {
-      if (r.segmentacoes && !seen.has(r.segmentacao_id))
-        seen.set(r.segmentacao_id, r.segmentacoes)
+    // Step 1: collect all distinct segmentacao_ids from hist_grade (two pages max)
+    const ids = new Set()
+    let from = 0
+    const PAGE = 2000
+    while (true) {
+      const { data, error } = await supabase
+        .from('hist_grade')
+        .select('segmentacao_id')
+        .range(from, from + PAGE - 1)
+      if (error) throw error
+      for (const r of data ?? []) ids.add(r.segmentacao_id)
+      if (!data || data.length < PAGE) break
+      from += PAGE
     }
-    return [...seen.values()].sort((a, b) =>
+    if (!ids.size) return []
+
+    // Step 2: fetch segmentacoes by those IDs (738 rows max — always fits in one page)
+    const { data, error } = await supabase
+      .from('segmentacoes')
+      .select('id, tipo_produto, classe, tipo_grade')
+      .in('id', [...ids])
+      .limit(1000)
+    if (error) throw error
+    return (data ?? []).sort((a, b) =>
       `${a.tipo_produto}${a.classe}${a.tipo_grade}`.localeCompare(
         `${b.tipo_produto}${b.classe}${b.tipo_grade}`
       )
