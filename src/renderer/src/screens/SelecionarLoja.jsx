@@ -37,6 +37,9 @@ export default function SelecionarLoja() {
         <p className={styles.subtitle}>Selecione para vincular sua conta</p>
         {loading && <p className={styles.info}>Carregando…</p>}
         {erro    && <p className={styles.erro}>{erro}</p>}
+        {!loading && !erro && lista.length === 0 && (
+          <p className={styles.info}>Nenhuma loja disponível. Contate o administrador.</p>
+        )}
         <ul className={styles.lista}>
           {lista.map(c => (
             <li key={c.id}>

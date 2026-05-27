@@ -10,12 +10,17 @@ export function AuthProvider({ children }) {
 
   async function loadComprador(userId) {
     if (!userId) { setComprador(null); return }
-    const { data } = await supabase
-      .from('user_compradores')
-      .select('comprador_id, compradores(*)')
-      .eq('user_id', userId)
-      .maybeSingle()
-    setComprador(data?.compradores ?? null)
+    try {
+      const { data, error } = await supabase
+        .from('user_compradores')
+        .select('comprador_id, compradores(*)')
+        .eq('user_id', userId)
+        .maybeSingle()
+      if (error) throw error
+      setComprador(data?.compradores ?? null)
+    } catch {
+      setComprador(null)
+    }
   }
 
   useEffect(() => {
@@ -44,7 +49,7 @@ export function AuthProvider({ children }) {
     if (!user) throw new Error('Usuário não autenticado')
     const { error } = await supabase
       .from('user_compradores')
-      .insert({ user_id: user.id, comprador_id: compradorId })
+      .upsert({ user_id: user.id, comprador_id: compradorId }, { onConflict: 'user_id' })
     if (error) throw error
     await loadComprador(user.id)
   }

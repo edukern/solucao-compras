@@ -4,7 +4,7 @@ export const compradores = {
   async list() {
     const { data, error } = await supabase.from('compradores').select('*').order('nome')
     if (error) throw error
-    return data
+    return data ?? []
   },
   async create(fields) {
     const { data, error } = await supabase.from('compradores').insert(fields).select().single()
