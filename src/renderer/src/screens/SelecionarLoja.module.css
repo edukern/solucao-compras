@@ -18,7 +18,7 @@
   font-size: 22px;
   font-weight: 700;
   margin: 0 0 4px;
-  color: #1a1a2e;
+  color: #111;
 }
 .subtitle {
   font-size: 14px;
@@ -49,13 +49,13 @@
   transition: border-color .15s, background .15s;
 }
 .item:hover:not(:disabled) {
-  border-color: #3ecf8e;
-  background: #f0fdf8;
+  border-color: #111;
+  background: #f5f5f5;
 }
 .item:disabled { opacity: 0.6; cursor: not-allowed; }
-.nome { font-size: 15px; font-weight: 600; color: #1a1a2e; }
+.nome { font-size: 15px; font-weight: 600; color: #111; }
 .cidade { font-size: 13px; color: #888; }
-.spinner { font-size: 13px; color: #3ecf8e; }
+.spinner { font-size: 13px; color: #111; }
 .sair {
   background: none;
   border: none;

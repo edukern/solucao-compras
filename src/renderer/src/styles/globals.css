@@ -30,8 +30,8 @@
   --input-bg:      #f8fafc;
   --input-border:  #cbd5e1;
   /* Semantic colors adjusted for light backgrounds */
-  --accent:        #4f46e5;
-  --accent-light:  #4338ca;
+  --accent:        #111111;
+  --accent-light:  #333333;
   --green:         #16a34a;
   --yellow:        #b45309;
   --orange:        #ea580c;
@@ -42,7 +42,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Schibsted Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.5;
