@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { historico } from '../../services/historico'
+import { GRADE_DEFINITIONS } from '../../constants/grades'
 import styles from './Historico.module.css'
 
 export default function Projecoes() {
@@ -29,7 +30,15 @@ export default function Projecoes() {
       .finally(() => setLoading(false))
   }, [segId, nColecoes])
 
-  const totalProjetado = rows.reduce((s, r) => s + r.qtd_projetada, 0)
+  const selectedSeg  = segmentacoes.find(s => String(s.id) === segId)
+  const gradeOrder   = GRADE_DEFINITIONS[selectedSeg?.tipo_grade]?.tamanhos ?? []
+  const sortedRows   = [...rows].sort((a, b) => {
+    const ia = gradeOrder.indexOf(a.tamanho), ib = gradeOrder.indexOf(b.tamanho)
+    if (ia === -1 && ib === -1) return a.tamanho.localeCompare(b.tamanho)
+    if (ia === -1) return 1; if (ib === -1) return -1
+    return ia - ib
+  })
+  const totalProjetado = sortedRows.reduce((s, r) => s + r.qtd_projetada, 0)
   const segLabel = s => `${s.tipo_produto} ${s.classe} ${s.tipo_grade}`
 
   return (
@@ -83,7 +92,7 @@ export default function Projecoes() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map(r => (
+                {sortedRows.map(r => (
                   <tr key={r.tamanho}>
                     <td><strong>{r.tamanho}</strong></td>
                     <td className={styles.numCol}>{r.qtd_projetada.toLocaleString('pt-BR')}</td>

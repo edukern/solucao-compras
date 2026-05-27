@@ -1889,7 +1889,7 @@ export default function Compras() {
     let cancelled = false
     Promise.all([
       segmentacoesService.list(),
-      fornecedoresService.list(),
+      fornecedoresService.listAtivos(),
       compradoresService.list(),
     ]).then(([s, f, c]) => { if (!cancelled) { setSegs(s); setForns(f); setCompradores(c) } })
     return () => { cancelled = true }

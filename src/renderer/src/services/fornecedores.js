@@ -6,6 +6,15 @@ export const fornecedores = {
     if (error) throw error
     return data
   },
+  async listAtivos() {
+    const { data, error } = await supabase
+      .from('fornecedores')
+      .select('*')
+      .not('frete_padrao', 'is', null)
+      .order('nome')
+    if (error) throw error
+    return data
+  },
   async create(fields) {
     const { data, error } = await supabase.from('fornecedores').insert(fields).select().single()
     if (error) throw error
