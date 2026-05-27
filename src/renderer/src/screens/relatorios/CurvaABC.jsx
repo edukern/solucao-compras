@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { relatorios } from '../../services/relatorios'
 import { historico }  from '../../services/historico'
+import { fmtColecao } from '../../lib/utils'
 import styles         from '../relatorios/PorFornecedor.module.css'
 import abcStyles      from './CurvaABC.module.css'
 
@@ -63,7 +64,7 @@ export default function CurvaABC() {
             onChange={e => setColecaoId(e.target.value)}
           >
             {colecoes.map(c => (
-              <option key={c} value={c}>{c.replace('-', '/')}</option>
+              <option key={c} value={c}>{fmtColecao(c)}</option>
             ))}
           </select>
         </div>

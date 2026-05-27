@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { historico } from '../../services/historico'
+import { GRADE_DEFINITIONS } from '../../constants/grades'
+import { fmtColecao } from '../../lib/utils'
 import styles from './Historico.module.css'
 
 export default function GradeHistorica() {
@@ -29,8 +31,16 @@ export default function GradeHistorica() {
   }, [segId])
 
   // Pivotar rows: {colecao_id → {tamanho → qtd}}
-  const colecoes = [...new Set(rows.map(r => r.colecao_id))].sort((a, b) => b.localeCompare(a))
-  const tamanhos = [...new Set(rows.map(r => r.tamanho))]
+  const colecoes   = [...new Set(rows.map(r => r.colecao_id))].sort((a, b) => b.localeCompare(a))
+  const selectedSeg  = segmentacoes.find(s => String(s.id) === segId)
+  const gradeOrder   = GRADE_DEFINITIONS[selectedSeg?.tipo_grade]?.tamanhos ?? []
+  const tamanhos     = [...new Set(rows.map(r => r.tamanho))].sort((a, b) => {
+    const ia = gradeOrder.indexOf(a), ib = gradeOrder.indexOf(b)
+    if (ia === -1 && ib === -1) return a.localeCompare(b)
+    if (ia === -1) return 1
+    if (ib === -1) return -1
+    return ia - ib
+  })
   const pivot    = new Map()
   for (const r of rows) {
     const cel = pivot.get(r.colecao_id) ?? {}
@@ -78,7 +88,7 @@ export default function GradeHistorica() {
                 const total = tamanhos.reduce((s, t) => s + (cel[t] ?? 0), 0)
                 return (
                   <tr key={col}>
-                    <td>{col}</td>
+                    <td>{fmtColecao(col)}</td>
                     {tamanhos.map(t => (
                       <td key={t} className={styles.numCol}>
                         {cel[t] != null ? cel[t].toLocaleString('pt-BR') : '—'}

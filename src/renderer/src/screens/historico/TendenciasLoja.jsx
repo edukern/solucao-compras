@@ -1,5 +1,6 @@
 import { Fragment, useState, useEffect } from 'react'
 import { historico } from '../../services/historico'
+import { fmtColecao } from '../../lib/utils'
 import styles from './Historico.module.css'
 
 const fmt = v => (v ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -84,7 +85,7 @@ export default function TendenciasLoja() {
               <tr>
                 <th>Loja</th>
                 {colecoes.map(c => (
-                  <th key={c} colSpan={2} className={styles.colecaoHeader}>{c}</th>
+                  <th key={c} colSpan={2} className={styles.colecaoHeader}>{fmtColecao(c)}</th>
                 ))}
               </tr>
               <tr>

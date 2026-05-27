@@ -16,6 +16,7 @@ const STATUS_PRONTO = [
   'Histórico de 7 anos (2019–2026) importado: 26 828 registros em 6 tabelas',
   'Planejamento 27/1 habilitado com base em N-1 (26/1) e N-2 (25/1)',
   'Relatório Curva ABC por segmentação ou fornecedor (dados históricos)',
+  'Gestão de fornecedores com criar, editar, remover e importar do ERP (CSV/Excel)',
 ]
 
 const STATUS_AFAZER_SAMUEL = [
@@ -23,7 +24,6 @@ const STATUS_AFAZER_SAMUEL = [
 ]
 
 const STATUS_AFAZER = [
-  'Verificar e finalizar tela de gestão de fornecedores (criar/editar)',
   'ERP import — quando solicitar o formato para a fornecedora do sistema',
   'Relatório Quebra de Estoque (requer dados de vendas)',
 ]
