@@ -956,8 +956,8 @@
 
 /* ─── Phase 2: Items table ───────────────────────────────────────────────── */
 .itemsTable { width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: 0.85rem; }
-.itemsTable th { background: var(--bg-alt, #f0f0f0); padding: 6px 10px; text-align: left; border-bottom: 2px solid var(--border); }
-.itemsTable td { padding: 6px 10px; border-bottom: 1px solid var(--border); }
+.itemsTable th { background: var(--bg-alt, #f0f0f0); padding: 6px 10px; text-align: left; border-bottom: 2px solid var(--border); white-space: nowrap; }
+.itemsTable td { padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .itemRow { cursor: pointer; }
 .itemRow:hover td { background: var(--bg-alt, #f5f5f5); }
 .itemRowActive td { background: rgba(var(--accent-rgb, 59,130,246), 0.08) !important; }

@@ -613,6 +613,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
       preco_venda: preco_venda || '',
       cor: '',
       detalhe: '',
+      obs: '',
     }
     setItems(prev => [...prev, novoItem])
     setActiveId(localId)
@@ -639,6 +640,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
       valor:        item.valor,
       markup_pct:   item.markup_pct ?? '0',
       preco_venda:  item.preco_venda ?? '',
+      obs:          item.obs ?? '',
     })
     setActiveId(null)
   }
@@ -747,7 +749,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
       const meta  = []
       for (const item of items) {
         const { localId, ref, tipo_produto, tipo_grade, classe, icms_pct, valor,
-                markup_pct, preco_venda, cor, detalhe } = item
+                markup_pct, preco_venda, cor, detalhe, obs } = item
         const valorNum      = parseFloat((valor ?? '').replace(',', '.')) || 0
         const icmsNum       = parseFloat((icms_pct ?? '').replace(',', '.')) || 0
         const markupNum     = parseFloat((markup_pct ?? '').replace(',', '.')) || 0
@@ -774,7 +776,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
             referencia: ref, icms_pct: icmsNum,
             markup_pct: markupNum, preco_venda: precoVendaNum,
             cor: cor || '', detalhe: detalhe || '',
-            obs: '', itens,
+            obs: obs || '', itens,
           })
           meta.push({
             comprador_nome: v.comprador_nome, comprador_cnpj: v.comprador_cnpj ?? '',
@@ -968,28 +970,30 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                           style={{ width: 70 }}
                         />
                       </td>
-                      <td style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <input
-                          value={editForm.tipo_produto}
-                          placeholder="Produto"
-                          list="tipos-produto-list"
-                          onChange={e => setEditForm(p => ({ ...p, tipo_produto: e.target.value }))}
-                          style={{ width: 110 }}
-                        />
-                        <select
-                          value={editForm.tipo_grade}
-                          onChange={e => setEditForm(p => ({ ...p, tipo_grade: e.target.value }))}
-                        >
-                          {Object.keys(GRADE_DEFINITIONS).map(g => <option key={g} value={g}>{g}</option>)}
-                        </select>
-                        <select
-                          value={editForm.classe}
-                          onChange={e => setEditForm(p => ({ ...p, classe: e.target.value }))}
-                        >
-                          <option value="FEM">FEM</option>
-                          <option value="MASC">MASC</option>
-                          <option value="UNI">UNI</option>
-                        </select>
+                      <td>
+                        <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <input
+                            value={editForm.tipo_produto}
+                            placeholder="Produto"
+                            list="tipos-produto-list"
+                            onChange={e => setEditForm(p => ({ ...p, tipo_produto: e.target.value }))}
+                            style={{ width: 110 }}
+                          />
+                          <select
+                            value={editForm.tipo_grade}
+                            onChange={e => setEditForm(p => ({ ...p, tipo_grade: e.target.value }))}
+                          >
+                            {Object.keys(GRADE_DEFINITIONS).map(g => <option key={g} value={g}>{g}</option>)}
+                          </select>
+                          <select
+                            value={editForm.classe}
+                            onChange={e => setEditForm(p => ({ ...p, classe: e.target.value }))}
+                          >
+                            <option value="FEM">FEM</option>
+                            <option value="MASC">MASC</option>
+                            <option value="UNI">UNI</option>
+                          </select>
+                        </div>
                       </td>
                       <td>
                         <input
@@ -1036,18 +1040,20 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                         />
                       </td>
                       <td></td>
-                      <td style={{ display: 'flex', gap: '0.25rem' }}>
-                        <button
-                          className={styles.btnAdd}
-                          style={{ padding: '2px 8px', fontSize: '0.8rem' }}
-                          onClick={e => { e.stopPropagation(); confirmEdit() }}
-                          title="Salvar (Enter)"
-                        >✓</button>
-                        <button
-                          className={styles.btnRemoveItem}
-                          onClick={e => { e.stopPropagation(); cancelEdit() }}
-                          title="Cancelar (Esc)"
-                        >✕</button>
+                      <td>
+                        <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                          <button
+                            className={styles.btnAdd}
+                            style={{ padding: '2px 8px', fontSize: '0.8rem' }}
+                            onClick={e => { e.stopPropagation(); confirmEdit() }}
+                            title="Salvar (Enter)"
+                          >✓</button>
+                          <button
+                            className={styles.btnRemoveItem}
+                            onClick={e => { e.stopPropagation(); cancelEdit() }}
+                            title="Cancelar (Esc)"
+                          >✕</button>
+                        </div>
                       </td>
                     </tr>
                   ) : (
@@ -1063,17 +1069,19 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                       <td className={styles.itemMarkupCell}>{it.markup_pct && it.markup_pct !== '0' ? `${it.markup_pct}%` : <span className={styles.itemDot}>—</span>}</td>
                       <td className={styles.itemPrecoVendaCell}>{it.preco_venda ? `R$ ${it.preco_venda}` : <span className={styles.itemDot}>—</span>}</td>
                       <td><strong>{total > 0 ? total : <span className={styles.itemDot}>—</span>}</strong></td>
-                      <td style={{ display: 'flex', gap: '0.1rem' }}>
-                        <button
-                          className={styles.btnEditItem}
-                          onClick={e => { e.stopPropagation(); startEdit(it) }}
-                          title="Editar item"
-                        >✎</button>
-                        <button
-                          className={styles.btnRemoveItem}
-                          onClick={e => removeItem(it.localId, e)}
-                          title="Remover item"
-                        >✕</button>
+                      <td>
+                        <div style={{ display: 'flex', gap: '0.1rem', alignItems: 'center' }}>
+                          <button
+                            className={styles.btnEditItem}
+                            onClick={e => { e.stopPropagation(); startEdit(it) }}
+                            title="Editar item"
+                          >✎</button>
+                          <button
+                            className={styles.btnRemoveItem}
+                            onClick={e => removeItem(it.localId, e)}
+                            title="Remover item"
+                          >✕</button>
+                        </div>
                       </td>
                     </tr>
                   )}
@@ -1210,6 +1218,17 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                                   onChange={e => setItems(prev => prev.map(x => x.localId === it.localId ? { ...x, detalhe: e.target.value } : x))}
                                 />
                               </label>
+                              <label className={styles.itemFieldLabel}>
+                                OBS
+                                <input
+                                  type="text"
+                                  className={styles.itemFieldInput}
+                                  style={{ width: 200 }}
+                                  placeholder="Observação do item"
+                                  value={it.obs || ''}
+                                  onChange={e => setItems(prev => prev.map(x => x.localId === it.localId ? { ...x, obs: e.target.value } : x))}
+                                />
+                              </label>
                               <button
                                 className={styles.btnHideFields}
                                 onClick={() => setShowItemFields(prev => ({ ...prev, [it.localId]: false }))}
@@ -1220,7 +1239,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                               className={styles.btnShowFields}
                               onClick={() => setShowItemFields(prev => ({ ...prev, [it.localId]: true }))}
                             >
-                              {it.cor || it.detalhe ? `✎ ${[it.cor, it.detalhe].filter(Boolean).join(' · ')}` : '+ cor / detalhe'}
+                              {it.cor || it.detalhe || it.obs ? `✎ ${[it.cor, it.detalhe, it.obs].filter(Boolean).join(' · ')}` : '+ cor / detalhe / obs'}
                             </button>
                           )}
                         </div>
