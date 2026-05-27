@@ -629,6 +629,32 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
     if (activeId === localId) setActiveId(null)
   }
 
+  function duplicateItem(item, e) {
+    e.stopPropagation()
+    const newId = `item_${Date.now()}_${Math.random()}`
+    const copy = { ...item, localId: newId }
+    setItems(prev => {
+      const idx = prev.findIndex(it => it.localId === item.localId)
+      const next = [...prev]
+      next.splice(idx + 1, 0, copy)
+      return next
+    })
+    setQtds(prev => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[item.localId] ?? {})) }))
+    setActiveId(newId)
+    setEditingId(newId)
+    setEditForm({
+      ref:          item.ref,
+      tipo_produto: item.tipo_produto,
+      tipo_grade:   item.tipo_grade,
+      classe:       item.classe,
+      icms_pct:     item.icms_pct,
+      valor:        item.valor,
+      markup_pct:   item.markup_pct ?? '0',
+      preco_venda:  item.preco_venda ?? '',
+      obs:          item.obs ?? '',
+    })
+  }
+
   function startEdit(item) {
     setEditingId(item.localId)
     setEditForm({
@@ -1076,6 +1102,11 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                             onClick={e => { e.stopPropagation(); startEdit(it) }}
                             title="Editar item"
                           >✎</button>
+                          <button
+                            className={styles.btnDuplicateItem}
+                            onClick={e => duplicateItem(it, e)}
+                            title="Duplicar item (mantém quantidades)"
+                          >⧉</button>
                           <button
                             className={styles.btnRemoveItem}
                             onClick={e => removeItem(it.localId, e)}

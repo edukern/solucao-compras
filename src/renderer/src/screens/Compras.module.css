@@ -1543,6 +1543,17 @@
 }
 .btnEditItem:hover { color: var(--accent); }
 
+.btnDuplicateItem {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+.btnDuplicateItem:hover { color: var(--green); }
+
 .editItemRow td {
   background: rgba(var(--accent-rgb, 99,102,241), 0.04) !important;
   padding: 4px 6px !important;
