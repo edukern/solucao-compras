@@ -1,17 +1,6 @@
 -- Fornecedores extraídos de todas as coleções históricas
--- Total: 738 fornecedores
--- Gerado em: 2026-05-27T10:21:10.921Z
-
-INSERT INTO fornecedores (nome, vendedor_padrao, telefone, cond_pag_padrao, frete_padrao, transportadora_padrao, obs_padrao, icms_credito_pct, categoria)
-  VALUES ('2.7407 - BLUSINHA BB FEM 4056 DETALHE OMBRO', NULL, NULL, '2.7376 - BLUSINHA JUV FEM 4137 OMBRO DETALHE', 'PONTO ECONOMICO', 'PONTO ECONOMICO TC', NULL, NULL, 'CONFECCOES')
-  ON CONFLICT (nome) DO UPDATE SET
-    vendedor_padrao       = COALESCE(EXCLUDED.vendedor_padrao,       fornecedores.vendedor_padrao),
-    telefone              = COALESCE(EXCLUDED.telefone,              fornecedores.telefone),
-    cond_pag_padrao       = COALESCE(EXCLUDED.cond_pag_padrao,       fornecedores.cond_pag_padrao),
-    frete_padrao          = COALESCE(EXCLUDED.frete_padrao,          fornecedores.frete_padrao),
-    transportadora_padrao = COALESCE(EXCLUDED.transportadora_padrao, fornecedores.transportadora_padrao),
-    obs_padrao            = COALESCE(EXCLUDED.obs_padrao,            fornecedores.obs_padrao),
-    icms_credito_pct      = COALESCE(EXCLUDED.icms_credito_pct,      fornecedores.icms_credito_pct);
+-- Total: 736 fornecedores
+-- Gerado em: 2026-05-27T10:39:57.116Z
 
 INSERT INTO fornecedores (nome, vendedor_padrao, telefone, cond_pag_padrao, frete_padrao, transportadora_padrao, obs_padrao, icms_credito_pct, categoria)
   VALUES ('3RD', NULL, NULL, 'avista', 'FOB', 'troca', NULL, NULL, 'CONFECCOES')
@@ -3579,17 +3568,6 @@ INSERT INTO fornecedores (nome, vendedor_padrao, telefone, cond_pag_padrao, fret
 
 INSERT INTO fornecedores (nome, vendedor_padrao, telefone, cond_pag_padrao, frete_padrao, transportadora_padrao, obs_padrao, icms_credito_pct, categoria)
   VALUES ('JOLITEX 2', NULL, NULL, '15 DIAS', 'CIF', NULL, NULL, NULL, 'CONFECCOES')
-  ON CONFLICT (nome) DO UPDATE SET
-    vendedor_padrao       = COALESCE(EXCLUDED.vendedor_padrao,       fornecedores.vendedor_padrao),
-    telefone              = COALESCE(EXCLUDED.telefone,              fornecedores.telefone),
-    cond_pag_padrao       = COALESCE(EXCLUDED.cond_pag_padrao,       fornecedores.cond_pag_padrao),
-    frete_padrao          = COALESCE(EXCLUDED.frete_padrao,          fornecedores.frete_padrao),
-    transportadora_padrao = COALESCE(EXCLUDED.transportadora_padrao, fornecedores.transportadora_padrao),
-    obs_padrao            = COALESCE(EXCLUDED.obs_padrao,            fornecedores.obs_padrao),
-    icms_credito_pct      = COALESCE(EXCLUDED.icms_credito_pct,      fornecedores.icms_credito_pct);
-
-INSERT INTO fornecedores (nome, vendedor_padrao, telefone, cond_pag_padrao, frete_padrao, transportadora_padrao, obs_padrao, icms_credito_pct, categoria)
-  VALUES ('JR', NULL, NULL, NULL, 'CIF', NULL, NULL, NULL, 'CONFECCOES')
   ON CONFLICT (nome) DO UPDATE SET
     vendedor_padrao       = COALESCE(EXCLUDED.vendedor_padrao,       fornecedores.vendedor_padrao),
     telefone              = COALESCE(EXCLUDED.telefone,              fornecedores.telefone),
