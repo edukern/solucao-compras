@@ -960,7 +960,9 @@
 .itemsTable td { padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .itemRow { cursor: pointer; }
 .itemRow:hover td { background: var(--bg-alt, #f5f5f5); }
-.itemRowActive td { background: rgba(var(--accent-rgb, 59,130,246), 0.08) !important; }
+.itemRowActive td { background: rgba(var(--accent-rgb, 99,102,241), 0.07) !important; }
+.itemRowActive td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.itemRowActive { font-weight: 500; }
 .itemDot { color: var(--accent); }
 .btnRemoveItem {
   background: none;
