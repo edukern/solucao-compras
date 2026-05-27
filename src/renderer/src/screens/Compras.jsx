@@ -1089,43 +1089,6 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                     <tr className={styles.gradeExpansionRow}>
                       <td colSpan={8} className={styles.gradeExpansionCell}>
                         <div className={styles.gradeInlineWrap}>
-                          <div className={styles.gradeInlineHeader}>
-                            <div className={styles.gradeInlineLoja}>Loja</div>
-                            <div
-                              className={styles.gradeInlineDist}
-                              title="Auto Distribuir pela projeção: clique na célula, digite o total e pressione Enter"
-                            >Dist.</div>
-                            {hideFirst ? (
-                              <button
-                                className={styles.btnShowExtreme}
-                                onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], first: true } }))}
-                                title={`Mostrar ${tams[0]}`}
-                              >+{tams[0]}</button>
-                            ) : tams.length >= 5 ? (
-                              <button
-                                className={`${styles.btnShowExtreme} ${styles.btnShowExtremeActive}`}
-                                onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], first: false } }))}
-                                title={`Ocultar ${tams[0]}`}
-                              >−{tams[0]}</button>
-                            ) : null}
-                            {vTams.map(t => (
-                              <div key={t} className={styles.gradeInlineSize}>{t}</div>
-                            ))}
-                            {hideLast ? (
-                              <button
-                                className={styles.btnShowExtreme}
-                                onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], last: true } }))}
-                                title={`Mostrar ${tams[tams.length - 1]}`}
-                              >+{tams[tams.length - 1]}</button>
-                            ) : tams.length >= 5 ? (
-                              <button
-                                className={`${styles.btnShowExtreme} ${styles.btnShowExtremeActive}`}
-                                onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], last: false } }))}
-                                title={`Ocultar ${tams[tams.length - 1]}`}
-                              >−{tams[tams.length - 1]}</button>
-                            ) : null}
-                            <div className={styles.gradeInlineTotalReadonly}>Total</div>
-                          </div>
                           {showItemFields[it.localId] ? (
                             <div className={styles.itemFieldsPanel}>
                               <label className={styles.itemFieldLabel}>
@@ -1173,6 +1136,43 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                               {it.cor || it.detalhe || it.obs ? `✎ ${[it.cor, it.detalhe, it.obs].filter(Boolean).join(' · ')}` : '+ cor / detalhe / obs'}
                             </button>
                           )}
+                          <div className={styles.gradeInlineHeader}>
+                            <div className={styles.gradeInlineLoja}>Loja</div>
+                            <div
+                              className={styles.gradeInlineDist}
+                              title="Auto Distribuir pela projeção: clique na célula, digite o total e pressione Enter"
+                            >Dist.</div>
+                            {hideFirst ? (
+                              <button
+                                className={styles.btnShowExtreme}
+                                onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], first: true } }))}
+                                title={`Mostrar ${tams[0]}`}
+                              >+{tams[0]}</button>
+                            ) : tams.length >= 5 ? (
+                              <button
+                                className={`${styles.btnShowExtreme} ${styles.btnShowExtremeActive}`}
+                                onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], first: false } }))}
+                                title={`Ocultar ${tams[0]}`}
+                              >−{tams[0]}</button>
+                            ) : null}
+                            {vTams.map(t => (
+                              <div key={t} className={styles.gradeInlineSize}>{t}</div>
+                            ))}
+                            {hideLast ? (
+                              <button
+                                className={styles.btnShowExtreme}
+                                onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], last: true } }))}
+                                title={`Mostrar ${tams[tams.length - 1]}`}
+                              >+{tams[tams.length - 1]}</button>
+                            ) : tams.length >= 5 ? (
+                              <button
+                                className={`${styles.btnShowExtreme} ${styles.btnShowExtremeActive}`}
+                                onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], last: false } }))}
+                                title={`Ocultar ${tams[tams.length - 1]}`}
+                              >−{tams[tams.length - 1]}</button>
+                            ) : null}
+                            <div className={styles.gradeInlineTotalReadonly}>Total</div>
+                          </div>
                           {visitas.map((v, i) => {
                             const targetKey = `${it.localId}__${v.id}`
                             const targetEditing = distribTargets[targetKey]
