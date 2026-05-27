@@ -86,6 +86,59 @@ export const relatorios = {
     return [...mapa.values()].sort((a, b) => a.ordem - b.ordem)
   },
 
+  // Curva ABC: classifica segmentações ou fornecedores por valor total em uma coleção histórica
+  async curvaABC(colecaoId, tipo = 'segmentacao') {
+    let rows = []
+
+    if (tipo === 'segmentacao') {
+      const { data, error } = await supabase
+        .from('hist_comprador_produto')
+        .select('segmentacao_id, valor_total, segmentacoes(tipo_produto, classe, tipo_grade)')
+        .eq('colecao_id', colecaoId)
+      if (error) throw error
+      const mapa = new Map()
+      for (const r of data ?? []) {
+        const cur = mapa.get(r.segmentacao_id) ?? {
+          id: r.segmentacao_id,
+          label: r.segmentacoes
+            ? `${r.segmentacoes.tipo_produto} ${r.segmentacoes.classe} ${r.segmentacoes.tipo_grade}`
+            : '?',
+          valor: 0,
+        }
+        cur.valor += parseFloat(r.valor_total ?? 0)
+        mapa.set(r.segmentacao_id, cur)
+      }
+      rows = [...mapa.values()]
+    } else {
+      const { data, error } = await supabase
+        .from('hist_fornecedor')
+        .select('fornecedor_id, total_liquido, fornecedores(nome)')
+        .eq('colecao_id', colecaoId)
+      if (error) throw error
+      rows = (data ?? []).map(r => ({
+        id: r.fornecedor_id,
+        label: r.fornecedores?.nome ?? '?',
+        valor: parseFloat(r.total_liquido ?? 0),
+      }))
+    }
+
+    // Sort descending, compute cumulative %, assign A/B/C
+    rows.sort((a, b) => b.valor - a.valor)
+    const total = rows.reduce((s, r) => s + r.valor, 0)
+    let acum = 0
+    return rows.map((r, i) => {
+      acum += r.valor
+      const pct_acum = total > 0 ? acum / total : 0
+      return {
+        rank: i + 1,
+        ...r,
+        pct_proprio: total > 0 ? r.valor / total : 0,
+        pct_acum,
+        classe: pct_acum <= 0.8 ? 'A' : pct_acum <= 0.95 ? 'B' : 'C',
+      }
+    })
+  },
+
   async itensPorFornecedor(fornecedor_id, colecao_id) {
     const { data: sessoes, error } = await supabase
       .from('sessoes')

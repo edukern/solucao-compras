@@ -3,13 +3,20 @@ import { supabase } from '../lib/supabase'
 export const historico = {
   // Lista coleções com dados históricos (distinct de hist_grade)
   async colecoes() {
-    const { data, error } = await supabase
-      .from('hist_grade')
-      .select('colecao_id')
-      .order('colecao_id', { ascending: false })
-    if (error) throw error
-    const uniq = [...new Set((data ?? []).map(r => r.colecao_id))]
-    return uniq.sort((a, b) => b.localeCompare(a))
+    const ids = new Set()
+    let from = 0
+    const PAGE = 2000
+    while (true) {
+      const { data, error } = await supabase
+        .from('hist_grade')
+        .select('colecao_id')
+        .range(from, from + PAGE - 1)
+      if (error) throw error
+      for (const r of data ?? []) ids.add(r.colecao_id)
+      if (!data || data.length < PAGE) break
+      from += PAGE
+    }
+    return [...ids].sort((a, b) => b.localeCompare(a))
   },
 
   // Lista segmentações que têm dados históricos

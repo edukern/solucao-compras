@@ -183,8 +183,8 @@ export default function Planejamento() {
             />
           </div>
           {importResult && (
-            <div className={importResult.errors.length ? styles.importError : styles.importSuccess}>
-              {importResult.errors.length === 0
+            <div className={importResult.errors?.length ? styles.importError : styles.importSuccess}>
+              {!importResult.errors?.length
                 ? `✓ ${importResult.imported} produto(s) importado(s)${importResult.skipped > 0 ? `, ${importResult.skipped} ignorado(s)` : ''}.`
                 : `${importResult.imported} importado(s), ${importResult.skipped} ignorado(s). Erros: ${importResult.errors.slice(0, 3).join('; ')}`
               }

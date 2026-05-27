@@ -2,13 +2,14 @@ import { useState } from 'react'
 import PorFornecedor from './relatorios/PorFornecedor'
 import PorSegmentacao from './relatorios/PorSegmentacao'
 import PorLoja from './relatorios/PorLoja'
+import CurvaABC from './relatorios/CurvaABC'
 import styles from './Relatorios.module.css'
 
 const REPORTS = [
   { id: 'por_fornecedor',  label: 'Por Fornecedor',     disabled: false },
   { id: 'por_segmentacao', label: 'Por Segmentação',    disabled: false },
   { id: 'por_loja',        label: 'Por Loja',           disabled: false },
-  { id: 'curva_abc',       label: 'Curva ABC',          disabled: true  },
+  { id: 'curva_abc',       label: 'Curva ABC',          disabled: false },
   { id: 'quebra_estoque',  label: 'Quebra de Estoque',  disabled: true  },
 ]
 
@@ -72,9 +73,7 @@ export default function Relatorios() {
           <PorSegmentacao onSelectForn={handleSelectFornFromSeg} />
         )}
         {activeReport === 'por_loja' && <PorLoja />}
-        {activeReport === 'curva_abc' && (
-          <p style={{ color: 'var(--text-secondary)' }}>Em breve.</p>
-        )}
+        {activeReport === 'curva_abc' && <CurvaABC />}
         {activeReport === 'quebra_estoque' && (
           <p style={{ color: 'var(--text-secondary)' }}>Em breve.</p>
         )}
