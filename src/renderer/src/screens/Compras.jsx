@@ -891,7 +891,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
           />
         </div>
         <div className={styles.field}>
-          <span className={styles.label}>Markup %</span>
+          <span className={styles.label}>Markup ×</span>
           <input
             type="text"
             className={styles.addItemMarkup}
@@ -937,7 +937,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
               <th>Produto · Grade · Classe</th>
               <th>ICMS</th>
               <th>Valor unit.</th>
-              <th>Markup</th>
+              <th>Markup ×</th>
               <th>Preço venda</th>
               <th>Peças</th>
               <th></th>
@@ -1066,7 +1066,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                       <td>{it.tipo_produto} · {it.tipo_grade} · {it.classe}</td>
                       <td>{it.icms_pct || '0'}%</td>
                       <td>{it.valor ? `R$ ${it.valor}` : <span className={styles.itemDot}>—</span>}</td>
-                      <td className={styles.itemMarkupCell}>{it.markup_pct && it.markup_pct !== '0' ? `${it.markup_pct}%` : <span className={styles.itemDot}>—</span>}</td>
+                      <td className={styles.itemMarkupCell}>{it.markup_pct && it.markup_pct !== '0' ? `×${it.markup_pct}` : <span className={styles.itemDot}>—</span>}</td>
                       <td className={styles.itemPrecoVendaCell}>{it.preco_venda ? `R$ ${it.preco_venda}` : <span className={styles.itemDot}>—</span>}</td>
                       <td><strong>{total > 0 ? total : <span className={styles.itemDot}>—</span>}</strong></td>
                       <td>
