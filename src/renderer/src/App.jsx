@@ -9,6 +9,7 @@ import Compras from './screens/Compras'
 import Relatorios from './screens/Relatorios'
 import Configuracoes from './screens/Configuracoes'
 import Login from './screens/Login'
+import SelecionarLoja from './screens/SelecionarLoja'
 
 const SCREENS = {
   dashboard:     () => <Dashboard />,
@@ -19,7 +20,7 @@ const SCREENS = {
 }
 
 function AppInner() {
-  const { user } = useAuth()
+  const { user, comprador } = useAuth()
   const [screen, setScreen] = useState('dashboard')
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') ?? 'light')
 
@@ -28,12 +29,17 @@ function AppInner() {
     localStorage.setItem('theme', theme)
   }, [theme])
 
-  if (user === undefined) return (
+  // Carregando auth OU carregando vínculo
+  if (user === undefined || (user !== null && comprador === undefined)) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
       Carregando…
     </div>
   )
+
   if (user === null) return <Login />
+
+  // Autenticado mas sem loja vinculada
+  if (comprador === null) return <SelecionarLoja />
 
   const Screen = SCREENS[screen] ?? SCREENS.dashboard
 
