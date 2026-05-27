@@ -13,6 +13,9 @@ const STATUS_PRONTO = [
   'Suite de testes automatizados (109 testes passando)',
   'Grades domésticas (CASAL, KING, QUEEN, SOLT, LAR, GERAL) — tamanho único',
   'Importação de Análise de Coleção para popular histórico e calcular projeções',
+  'Histórico de 7 anos (2019–2026) importado: 26 828 registros em 6 tabelas',
+  'Planejamento 27/1 habilitado com base em N-1 (26/1) e N-2 (25/1)',
+  'Relatório Curva ABC por segmentação ou fornecedor (dados históricos)',
 ]
 
 const STATUS_AFAZER_SAMUEL = [
@@ -22,7 +25,7 @@ const STATUS_AFAZER_SAMUEL = [
 const STATUS_AFAZER = [
   'Verificar e finalizar tela de gestão de fornecedores (criar/editar)',
   'ERP import — quando solicitar o formato para a fornecedora do sistema',
-  'Relatórios Curva ABC e Quebra de Estoque',
+  'Relatório Quebra de Estoque (requer dados de vendas)',
 ]
 
 // ─── Perguntas para Samuel ────────────────────────────────────────────────────
