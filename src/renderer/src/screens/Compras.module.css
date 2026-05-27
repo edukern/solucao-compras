@@ -1101,8 +1101,6 @@
   font-size: 0.82rem;
 }
 .itemPrecoVendaCell {
-  font-weight: 600;
-  color: var(--success, #22c55e);
   font-size: 0.82rem;
 }
 
