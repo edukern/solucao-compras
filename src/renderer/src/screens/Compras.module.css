@@ -1136,6 +1136,11 @@
   border-radius: 4px;
   color: var(--text);
 }
+.itemFieldInput::placeholder {
+  font-weight: 400;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
 .itemFieldInput:focus {
   outline: none;
   border-color: var(--accent);
