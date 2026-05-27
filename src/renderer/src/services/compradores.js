@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase'
 
 export const compradores = {
   async list() {
-    const { data, error } = await supabase.from('compradores').select('*').order('nome')
+    const { data, error } = await supabase.from('compradores').select('*').order('ordem')
     if (error) throw error
     return data ?? []
   },

@@ -24,9 +24,21 @@ const COLLECTIONS = [
   '2024-1','2024-2','2025-1','2025-2','2026-1','2026-2',
 ]
 
+// Known label strings to reject as values
+const LABELS = new Set([
+  'fone:', 'vendedor:', 'fornecedor:', 'data:', 'entrega:', 'cond. pag:',
+  'cond.pag:', 'nota fiscal:', 'frete:', 'frete', 'crédito:', 'credito:',
+  'transportadora:', 'obs:', 'descrição:', 'descricao:',
+])
+
 function cell(row, idx) {
   const v = String(row?.[idx] ?? '').trim()
-  return (v && v !== '0' && v.toLowerCase() !== 'nan') ? v : null
+  if (!v || v === '0' || v.toLowerCase() === 'nan') return null
+  // Reject bare label strings (e.g. "Fone:", "Vendedor:")
+  if (LABELS.has(v.toLowerCase())) return null
+  // Reject any value that looks like a pure label (only letters/spaces/dots ending in ':')
+  if (/^[A-Za-zÀ-ÿ\s.]+:$/.test(v)) return null
+  return v
 }
 
 function extrairFornecedor(filePath) {
@@ -98,7 +110,9 @@ for (const col of COLLECTIONS) {
   for (const arquivo of arquivos) {
     const dados = extrairFornecedor(path.join(dir, arquivo))
     const nome  = dados?.nome
-    if (!nome || nome.length < 2) continue
+    // Skip if too short, starts with a product-ref pattern (e.g. "2.7407 - BLUSINHA"), or is all-numeric
+    if (!nome || nome.length < 3) continue
+    if (/^\d+\.\d/.test(nome)) continue
 
     const ant = mapa.get(nome) ?? {}
     mapa.set(nome, {
