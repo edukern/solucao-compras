@@ -1383,3 +1383,44 @@ Este plano entrega o app multi-usuário funcionando. Os planos seguintes são in
 
 - **2026-05-26-import-historico.md** — Script Node.js que lê os 3.000 xlsx do Drive e popula as tabelas `hist_*`
 - **2026-05-26-relatorios.md** — Curva ABC (hist_fornecedor), Quebra de Estoque (hist_grade), Análise por Lojista (hist_comprador_*)
+
+---
+
+## Adendo — Auto-cadastro de usuários
+
+> Adicionado em 2026-05-26. Os usuários pré-criados com e-mails placeholder foram **deletados**. O fluxo correto é cada lojista criar sua própria conta.
+
+### Contexto
+
+Os 8 compradores já existem na tabela `compradores` com `user_id = NULL`. Quando um lojista se cadastrar, o `user_id` do Auth precisa ser linkado ao registro correto de `compradores`.
+
+### Fluxo proposto
+
+1. **Tela de Login** ganha botão "Criar conta" → abre formulário de sign-up (email + senha)
+2. Após sign-up confirmado, Supabase dispara um **database trigger** (ou o app faz a chamada) que tenta fazer `UPDATE compradores SET user_id = auth.uid() WHERE email_corporativo = NEW.email` — **mas compradores não têm email no schema ainda**
+3. Alternativa mais simples: após o primeiro login bem-sucedido com conta nova, mostrar tela "Selecione sua loja" com lista dos compradores sem `user_id`, e o próprio usuário se associa
+
+### Implementação recomendada (alternativa simples)
+
+**Arquivos a criar/modificar:**
+
+- `src/renderer/src/screens/SelecionarLoja.jsx` — tela exibida quando `user !== null` mas comprador não encontrado (nenhum `compradores.user_id = auth.uid()`)
+- `src/renderer/src/contexts/AuthContext.jsx` — adicionar `comprador` ao contexto; buscar `SELECT * FROM compradores WHERE user_id = auth.uid()` após login
+- `src/renderer/src/screens/Login.jsx` — adicionar link/botão "Criar conta" que alterna para formulário de sign-up com `supabase.auth.signUp()`
+
+**Lógica de fluxo no App:**
+
+```
+user === undefined → loading
+user === null      → <Login />
+user !== null e comprador === null  → <SelecionarLoja />
+user !== null e comprador !== null  → app normal
+```
+
+**SelecionarLoja.jsx** lista todos os `compradores WHERE user_id IS NULL`, o usuário clica no seu nome, o app faz `UPDATE compradores SET user_id = auth.uid() WHERE id = :id` e redireciona para o app.
+
+**Segurança:** A RLS já impede que um comprador veja pedidos de outros. O risco do auto-vínculo é um usuário se vincular à loja errada — aceitável para v1 dado o contexto de rede familiar.
+
+### Dados necessários no schema (nenhuma migração nova)
+
+Nenhuma. O campo `user_id UUID REFERENCES auth.users(id)` já existe em `compradores`. Basta usar.
