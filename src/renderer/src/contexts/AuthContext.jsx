@@ -41,6 +41,7 @@ export function AuthProvider({ children }) {
   const signOut = () => supabase.auth.signOut()
 
   async function vincularComprador(compradorId) {
+    if (!user) throw new Error('Usuário não autenticado')
     const { error } = await supabase
       .from('user_compradores')
       .insert({ user_id: user.id, comprador_id: compradorId })
