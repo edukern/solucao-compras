@@ -47,3 +47,19 @@
 }
 .button:disabled { opacity: 0.6; cursor: not-allowed; }
 .erro { font-size: 13px; color: #e74c3c; margin: 0; }
+.link {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: #888;
+}
+.linkBtn {
+  background: none;
+  border: none;
+  color: #3ecf8e;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
