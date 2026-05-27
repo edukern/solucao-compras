@@ -937,7 +937,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
               <th>Produto · Grade · Classe</th>
               <th>ICMS</th>
               <th>Valor unit.</th>
-              <th>Markup ×</th>
+              <th>Mkp</th>
               <th>Preço venda</th>
               <th>Peças</th>
               <th></th>
@@ -1126,6 +1126,53 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                             ) : null}
                             <div className={styles.gradeInlineTotalReadonly}>Total</div>
                           </div>
+                          {showItemFields[it.localId] ? (
+                            <div className={styles.itemFieldsPanel}>
+                              <label className={styles.itemFieldLabel}>
+                                Cor
+                                <input
+                                  type="text"
+                                  className={styles.itemFieldInput}
+                                  placeholder="Ex: azul índigo"
+                                  value={it.cor || ''}
+                                  onChange={e => setItems(prev => prev.map(x => x.localId === it.localId ? { ...x, cor: e.target.value } : x))}
+                                />
+                              </label>
+                              <label className={styles.itemFieldLabel}>
+                                Detalhe
+                                <input
+                                  type="text"
+                                  className={styles.itemFieldInput}
+                                  style={{ width: 200 }}
+                                  placeholder="Ex: listra lateral, bordado"
+                                  value={it.detalhe || ''}
+                                  onChange={e => setItems(prev => prev.map(x => x.localId === it.localId ? { ...x, detalhe: e.target.value } : x))}
+                                />
+                              </label>
+                              <label className={styles.itemFieldLabel}>
+                                OBS
+                                <input
+                                  type="text"
+                                  className={styles.itemFieldInput}
+                                  style={{ width: 200 }}
+                                  placeholder="Observação do item"
+                                  value={it.obs || ''}
+                                  onChange={e => setItems(prev => prev.map(x => x.localId === it.localId ? { ...x, obs: e.target.value } : x))}
+                                />
+                              </label>
+                              <button
+                                className={styles.btnHideFields}
+                                onClick={() => setShowItemFields(prev => ({ ...prev, [it.localId]: false }))}
+                              >ocultar</button>
+                            </div>
+                          ) : (
+                            <button
+                              className={styles.btnShowFields}
+                              onClick={() => setShowItemFields(prev => ({ ...prev, [it.localId]: true }))}
+                            >
+                              {it.cor || it.detalhe || it.obs ? `✎ ${[it.cor, it.detalhe, it.obs].filter(Boolean).join(' · ')}` : '+ cor / detalhe / obs'}
+                            </button>
+                          )}
                           {visitas.map((v, i) => {
                             const targetKey = `${it.localId}__${v.id}`
                             const targetEditing = distribTargets[targetKey]
@@ -1194,53 +1241,6 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                               {hideLast && <div className={styles.gradeInlineSizeSpacer} />}
                               <div className={styles.gradeInlineTotalReadonly}>{totalQtdItem(it.localId) || ''}</div>
                             </div>
-                          )}
-                          {showItemFields[it.localId] ? (
-                            <div className={styles.itemFieldsPanel}>
-                              <label className={styles.itemFieldLabel}>
-                                Cor
-                                <input
-                                  type="text"
-                                  className={styles.itemFieldInput}
-                                  placeholder="Ex: azul índigo"
-                                  value={it.cor || ''}
-                                  onChange={e => setItems(prev => prev.map(x => x.localId === it.localId ? { ...x, cor: e.target.value } : x))}
-                                />
-                              </label>
-                              <label className={styles.itemFieldLabel}>
-                                Detalhe
-                                <input
-                                  type="text"
-                                  className={styles.itemFieldInput}
-                                  style={{ width: 200 }}
-                                  placeholder="Ex: listra lateral, bordado"
-                                  value={it.detalhe || ''}
-                                  onChange={e => setItems(prev => prev.map(x => x.localId === it.localId ? { ...x, detalhe: e.target.value } : x))}
-                                />
-                              </label>
-                              <label className={styles.itemFieldLabel}>
-                                OBS
-                                <input
-                                  type="text"
-                                  className={styles.itemFieldInput}
-                                  style={{ width: 200 }}
-                                  placeholder="Observação do item"
-                                  value={it.obs || ''}
-                                  onChange={e => setItems(prev => prev.map(x => x.localId === it.localId ? { ...x, obs: e.target.value } : x))}
-                                />
-                              </label>
-                              <button
-                                className={styles.btnHideFields}
-                                onClick={() => setShowItemFields(prev => ({ ...prev, [it.localId]: false }))}
-                              >ocultar</button>
-                            </div>
-                          ) : (
-                            <button
-                              className={styles.btnShowFields}
-                              onClick={() => setShowItemFields(prev => ({ ...prev, [it.localId]: true }))}
-                            >
-                              {it.cor || it.detalhe || it.obs ? `✎ ${[it.cor, it.detalhe, it.obs].filter(Boolean).join(' · ')}` : '+ cor / detalhe / obs'}
-                            </button>
                           )}
                         </div>
                       </td>
