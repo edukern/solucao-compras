@@ -7,6 +7,7 @@ import Dashboard from './screens/Dashboard'
 import Planejamento from './screens/Planejamento'
 import Compras from './screens/Compras'
 import Relatorios from './screens/Relatorios'
+import Historico from './screens/Historico'
 import Configuracoes from './screens/Configuracoes'
 import Login from './screens/Login'
 import SelecionarLoja from './screens/SelecionarLoja'
@@ -15,6 +16,7 @@ const SCREENS = {
   dashboard:     () => <Dashboard />,
   planejamento:  () => <Planejamento />,
   compras:       () => <Compras />,
+  historico:     () => <Historico />,
   relatorios:    () => <Relatorios />,
   configuracoes: () => <Configuracoes />,
 }

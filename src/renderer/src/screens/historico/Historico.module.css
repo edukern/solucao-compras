@@ -1,0 +1,90 @@
+/* Shared styles for historico sub-components */
+
+.subpanel { padding: 0; }
+
+/* ─── Filtros ─────────────────────────────────────────────────── */
+.filtros {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.filterLabel {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+}
+
+.filterSelect {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.filterSelect:focus { border-color: var(--accent); }
+
+/* ─── Table ───────────────────────────────────────────────────── */
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.table th {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  border-bottom: 2px solid var(--accent);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.table tfoot td {
+  border-top: 2px solid var(--border);
+  border-bottom: none;
+  padding-top: 0.65rem;
+}
+
+.table tbody tr:hover td { background: var(--bg-hover); }
+
+.numCol {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.colecaoHeader {
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.totalCell {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* ─── Status ──────────────────────────────────────────────────── */
+.hint { color: var(--text-muted); font-size: 0.875rem; }
+.erro { color: var(--red, #ef4444); font-size: 0.875rem; }
