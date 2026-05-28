@@ -2838,7 +2838,7 @@ function PreencherMinhaLoja({ sessaoId, visitaId, compradorNome, colEstacao, onB
     setError(null)
     try {
       const updates = pedidos
-        .filter(ped => ped.segmentacao_id)
+        .filter(ped => ped.segmentacao_id && ped.referencia)
         .map(ped => {
           const tipoGrade = ped.segmentacao?.tipo_grade || ped.tipo_grade || ''
           const tams = tamanhosDeTipoGrade(tipoGrade)
@@ -3116,7 +3116,9 @@ function VisualizarSessao({ sessaoId, onBack }) {
                           <div key={ped.id} className={styles.viewPedidoBlock}>
                             <div className={styles.viewPedidoTop}>
                               <span className={styles.viewPedidoSeg}>
-                                {ped.classificacao} · {ped.tipo_produto} · {ped.classe}
+                                {ped.referencia && <strong>{ped.referencia}</strong>}
+                                {ped.referencia && <span className={styles.dot}>·</span>}
+                                {ped.segmentacao?.classificacao} · {ped.segmentacao?.tipo_produto} · {ped.segmentacao?.classe}
                               </span>
                               <span className={styles.viewPedidoValor}>R$ {fmt(ped.valor_unitario)}/pç</span>
                             </div>
