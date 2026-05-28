@@ -29,6 +29,11 @@ export const fornecedores = {
     const { error } = await supabase.from('fornecedores').delete().eq('id', id)
     if (error) throw error
   },
+  async getById(id) {
+    const { data, error } = await supabase.from('fornecedores').select('*').eq('id', id).single()
+    if (error) throw error
+    return data
+  },
   async importarDados(rows) {
     const { data, error } = await supabase
       .from('fornecedores')
