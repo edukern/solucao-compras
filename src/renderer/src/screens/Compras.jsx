@@ -1090,15 +1090,27 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
         <div className={styles.porLojaWrap}>
           <div className={styles.porLojaTabs}>
             {visitas.map((v, i) => {
-              const total = totalQtdVisita(v.id)
+              const isActive = i === lojaIdx
+              const pcs = isActive ? totalQtdVisita(v.id) : 0
+              const val = isActive ? totalValorVisita(v.id) : 0
               return (
                 <button
                   key={v.id}
-                  className={`${styles.porLojaTab} ${i === lojaIdx ? styles.porLojaTabActive : ''}`}
+                  className={`${styles.porLojaTab} ${isActive ? styles.porLojaTabActive : ''}`}
                   onClick={() => setLojaIdx(i)}
                 >
-                  {v.comprador_nome}
-                  {total > 0 && <span className={styles.porLojaTabTotal}>{total}</span>}
+                  {isActive ? (
+                    <span className={styles.porLojaTabActiveContent}>
+                      <span className={styles.porLojaTabActiveName}>{v.comprador_nome}</span>
+                      {pcs > 0 && (
+                        <span className={styles.porLojaTabActiveStats}>
+                          {pcs} pç · R$ {val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    v.comprador_nome
+                  )}
                   {visitas.length > 1 && (
                     <span
                       className={styles.porLojaTabRemove}
@@ -1110,25 +1122,6 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
               )
             })}
           </div>
-          {/* ── Active store summary bar ── */}
-          {(() => {
-            const v = visitas[lojaIdx]
-            if (!v) return null
-            const pcs = totalQtdVisita(v.id)
-            const val = totalValorVisita(v.id)
-            if (pcs === 0) return null
-            return (
-              <div className={styles.porLojaActiveBar}>
-                <span className={styles.porLojaActiveBarName}>{v.comprador_nome}</span>
-                <span className={styles.porLojaActiveBarSep}>·</span>
-                <span className={styles.porLojaActiveBarStat}><strong>{pcs}</strong> peças</span>
-                <span className={styles.porLojaActiveBarSep}>·</span>
-                <span className={styles.porLojaActiveBarStat}>
-                  <strong>R$ {val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
-                </span>
-              </div>
-            )
-          })()}
           <div className={styles.porLojaItemsList}>
             {items.map(it => {
               const v = visitas[lojaIdx]
@@ -1212,6 +1205,55 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
               )
             })}
           </div>
+
+          {/* ── Bottom summary dashboard ── */}
+          {visitas.some(v => totalQtdVisita(v.id) > 0) && (
+            <div className={styles.resumoSessao}>
+              <div className={styles.resumoSessaoTitle}>Resumo da sessão</div>
+              <div className={styles.resumoSessaoGrid}>
+                <div className={`${styles.resumoRow} ${styles.resumoHeader}`}>
+                  <div className={styles.resumoLojaCell}>Loja</div>
+                  <div className={styles.resumoNumCell}>Peças</div>
+                  <div className={styles.resumoNumCell}>Valor total</div>
+                </div>
+                {visitas.map(v => {
+                  const pcs = totalQtdVisita(v.id)
+                  const val = totalValorVisita(v.id)
+                  return (
+                    <div
+                      key={v.id}
+                      className={`${styles.resumoRow} ${pcs === 0 ? styles.resumoRowEmpty : ''}`}
+                      onClick={() => setLojaIdx(visitas.indexOf(v))}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div className={styles.resumoLojaCell}>{v.comprador_nome}</div>
+                      <div className={styles.resumoNumCell}>
+                        {pcs > 0 ? <strong>{pcs}</strong> : <span className={styles.itemDot}>—</span>}
+                      </div>
+                      <div className={styles.resumoNumCell}>
+                        {val > 0
+                          ? <strong>R$ {val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                          : <span className={styles.itemDot}>—</span>}
+                      </div>
+                    </div>
+                  )
+                })}
+                {visitas.length > 1 && (() => {
+                  const totalPcs = visitas.reduce((s, v) => s + totalQtdVisita(v.id), 0)
+                  const totalVal = visitas.reduce((s, v) => s + totalValorVisita(v.id), 0)
+                  return (
+                    <div className={`${styles.resumoRow} ${styles.resumoTotalRow}`}>
+                      <div className={styles.resumoLojaCell}>Total geral</div>
+                      <div className={styles.resumoNumCell}>{totalPcs}</div>
+                      <div className={styles.resumoNumCell}>
+                        R$ {totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

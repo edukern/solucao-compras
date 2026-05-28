@@ -1747,23 +1747,32 @@
 }
 .porLojaTab:hover { border-color: var(--accent); color: var(--text-primary); }
 
-.porLojaActiveBar {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.35rem 0.75rem;
-  background: rgba(var(--accent-rgb), 0.06);
-  border: 1px solid rgba(var(--accent-rgb), 0.2);
-  border-radius: 6px;
-  font-size: 0.82rem;
-  margin-bottom: 0.5rem;
-}
-.porLojaActiveBarName {
+.porLojaTabActive {
+  border-color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--accent-light);
   font-weight: 600;
-  color: var(--text-primary);
+  align-items: flex-start;
+  padding: 0.4rem 0.9rem;
 }
-.porLojaActiveBarSep { color: var(--text-muted); }
-.porLojaActiveBarStat { color: var(--text-secondary); }
+
+.porLojaTabActiveContent {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+}
+.porLojaTabActiveName {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--accent-light);
+}
+.porLojaTabActiveStats {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
 .porLojaTabRemove {
   display: inline-flex;
   align-items: center;
@@ -1784,12 +1793,7 @@
   color: #ef4444;
   opacity: 1;
 }
-.porLojaTabActive {
-  border-color: var(--accent);
-  background: rgba(var(--accent-rgb), 0.12);
-  color: var(--accent-light);
-  font-weight: 600;
-}
+
 .porLojaTabTotal {
   background: var(--accent);
   color: #fff;
