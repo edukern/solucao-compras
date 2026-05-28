@@ -1,28 +1,56 @@
-﻿.page { padding: 1.5rem; max-width: 1100px; }
+﻿.page { padding: 1.5rem; max-width: 900px; }
 
 .header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.75rem;
   margin-bottom: 1.5rem;
 }
 .title { font-size: 1.5rem; font-weight: 600; }
-.badge {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 0.2rem 0.6rem;
-  border-radius: 4px;
-  background: rgba(96,165,250,0.2);
-  color: var(--accent-light);
+
+.lojaSelect {
+  font-size: 0.875rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  cursor: pointer;
+  min-width: 180px;
 }
+.lojaSelect:focus { outline: none; border-color: var(--accent); }
 
 .cards {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
+
+/* Links rápidos */
+.quickLinks {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+.quickLink {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.quickLink:hover { border-color: var(--accent); color: var(--accent-light); }
+.quickIcon { font-size: 0.9rem; }
+.quickLabel { font-weight: 500; }
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -95,6 +123,11 @@
 .segCell { display: flex; align-items: center; gap: 0.4rem; }
 .checkMark { color: var(--green); font-weight: 700; font-size: 0.85rem; }
 .numCell { text-align: right; color: var(--text-secondary); }
+.fornCell { font-weight: 500; }
+.dateCell { color: var(--text-muted); font-size: 0.82rem; white-space: nowrap; }
+.vendCell { color: var(--text-muted); font-size: 0.82rem; }
+.muted    { color: var(--text-muted); }
+.footLabel { padding: 0.65rem 1rem; font-weight: 600; color: var(--text-secondary); }
 .barCell { display: flex; align-items: center; gap: 0.5rem; }
 .pctText { font-size: 0.75rem; color: var(--text-muted); min-width: 36px; text-align: right; }
 

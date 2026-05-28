@@ -6,7 +6,7 @@ import ColecaoModal from './ColecaoModal'
 import styles from './Sidebar.module.css'
 
 const NAV_ITEMS = [
-  { id: 'dashboard',    label: 'Dashboard',    icon: '◉' },
+  { id: 'dashboard',    label: 'Visão Geral',  icon: '◉' },
   { id: 'planejamento', label: 'Planejamento', icon: '🎯' },
   { id: 'compras',      label: 'Compras',      icon: '🛍️' },
   { id: 'historico',    label: 'Histórico',    icon: '📈' },

@@ -13,7 +13,7 @@ import Login from './screens/Login'
 import SelecionarLoja from './screens/SelecionarLoja'
 
 const SCREENS = {
-  dashboard:     () => <Dashboard />,
+  dashboard:     (nav) => <Dashboard onNavigate={nav} />,
   planejamento:  () => <Planejamento />,
   compras:       () => <Compras />,
   historico:     () => <Historico />,
@@ -43,7 +43,7 @@ function AppInner() {
   // Autenticado mas sem loja vinculada
   if (comprador === null) return <SelecionarLoja />
 
-  const Screen = SCREENS[screen] ?? SCREENS.dashboard
+  const screenFn = SCREENS[screen] ?? SCREENS.dashboard
 
   return (
     <CollectionProvider>
@@ -57,7 +57,7 @@ function AppInner() {
           />
           <main style={{ flex: 1, overflow: 'auto', background: 'var(--bg-primary)' }}>
             <ErrorBoundary key={screen}>
-              <Screen />
+              {screenFn(setScreen)}
             </ErrorBoundary>
           </main>
         </div>

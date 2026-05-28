@@ -1,18 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useCollection } from '../contexts/CollectionContext'
+import { useAuth } from '../contexts/AuthContext'
 import { aggregateSegmentacao, aggregateDashboard } from '../utils/dashboard'
 import { tamanhosDeTipoGrade } from '../constants/grades'
-import styles from './Dashboard.module.css'
 import { dashboard as dashboardService } from '../services/dashboard'
+import { compradores as compradoresService } from '../services/compradores'
+import styles from './Dashboard.module.css'
 
-function ProgressBar({ pct, height = 8 }) {
-  const safe = Math.min(100, Math.max(0, pct))
-  const color = safe >= 100 ? 'var(--green)' : safe > 0 ? 'var(--accent)' : 'var(--red)'
-  return (
-    <div className={styles.bar} style={{ height }}>
-      <div className={styles.barFill} style={{ width: `${safe}%`, background: color }} />
-    </div>
-  )
+const fmt = n => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const fmtDate = iso => {
+  if (!iso) return ''
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y.slice(2)}`
 }
 
 function MetricCard({ label, value, sub, color }) {
@@ -25,45 +24,46 @@ function MetricCard({ label, value, sub, color }) {
   )
 }
 
-export default function Dashboard() {
+function QuickLink({ icon, label, onClick }) {
+  return (
+    <button className={styles.quickLink} onClick={onClick}>
+      <span className={styles.quickIcon}>{icon}</span>
+      <span className={styles.quickLabel}>{label}</span>
+    </button>
+  )
+}
+
+export default function Dashboard({ onNavigate }) {
   const { active } = useCollection()
-  const [rows, setRows] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [expandedId, setExpandedId] = useState(null)
+  const { comprador } = useAuth()
 
+  const [compradores,    setCompradores]    = useState([])
+  const [lojaId,         setLojaId]         = useState(undefined) // undefined = ainda carregando default
+  const [sessoes,        setSessoes]        = useState([])
+  const [loading,        setLoading]        = useState(false)
+
+  // Carrega lista de compradores uma vez
   useEffect(() => {
-    if (!active) { setRows([]); return }
+    compradoresService.list().then(setCompradores)
+  }, [])
+
+  // Define loja padrão quando compradores e comprador logado estiverem disponíveis
+  useEffect(() => {
+    if (lojaId !== undefined) return // já foi definido
+    if (compradores.length === 0) return // ainda carregando compradores
+    const defaultId = comprador?.id ?? null
+    setLojaId(defaultId)
+  }, [compradores, comprador])
+
+  // Carrega dados sempre que coleção ou loja selecionada mudam
+  useEffect(() => {
+    if (!active || lojaId === undefined) return
     setLoading(true)
-    loadData(active.id).finally(() => setLoading(false))
-  }, [active?.id])
-
-  async function loadData(colId) {
-    const flatRows = await dashboardService.data(colId)
-    // Group flat rows (one per seg+tamanho) into per-seg structure
-    const bySegId = {}
-    for (const r of flatRows) {
-      if (!bySegId[r.seg_id]) {
-        bySegId[r.seg_id] = {
-          seg: { id: r.seg_id, classificacao: r.classificacao, tipo_produto: r.tipo_produto,
-                 classe: r.classe, tipo_grade: r.tipo_grade, estacao: r.estacao },
-          proj: [],
-          totais: [],
-        }
-      }
-      bySegId[r.seg_id].proj.push({ tamanho: r.tamanho, qtd_ajustada: r.qtd_ajustada, ordem: r.ordem })
-      if (r.total_pedido > 0) {
-        bySegId[r.seg_id].totais.push({ tamanho: r.tamanho, total_pedido: r.total_pedido })
-      }
-    }
-    const rowData = Object.values(bySegId).map(({ seg, proj, totais }) => ({
-      seg, proj, totais, ...aggregateSegmentacao(proj, totais)
-    }))
-    setRows(rowData.filter(r => r.projecao > 0))
-  }
-
-  function toggleExpand(id) {
-    setExpandedId(prev => prev === id ? null : id)
-  }
+    dashboardService.sessoesPorLoja(active.id, lojaId)
+      .then(setSessoes)
+      .catch(() => setSessoes([]))
+      .finally(() => setLoading(false))
+  }, [active?.id, lojaId])
 
   if (!active) {
     return (
@@ -74,134 +74,88 @@ export default function Dashboard() {
     )
   }
 
-  const { totalProjecao, totalComprado, totalSaldo, pctGeral } = aggregateDashboard(rows)
+  const totalSessoes = sessoes.length
+  const totalPecas   = sessoes.reduce((s, r) => s + r.pecas, 0)
+  const totalValor   = sessoes.reduce((s, r) => s + r.valor, 0)
+
+  const lojaAtual = compradores.find(c => c.id === lojaId)
+  const selectorLabel = lojaId ? (lojaAtual?.nome ?? '…') : 'Todas as lojas'
 
   return (
     <div className={styles.page}>
+
+      {/* Cabeçalho com seletor de loja */}
       <div className={styles.header}>
-        <h1 className={styles.title}>{active.nome}</h1>
-        <span className={styles.badge}>{active.status}</span>
+        <h1 className={styles.title}>Visão Geral</h1>
+        <select
+          className={styles.lojaSelect}
+          value={lojaId ?? ''}
+          onChange={e => setLojaId(e.target.value ? Number(e.target.value) : null)}
+        >
+          <option value="">Todas as lojas</option>
+          {compradores.map(c => (
+            <option key={c.id} value={c.id}>{c.nome}</option>
+          ))}
+        </select>
       </div>
 
+      {/* Cards de resumo */}
       <div className={styles.cards}>
-        <MetricCard label="Projeção total"   value={totalProjecao.toLocaleString('pt-BR')} sub="peças"      color="var(--purple)" />
-        <MetricCard label="Já comprado"      value={totalComprado.toLocaleString('pt-BR')} sub="peças"      color="var(--green)"  />
-        <MetricCard label="Saldo a comprar"  value={totalSaldo.toLocaleString('pt-BR')}    sub="peças"      color="var(--yellow)" />
-        <MetricCard label="Progresso"        value={`${pctGeral}%`}                         sub="da coleção" color="var(--accent-light)" />
+        <MetricCard label="Sessões"       value={totalSessoes}                          color="var(--accent-light)" />
+        <MetricCard label="Total de peças" value={totalPecas.toLocaleString('pt-BR')}  sub="peças"    color="var(--green)"  />
+        <MetricCard label="Total em pedidos" value={`R$ ${fmt(totalValor)}`}            color="var(--purple)" />
       </div>
 
-      <div className={styles.progressBox}>
-        <div className={styles.progressLabel}>
-          <span>Progresso geral da coleção</span>
-          <span>{pctGeral}%</span>
-        </div>
-        <ProgressBar pct={pctGeral} height={10} />
+      {/* Links rápidos */}
+      <div className={styles.quickLinks}>
+        <QuickLink icon="🎯" label="Planejamento" onClick={() => onNavigate('planejamento')} />
+        <QuickLink icon="📊" label="Relatórios"   onClick={() => onNavigate('relatorios')}   />
+        <QuickLink icon="🛍️" label="Compras"      onClick={() => onNavigate('compras')}      />
+        <QuickLink icon="📈" label="Histórico"    onClick={() => onNavigate('historico')}    />
       </div>
 
+      {/* Tabela de sessões */}
       <div className={styles.tableBox}>
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>Segmentação</th>
-              <th>Projeção</th>
-              <th>Comprado</th>
-              <th>Saldo</th>
-              <th style={{ minWidth: 140 }}>Progresso</th>
+              <th>Fornecedor</th>
+              <th>Data</th>
+              <th>Vendedor</th>
+              <th>Peças</th>
+              <th>Valor</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr><td colSpan={5} className={styles.emptyRow}>Carregando…</td></tr>
             )}
-            {!loading && rows.length === 0 && (
+            {!loading && sessoes.length === 0 && (
               <tr><td colSpan={5} className={styles.emptyRow}>
-                Nenhuma projeção cadastrada para esta coleção.
+                {lojaId
+                  ? 'Nenhuma sessão encontrada para esta loja na coleção ativa.'
+                  : 'Nenhuma sessão encontrada nesta coleção.'}
               </td></tr>
             )}
-            {!loading && rows.map(({ seg, proj, totais, projecao, comprado, saldo, pct }) => {
-              const isExpanded = expandedId === seg.id
-              const tamanhos = tamanhosDeTipoGrade(seg.tipo_grade)
-              const hasDrilldown = tamanhos.length > 0
-              const getProjQtd = tam => proj.find(r => r.tamanho === tam)?.qtd_ajustada ?? 0
-              const getCompQtd = tam => totais.find(r => r.tamanho === tam)?.total_pedido ?? 0
-              const getSaldoQtd = tam => Math.max(0, getProjQtd(tam) - getCompQtd(tam))
-              const lowSaldo = tam => getProjQtd(tam) > 0 && getSaldoQtd(tam) / getProjQtd(tam) < 0.2
-
-              return [
-                <tr
-                  key={seg.id}
-                  className={`${pct >= 100 ? styles.rowDone : pct === 0 ? styles.rowNone : ''} ${hasDrilldown ? styles.rowClickable : ''}`}
-                  onClick={hasDrilldown ? () => toggleExpand(seg.id) : undefined}
-                >
-                  <td>
-                    <div className={styles.segCell}>
-                      {hasDrilldown && (
-                        <span className={styles.expandIcon}>{isExpanded ? '▼' : '▶'}</span>
-                      )}
-                      {pct >= 100 && <span className={styles.checkMark}>✓</span>}
-                      <span>{seg.classificacao} · {seg.tipo_produto} · {seg.classe}</span>
-                    </div>
-                  </td>
-                  <td className={styles.numCell}>{projecao.toLocaleString('pt-BR')}</td>
-                  <td className={styles.numCell}>{comprado.toLocaleString('pt-BR')}</td>
-                  <td className={styles.numCell}>{saldo.toLocaleString('pt-BR')}</td>
-                  <td>
-                    <div className={styles.barCell}>
-                      <div style={{ flex: 1 }}><ProgressBar pct={pct} /></div>
-                      <span className={styles.pctText}>{pct}%</span>
-                    </div>
-                  </td>
-                </tr>,
-                isExpanded && hasDrilldown && (
-                  <tr key={`${seg.id}-drill`} className={styles.drillRow}>
-                    <td colSpan={5} className={styles.drillCell}>
-                      <div className={styles.drillGrid} style={{ overflowX: 'auto' }}>
-                        <table className={styles.drillTable}>
-                          <thead>
-                            <tr>
-                              <th className={styles.drillMetricHead} />
-                              {tamanhos.map(tam => (
-                                <th key={tam} className={styles.drillHead}>{tam}</th>
-                              ))}
-                              <th className={styles.drillHead}>Total</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr>
-                              <td className={styles.drillMetric} style={{ color: 'var(--purple)' }}>Projeção</td>
-                              {tamanhos.map(tam => (
-                                <td key={tam} className={styles.drillNum} style={{ color: 'var(--purple)' }}>{getProjQtd(tam) || '—'}</td>
-                              ))}
-                              <td className={`${styles.drillNum} ${styles.drillTotalCol}`} style={{ color: 'var(--purple)' }}>{projecao}</td>
-                            </tr>
-                            <tr>
-                              <td className={styles.drillMetric} style={{ color: 'var(--green)' }}>Comprado</td>
-                              {tamanhos.map(tam => (
-                                <td key={tam} className={styles.drillNum} style={{ color: 'var(--green)' }}>{getCompQtd(tam) || '—'}</td>
-                              ))}
-                              <td className={`${styles.drillNum} ${styles.drillTotalCol}`} style={{ color: 'var(--green)' }}>{comprado}</td>
-                            </tr>
-                            <tr>
-                              <td className={styles.drillMetric} style={{ color: 'var(--yellow)' }}>Saldo</td>
-                              {tamanhos.map(tam => {
-                                const s = getSaldoQtd(tam)
-                                return (
-                                  <td key={tam} className={styles.drillNum} style={{ color: lowSaldo(tam) ? 'var(--red)' : 'var(--yellow)', fontWeight: lowSaldo(tam) ? 700 : 400 }}>
-                                    {s > 0 ? s : s === 0 && getProjQtd(tam) > 0 ? <span style={{ color: 'var(--green)' }}>✓</span> : '—'}
-                                  </td>
-                                )
-                              })}
-                              <td className={`${styles.drillNum} ${styles.drillTotalCol}`} style={{ color: 'var(--yellow)' }}>{saldo}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              ]
-            })}
+            {!loading && sessoes.map(s => (
+              <tr key={s.id}>
+                <td className={styles.fornCell}>{s.fornecedor_nome}</td>
+                <td className={styles.dateCell}>{fmtDate(s.data_visita)}</td>
+                <td className={styles.vendCell}>{s.vendedor || <span className={styles.muted}>—</span>}</td>
+                <td className={styles.numCell}><strong>{s.pecas.toLocaleString('pt-BR')}</strong></td>
+                <td className={styles.numCell}>R$ {fmt(s.valor)}</td>
+              </tr>
+            ))}
           </tbody>
+          {!loading && sessoes.length > 1 && (
+            <tfoot>
+              <tr>
+                <td colSpan={3} className={styles.footLabel}>Total</td>
+                <td className={styles.numCell}><strong>{totalPecas.toLocaleString('pt-BR')}</strong></td>
+                <td className={styles.numCell}><strong>R$ {fmt(totalValor)}</strong></td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
     </div>

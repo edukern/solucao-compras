@@ -1,6 +1,63 @@
 import { supabase } from '../lib/supabase'
 
 export const dashboard = {
+  // Retorna sessões da coleção com totais de peças e valor,
+  // filtradas por comprador_id se fornecido (null = todas as lojas)
+  async sessoesPorLoja(colecao_id, compradorId = null) {
+    const { data: sessoes, error: e1 } = await supabase
+      .from('sessoes')
+      .select('id, fornecedor_nome, data_visita, vendedor, fornecedor:fornecedores(nome)')
+      .eq('colecao_id', colecao_id)
+      .order('data_visita', { ascending: false })
+    if (e1) throw e1
+    const sessaoIds = (sessoes ?? []).map(s => s.id)
+    if (!sessaoIds.length) return []
+
+    let q = supabase.from('visitas').select('id, sessao_id').in('sessao_id', sessaoIds)
+    if (compradorId) q = q.eq('comprador_id', compradorId)
+    const { data: visitas, error: e2 } = await q
+    if (e2) throw e2
+    const visitaIds = (visitas ?? []).map(v => v.id)
+    if (!visitaIds.length) return []
+
+    const { data: pedidos, error: e3 } = await supabase
+      .from('pedidos')
+      .select('visita_id, valor_unitario, desconto_pct, pedido_itens(qtd)')
+      .in('visita_id', visitaIds)
+    if (e3) throw e3
+
+    // Agregar por visita
+    const visitaStats = {}
+    for (const p of pedidos ?? []) {
+      if (!visitaStats[p.visita_id]) visitaStats[p.visita_id] = { pecas: 0, valor: 0 }
+      const qtd = (p.pedido_itens ?? []).reduce((s, i) => s + (i.qtd ?? 0), 0)
+      visitaStats[p.visita_id].pecas += qtd
+      visitaStats[p.visita_id].valor += qtd * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100)
+    }
+
+    // Agregar por sessão
+    const sessaoStats = {}
+    const sessaoIdsComVisita = new Set()
+    for (const v of visitas ?? []) {
+      sessaoIdsComVisita.add(v.sessao_id)
+      if (!sessaoStats[v.sessao_id]) sessaoStats[v.sessao_id] = { pecas: 0, valor: 0 }
+      const vs = visitaStats[v.id] ?? { pecas: 0, valor: 0 }
+      sessaoStats[v.sessao_id].pecas += vs.pecas
+      sessaoStats[v.sessao_id].valor += vs.valor
+    }
+
+    return (sessoes ?? [])
+      .filter(s => sessaoIdsComVisita.has(s.id))
+      .map(s => ({
+        id:              s.id,
+        fornecedor_nome: s.fornecedor?.nome || s.fornecedor_nome || '',
+        data_visita:     s.data_visita,
+        vendedor:        s.vendedor || '',
+        pecas:           sessaoStats[s.id]?.pecas ?? 0,
+        valor:           sessaoStats[s.id]?.valor ?? 0,
+      }))
+  },
+
   async data(colecao_id) {
     // Projecoes with segmentacao details
     const { data: proj, error: e1 } = await supabase
