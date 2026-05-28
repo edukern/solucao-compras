@@ -2124,10 +2124,10 @@ async function salvarPDFVisita(sessao, vis, visPedidos, sessaoOverride = {}) {
   const filename = `${forn} - ${loja} - ${data}.pdf`
 
   try {
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-    // A4 landscape: 297 x 210 mm, margins 8mm each side → usable 281 x 194
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    // A4 portrait: 210 x 297 mm, margins 8mm each side → usable 194mm width
     const ML = 8, MR = 8, MT = 8
-    const PW = 297 - ML - MR  // 281mm usable width
+    const PW = 210 - ML - MR  // 194mm usable width
     const temICMS = sessaoFinal.icms_credito_pct != null && sessaoFinal.icms_credito_pct !== ''
 
     // ── HEADER ────────────────────────────────────────────────────────────
@@ -3696,9 +3696,34 @@ export default function Compras() {
     setPhase(0)
   }
 
-  function handleVisualizar(sessaoId) {
-    setViewSessaoId(sessaoId)
-    setPhase(4)
+  async function handleVisualizar(sessaoId) {
+    setRetomarLoading(sessaoId)
+    try {
+      const sessaoDb = await sessoesService.byId(sessaoId)
+      const visitasEnriquecidas = sessaoDb.visitas.map(v => ({
+        id:                 v.visita_id,
+        comprador_id:       v.comprador_id,
+        comprador_nome:     v.comprador_nome,
+        comprador_cnpj:     v.comprador_cnpj     ?? '',
+        comprador_cidade:   v.comprador_cidade   ?? '',
+        comprador_fantasia: v.comprador_fantasia ?? '',
+        comprador_ie:       v.comprador_ie       ?? '',
+        comprador_email:    v.comprador_email    ?? '',
+        comprador_telefone: v.comprador_telefone ?? '',
+        comprador_endereco: v.comprador_endereco ?? '',
+      }))
+      const ordemIds = compradores.map(c => c.id)
+      visitasEnriquecidas.sort((a, b) => ordemIds.indexOf(a.comprador_id) - ordemIds.indexOf(b.comprador_id))
+      const forn = forns.find(f => f.id === sessaoDb.fornecedor_id)
+      setSessao({ ...sessaoDb, fornecedor_nome: forn?.nome || sessaoDb.fornecedor?.nome || '' })
+      setVisitas(visitasEnriquecidas)
+      setPedidosFechados([])
+      setPhase(3)
+    } catch (e) {
+      alert(`Erro ao carregar sessão: ${e.message}`)
+    } finally {
+      setRetomarLoading(null)
+    }
   }
 
   function handleBackFromView() {
