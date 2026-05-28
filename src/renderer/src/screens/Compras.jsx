@@ -179,8 +179,8 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
       }, lojas)
       const lojasPresentes = compradores.filter(c => lojas.includes(c.id))
       onStart(sessao, lojasPresentes)
-    } catch {
-      setError('Erro ao iniciar sessão.')
+    } catch (e) {
+      setError(`Erro ao iniciar sessão: ${e.message}`)
     } finally {
       setSaving(false)
     }
@@ -627,10 +627,14 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
     })
   }
 
+  const TABELA_PRECOS = [4.99, 9.99, 14.99, 19.99, 24.99, 29.99, 34.99, 39.99,
+    49.99, 59.99, 69.99, 79.99, 89.99, 99.99, 119.99, 129.99, 149.99, 169.99,
+    199.99, 219.99, 229.99, 249.99, 299.99]
+
   function roundTo99(x) {
     if (!x || x <= 0) return ''
-    const rounded = Math.ceil(x + 0.01) - 0.01
-    return rounded.toFixed(2)
+    const preco = TABELA_PRECOS.find(p => p >= x)
+    return preco != null ? preco.toFixed(2) : x.toFixed(2)
   }
 
   function calcPrecoVenda(valorStr, markupStr) {
@@ -857,8 +861,8 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
       const salvos = await pedidosService.salvarBatch(batch, sessao.id)
       localStorage.removeItem(RECOVERY_KEY)
       onFechar(salvos.map((p, i) => ({ ...p, ...meta[i] })))
-    } catch {
-      setError('Erro ao salvar pedidos. Tente novamente.')
+    } catch (e) {
+      setError(`Erro ao salvar pedidos: ${e.message}`)
     } finally {
       setSaving(false)
     }
@@ -1397,9 +1401,9 @@ function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
 
   const pedidosHtml = visPedidos.map(p => {
     const segLabel = p.referencia
-      ? `${p.referencia} — ${p.tipo_produto ?? ''} — ${p.classe ?? ''} (Grade ${p.tipo_grade ?? ''})`
+      ? `${esc(p.referencia)} — ${esc(p.tipo_produto ?? '')} — ${esc(p.classe ?? '')} (Grade ${esc(p.tipo_grade ?? '')})`
       : p.classificacao
-        ? `${p.classificacao} — ${p.tipo_produto} — ${p.classe} (Grade ${p.tipo_grade})`
+        ? `${esc(p.classificacao)} — ${esc(p.tipo_produto)} — ${esc(p.classe)} (Grade ${esc(p.tipo_grade)})`
         : `Segmentação #${p.segmentacao_id}`
     const totalQ = p.itens.reduce((s, i) => s + i.qtd, 0)
     const totalV = totalQ * p.valor_unitario * (1 - p.desconto_pct / 100)
@@ -1475,20 +1479,25 @@ function gerarPDFSessao(sessao, visitas, pedidosPorVisita) {
 // DD-MM-AA a partir de YYYY-MM-DD
 const fmtDataPDF = iso => { const [y,m,d] = iso.split('-'); return `${d}-${m}-${y.slice(2)}` }
 
-async function salvarPDFVisita(sessao, vis, visPedidos) {
-  const html = wrapDoc(
+function salvarPDFVisita(sessao, vis, visPedidos) {
+  const baseHtml = wrapDoc(
     gerarHTMLOrdem(sessao, vis, visPedidos, true),
     `Pedido — ${esc(sessao.fornecedor_nome)} — ${esc(vis.comprador_nome)}`
   )
-  const nome = `${vis.comprador_nome} _ ${sessao.fornecedor_nome} _ ${fmtDataPDF(sessao.data_visita)}`
-    .replace(/[/\\?%*:|"<>]/g, '-')
-  const blob = new Blob([`<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${html}</body></html>`], { type: 'text/html' })
+  // inject auto-print before </body> so the tab opens and prints immediately
+  const html = baseHtml.replace(
+    '</body>',
+    '<script>window.addEventListener("load",function(){window.focus();window.print()})<\/script></body>'
+  )
+  const blob = new Blob([html], { type: 'text/html' })
   const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${nome}.html`
-  a.click()
-  URL.revokeObjectURL(url)
+  const win = window.open(url, '_blank')
+  if (!win) {
+    URL.revokeObjectURL(url)
+    alert('Bloqueador de pop-ups ativo. Permita pop-ups para este site.')
+    return { ok: false }
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 120_000)
   return { ok: true }
 }
 
@@ -2052,6 +2061,18 @@ export default function Compras() {
   const [view,            setView]            = useState('nova') // 'nova' | 'historico'
   const [recoveryData,    setRecoveryData]    = useState(null)
   const [recoveryInitial, setRecoveryInitial] = useState(null)
+  const [isOnline,        setIsOnline]        = useState(navigator.onLine)
+
+  useEffect(() => {
+    const onOnline  = () => setIsOnline(true)
+    const onOffline = () => setIsOnline(false)
+    window.addEventListener('online',  onOnline)
+    window.addEventListener('offline', onOffline)
+    return () => {
+      window.removeEventListener('online',  onOnline)
+      window.removeEventListener('offline', onOffline)
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -2102,6 +2123,9 @@ export default function Compras() {
         comprador_cidade: loja?.cidade  ?? '',
       }
     })
+    // Ordenar visitas pela mesma ordem da tela de Configurações (compradores.ordem)
+    const ordemIds = lojas.map(l => l.id)
+    visitasEnriquecidas.sort((a, b) => ordemIds.indexOf(a.comprador_id) - ordemIds.indexOf(b.comprador_id))
     setSessao(novaSessao)
     setVisitas(visitasEnriquecidas)
     setPhase(2)
@@ -2149,6 +2173,12 @@ export default function Compras() {
   return (
     <div className={styles.page}>
       <h1 className={styles.title}>Compras — {active.nome}</h1>
+
+      {!isOnline && (
+        <div className={styles.offlineBanner}>
+          Sem conexão com a internet — mudanças não serão salvas.
+        </div>
+      )}
 
       {view === 'nova' && phase === 1 && recoveryData && (
         <div className={styles.recoveryBanner}>
