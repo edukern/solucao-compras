@@ -97,5 +97,10 @@ export const pedidos = {
       .eq('sessao_id', sessao_id)
     if (error) throw error
     return data
+  },
+
+  async updateVisita(id, fields) {
+    const { error } = await supabase.from('visitas').update(fields).eq('id', id)
+    if (error) throw error
   }
 }

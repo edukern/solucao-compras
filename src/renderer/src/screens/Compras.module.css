@@ -1607,6 +1607,108 @@
   user-select: none;
 }
 
+/* ── Per-store frete/cond_pag config (Phase 3) ──────────────────────────── */
+.lojaConfigWrap {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.lojaConfigBar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-secondary);
+  flex-wrap: wrap;
+}
+.lojaConfigLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.lojaConfigDefaults {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  flex: 1;
+}
+.lojaConfigToggleBtn {
+  margin-left: auto;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-card);
+  color: var(--accent);
+  font-size: 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.lojaConfigToggleBtn:hover { background: rgba(var(--accent-rgb), 0.08); }
+
+.lojaConfigTable {
+  border-top: 1px solid var(--border);
+}
+.lojaConfigHead {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.75rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.lojaConfigRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+.lojaConfigRow:last-child { border-bottom: none; }
+.lojaConfigRow:hover { background: var(--bg-hover); }
+.lcLojaCell {
+  width: 160px;
+  flex-shrink: 0;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lcFieldCell {
+  flex: 1;
+  min-width: 0;
+}
+.lcInput {
+  width: 100%;
+  font-size: 0.8rem;
+  padding: 0.2rem 0.4rem;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  color: var(--text-primary);
+}
+.lcInput:focus { outline: none; border-color: var(--accent); }
+.lcInput:disabled { opacity: 0.35; cursor: not-allowed; }
+.lcInput::placeholder { color: var(--text-muted); opacity: 0.6; }
+.lcSelect {
+  width: 100%;
+  font-size: 0.8rem;
+  padding: 0.2rem 0.4rem;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  color: var(--text-primary);
+}
+.lcSelect:focus { outline: none; border-color: var(--accent); }
+
 /* PDF Confirmation Modal */
 .pdfModalBackdrop {
   position: fixed;

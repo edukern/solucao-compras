@@ -1459,13 +1459,15 @@ function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
     </div>`
 }
 
-function gerarPDFSessao(sessao, visitas, pedidosPorVisita) {
+function gerarPDFSessao(sessao, visitas, pedidosPorVisita, lojaOverrides = {}) {
   const visitasComPedidos = visitas.filter(v => (pedidosPorVisita[v.id] ?? []).length > 0)
   if (!visitasComPedidos.length) { alert('Nenhum pedido para gerar PDF.'); return }
 
-  const ordersHtml = visitasComPedidos.map((vis, idx) =>
-    gerarHTMLOrdem(sessao, vis, pedidosPorVisita[vis.id] ?? [], idx === visitasComPedidos.length - 1)
-  ).join('')
+  const ordersHtml = visitasComPedidos.map((vis, idx) => {
+    const ovr = lojaOverrides[vis.id]
+    const sessaoVis = ovr ? { ...sessao, ...ovr } : sessao
+    return gerarHTMLOrdem(sessaoVis, vis, pedidosPorVisita[vis.id] ?? [], idx === visitasComPedidos.length - 1)
+  }).join('')
   const html = wrapDoc(ordersHtml, `Pedidos — ${esc(sessao.fornecedor_nome)} — ${fmtDate(sessao.data_visita)}`)
 
   const win = window.open('', '_blank')
@@ -1479,10 +1481,11 @@ function gerarPDFSessao(sessao, visitas, pedidosPorVisita) {
 // DD-MM-AA a partir de YYYY-MM-DD
 const fmtDataPDF = iso => { const [y,m,d] = iso.split('-'); return `${d}-${m}-${y.slice(2)}` }
 
-function salvarPDFVisita(sessao, vis, visPedidos) {
+function salvarPDFVisita(sessao, vis, visPedidos, sessaoOverride = {}) {
+  const sessaoFinal = Object.keys(sessaoOverride).length ? { ...sessao, ...sessaoOverride } : sessao
   const baseHtml = wrapDoc(
-    gerarHTMLOrdem(sessao, vis, visPedidos, true),
-    `Pedido — ${esc(sessao.fornecedor_nome)} — ${esc(vis.comprador_nome)}`
+    gerarHTMLOrdem(sessaoFinal, vis, visPedidos, true),
+    `Pedido — ${esc(sessaoFinal.fornecedor_nome)} — ${esc(vis.comprador_nome)}`
   )
   // inject auto-print before </body> so the tab opens and prints immediately
   const html = baseHtml.replace(
@@ -1504,12 +1507,31 @@ function salvarPDFVisita(sessao, vis, visPedidos) {
 // ─── Phase 3: Close Session + PDFs ───────────────────────────────────────
 
 function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
-  const [salvandoPDF,  setSalvandoPDF]  = useState(null) // vis.id em andamento
-  const [salvos,       setSalvos]       = useState(new Set())
-  const [erroPDF,      setErroPDF]      = useState(null)
-  const [showPDFModal, setShowPDFModal] = useState(false)
-  const [fornFull,     setFornFull]     = useState(null)
-  const [modalFields,  setModalFields]  = useState({})
+  const [salvandoPDF,   setSalvandoPDF]   = useState(null) // vis.id em andamento
+  const [salvos,        setSalvos]        = useState(new Set())
+  const [erroPDF,       setErroPDF]       = useState(null)
+  const [showPDFModal,  setShowPDFModal]  = useState(false)
+  const [fornFull,      setFornFull]      = useState(null)
+  const [modalFields,   setModalFields]   = useState({})
+  const [lojaOverrides, setLojaOverrides] = useState({}) // { [vis.id]: { cond_pag?, frete?, transportadora? } }
+  const [showLojaConfig,setShowLojaConfig]= useState(false)
+
+  // Returns only non-empty override fields for a given visita
+  function buildVisitaOverride(visId) {
+    const ovr = lojaOverrides[visId] ?? {}
+    const out = {}
+    if (ovr.cond_pag)        out.cond_pag       = ovr.cond_pag
+    if (ovr.frete)           out.frete          = ovr.frete
+    if (ovr.transportadora)  out.transportadora = ovr.transportadora
+    return out
+  }
+
+  function setLojaField(visId, field, value) {
+    setLojaOverrides(prev => ({
+      ...prev,
+      [visId]: { ...prev[visId], [field]: value }
+    }))
+  }
 
   const podeSalvarPDF = true
   const visitasComPedidos = visitas.filter(v => pedidos.some(p => p.visita_id === v.id))
@@ -1556,11 +1578,21 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
       if (!pedMap[p.visita_id]) pedMap[p.visita_id] = []
       pedMap[p.visita_id].push(p)
     }
-    gerarPDFSessao(
-      { ...sessao, vendedor: modalFields.vendedor, cond_pag: modalFields.cond_pag,
-        frete: modalFields.frete, obs: modalFields.obs, data_entrega: modalFields.data_entrega },
-      visitas, pedMap
-    )
+    // Session-level fields from modal; per-store overrides (lojaOverrides) take precedence per store
+    const sessaoComModal = {
+      ...sessao,
+      vendedor:     modalFields.vendedor,
+      cond_pag:     modalFields.cond_pag,
+      frete:        modalFields.frete,
+      obs:          modalFields.obs,
+      data_entrega: modalFields.data_entrega,
+    }
+    const finalOverrides = {}
+    for (const vis of visitasComPedidos) {
+      const ovr = buildVisitaOverride(vis.id)
+      if (Object.keys(ovr).length) finalOverrides[vis.id] = ovr
+    }
+    gerarPDFSessao(sessaoComModal, visitas, pedMap, finalOverrides)
   }
 
   async function handleSalvarPDF(vis) {
@@ -1568,8 +1600,10 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
     const visPedidos = pedidos.filter(p => p.visita_id === vis.id)
     setSalvandoPDF(vis.id)
     try {
-      const result = await salvarPDFVisita(sessao, vis, visPedidos)
+      const ovr = buildVisitaOverride(vis.id)
+      const result = await salvarPDFVisita(sessao, vis, visPedidos, ovr)
       if (result?.ok) {
+        if (Object.keys(ovr).length) pedidosService.updateVisita(vis.id, ovr).catch(() => {})
         setSalvos(prev => new Set([...prev, vis.id]))
       } else {
         setErroPDF(`Erro ao salvar PDF de ${vis.comprador_nome}.`)
@@ -1588,8 +1622,12 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
       setSalvandoPDF(vis.id)
       try {
         const visPedidos = pedidos.filter(p => p.visita_id === vis.id)
-        const result = await salvarPDFVisita(sessao, vis, visPedidos)
-        if (result?.ok) setSalvos(prev => new Set([...prev, vis.id]))
+        const ovr = buildVisitaOverride(vis.id)
+        const result = await salvarPDFVisita(sessao, vis, visPedidos, ovr)
+        if (result?.ok) {
+          if (Object.keys(ovr).length) pedidosService.updateVisita(vis.id, ovr).catch(() => {})
+          setSalvos(prev => new Set([...prev, vis.id]))
+        }
       } catch {
         setErroPDF(`Erro ao salvar PDF de ${vis.comprador_nome}.`)
         setSalvandoPDF(null)
@@ -1689,6 +1727,74 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
       <h2 className={styles.phaseTitle}>Fase 3 — Resumo da Sessão</h2>
 
       {erroPDF && <div className={styles.errorBanner}>{erroPDF}</div>}
+
+      {/* ── Per-store frete/cond_pag config ── */}
+      <div className={styles.lojaConfigWrap}>
+        <div className={styles.lojaConfigBar}>
+          <span className={styles.lojaConfigLabel}>Condições padrão:</span>
+          <span className={styles.lojaConfigDefaults}>
+            {sessao.cond_pag || '—'} · Frete {sessao.frete || '—'}
+          </span>
+          <button
+            className={styles.lojaConfigToggleBtn}
+            onClick={() => setShowLojaConfig(s => !s)}
+          >
+            {showLojaConfig ? '▲ Ocultar' : '▼ Personalizar por loja'}
+          </button>
+        </div>
+        {showLojaConfig && (
+          <div className={styles.lojaConfigTable}>
+            <div className={styles.lojaConfigHead}>
+              <div className={styles.lcLojaCell}>Loja</div>
+              <div className={styles.lcFieldCell}>Cond. Pagamento</div>
+              <div className={styles.lcFieldCell}>Frete</div>
+              <div className={styles.lcFieldCell}>Transportadora</div>
+            </div>
+            {visitasComPedidos.map(vis => {
+              const ovr = lojaOverrides[vis.id] ?? {}
+              const effectiveFrete = ovr.frete || sessao.frete
+              return (
+                <div key={vis.id} className={styles.lojaConfigRow}>
+                  <div className={styles.lcLojaCell}>{vis.comprador_nome}</div>
+                  <div className={styles.lcFieldCell}>
+                    <input
+                      type="text"
+                      className={styles.lcInput}
+                      placeholder={sessao.cond_pag || '—'}
+                      value={ovr.cond_pag ?? ''}
+                      onChange={e => setLojaField(vis.id, 'cond_pag', e.target.value)}
+                    />
+                  </div>
+                  <div className={styles.lcFieldCell}>
+                    <select
+                      className={styles.lcSelect}
+                      value={ovr.frete ?? ''}
+                      onChange={e => {
+                        setLojaField(vis.id, 'frete', e.target.value)
+                        if (e.target.value !== 'FOB') setLojaField(vis.id, 'transportadora', '')
+                      }}
+                    >
+                      <option value="">— padrão ({sessao.frete || '—'})</option>
+                      <option value="CIF">CIF</option>
+                      <option value="FOB">FOB</option>
+                    </select>
+                  </div>
+                  <div className={styles.lcFieldCell}>
+                    <input
+                      type="text"
+                      className={styles.lcInput}
+                      placeholder={sessao.transportadora || '—'}
+                      value={ovr.transportadora ?? ''}
+                      disabled={effectiveFrete !== 'FOB'}
+                      onChange={e => setLojaField(vis.id, 'transportadora', e.target.value)}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
 
       <div className={styles.resumoGrid}>
         {visitasComPedidos.map(vis => {
