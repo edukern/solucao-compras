@@ -568,6 +568,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
   const [showCorDetalhe, setShowCorDetalhe] = useState(
     () => localStorage.getItem('SC_SHOW_COR_DETALHE') === 'true'
   )
+  const [fillMode, setFillMode] = useState('ref') // 'ref' | 'loja'
   function toggleCorDetalhe() {
     setShowCorDetalhe(prev => {
       localStorage.setItem('SC_SHOW_COR_DETALHE', String(!prev))
@@ -619,6 +620,10 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
 
   function totalQtdItem(localId) {
     return visitas.reduce((s, v) => s + totalQtdLoja(localId, v.id), 0)
+  }
+
+  function totalQtdVisita(visitaId) {
+    return items.reduce((s, it) => s + totalQtdLoja(it.localId, visitaId), 0)
   }
 
   function hasExtremeData(localId, tam) {
@@ -765,6 +770,16 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
     }
   }
 
+  function handleEnterOnInputPorLoja(e) {
+    if (e.key !== 'Enter' && !(e.key === 'Tab' && !e.shiftKey)) return
+    e.preventDefault()
+    const allInputs = Array.from(document.querySelectorAll('[data-por-loja-input]'))
+    const curIdx = allInputs.indexOf(e.target)
+    if (curIdx >= 0 && curIdx < allInputs.length - 1) {
+      allInputs[curIdx + 1].focus()
+    }
+  }
+
   function findSegId(item) {
     const classDef = GRADE_DEFINITIONS[item.tipo_grade]
     if (!classDef) return null
@@ -893,13 +908,27 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
 
       <div className={styles.phaseTitleRow}>
         <h2 className={styles.phaseTitle}>Fase 2 — Registrar Pedidos</h2>
-        <button
-          className={`${styles.btnToggleCor} ${showCorDetalhe ? styles.btnToggleCorOn : ''}`}
-          onClick={toggleCorDetalhe}
-          title="Editar cor e detalhe diretamente em cada item (sem expandir)"
-        >
-          {showCorDetalhe ? '✓ Cor/Detalhe' : '+ Cor/Detalhe'}
-        </button>
+        <div className={styles.fillModeToggle}>
+          <button
+            className={`${styles.fillModeBtn} ${fillMode === 'ref' ? styles.fillModeBtnActive : ''}`}
+            onClick={() => setFillMode('ref')}
+            title="Preencher por referência (todas as lojas de um produto)"
+          >Por referência</button>
+          <button
+            className={`${styles.fillModeBtn} ${fillMode === 'loja' ? styles.fillModeBtnActive : ''}`}
+            onClick={() => setFillMode('loja')}
+            title="Preencher por loja (todos os produtos de uma loja)"
+          >Por loja</button>
+        </div>
+        {fillMode === 'ref' && (
+          <button
+            className={`${styles.btnToggleCor} ${showCorDetalhe ? styles.btnToggleCorOn : ''}`}
+            onClick={toggleCorDetalhe}
+            title="Editar cor e detalhe diretamente em cada item (sem expandir)"
+          >
+            {showCorDetalhe ? '✓ Cor/Detalhe' : '+ Cor/Detalhe'}
+          </button>
+        )}
       </div>
 
       {/* ── Add item form ── */}
@@ -1019,8 +1048,73 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
       </div>
       )}
 
-      {/* ── Items table with inline grade expansion ── */}
-      {items.length > 0 ? (
+      {items.length === 0 && (
+        <div className={styles.placeholder}>Adicione o primeiro produto acima para começar.</div>
+      )}
+
+      {/* ── Por loja mode ── */}
+      {fillMode === 'loja' && items.length > 0 && (
+        <div className={styles.porLojaWrap}>
+          <div className={styles.porLojaTabs}>
+            {visitas.map((v, i) => {
+              const total = totalQtdVisita(v.id)
+              return (
+                <button
+                  key={v.id}
+                  className={`${styles.porLojaTab} ${i === lojaIdx ? styles.porLojaTabActive : ''}`}
+                  onClick={() => setLojaIdx(i)}
+                >
+                  {v.comprador_nome}
+                  {total > 0 && <span className={styles.porLojaTabTotal}>{total}</span>}
+                </button>
+              )
+            })}
+          </div>
+          <div className={styles.porLojaItemsList}>
+            {items.map(it => {
+              const v = visitas[lojaIdx]
+              if (!v) return null
+              const tams = tamanhosDeTipoGrade(it.tipo_grade)
+              const total = totalQtdLoja(it.localId, v.id)
+              return (
+                <div key={it.localId} className={`${styles.porLojaItemBlock} ${total > 0 ? styles.porLojaItemBlockFilled : ''}`}>
+                  <div className={styles.porLojaItemHeader}>
+                    <span className={styles.porLojaItemRef}>
+                      {it.ref}
+                      {(it.cor || it.detalhe) && (
+                        <span className={styles.itemRefDetail}>{[it.cor, it.detalhe].filter(Boolean).join(' · ')}</span>
+                      )}
+                    </span>
+                    <span className={styles.porLojaItemMeta}>{it.tipo_produto} · {it.tipo_grade} · {it.classe}</span>
+                    {it.valor && <span className={styles.porLojaItemValor}>R$ {it.valor}</span>}
+                    <span className={styles.porLojaItemTotalBadge}>{total > 0 ? `${total} pç` : '—'}</span>
+                  </div>
+                  <div className={styles.porLojaGradeRow} data-grade-row="true">
+                    {tams.map(tam => (
+                      <div key={tam} className={styles.porLojaGradeTam}>
+                        <div className={styles.porLojaGradeTamLabel}>{tam}</div>
+                        <input
+                          type="number"
+                          min="0"
+                          className={styles.porLojaGradeInput}
+                          value={getQtd(it.localId, v.id, tam)}
+                          onChange={e => setQtd(it.localId, v.id, tam, e.target.value)}
+                          onKeyDown={handleEnterOnInputPorLoja}
+                          placeholder="0"
+                          data-por-loja-input="1"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Por referência mode: Items table with inline grade expansion ── */}
+      {fillMode === 'ref' && items.length > 0 && (
         <table className={styles.itemsTable}>
           <thead>
             <tr>
@@ -1376,8 +1470,6 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
             })}
           </tbody>
         </table>
-      ) : (
-        <div className={styles.placeholder}>Adicione o primeiro produto acima para começar.</div>
       )}
 
       {error && <div className={styles.errorBanner}>{error}</div>}
