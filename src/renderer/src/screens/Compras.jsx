@@ -1911,6 +1911,8 @@ const PDF_STYLES = `
   .pt .cic { width:24px; font-size:8px; }
   .pt .crl { width:46px; }
   .pt .cref { text-align:left; width:100px; font-size:9px; white-space:normal; overflow:visible; }
+  .pt tbody tr { page-break-inside: avoid; break-inside: avoid; }
+  .pt tfoot { page-break-inside: avoid; break-inside: avoid; }
   .pt tfoot td { font-weight:bold; background:#f0f0f0; border-top:1.5px solid #777; }
   .pt .tl { text-align:right; font-size:9px; }
   .pt .tv { text-align:right; font-size:10px; }
@@ -1942,7 +1944,6 @@ const fmtEntrega = iso => {
 }
 const fmtV = n => (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-const N_TPAIRS = 10
 
 function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
   if (!visPedidos.length) return ''
@@ -1961,24 +1962,31 @@ function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
   const totalPecas = visPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0), 0)
   const temDesconto = visPedidos.some(p => (p.desconto_pct ?? 0) > 0)
 
+  // ── active sizes: union of sizes that have qty > 0 in any product ────────
+  const sizeOrder = []
+  const sizeSet   = new Set()
+  const sizeHasQty = new Set()
+  for (const p of visPedidos) {
+    const tipo_grade = p.tipo_grade ?? p.segmentacao?.tipo_grade ?? 'AD'
+    const gradeTams  = GRADE_DEFINITIONS[tipo_grade]?.tamanhos ?? []
+    const qtdMap     = Object.fromEntries((p.itens ?? []).map(i => [i.tamanho, i.qtd]))
+    for (const tam of gradeTams) {
+      if (!sizeSet.has(tam)) { sizeSet.add(tam); sizeOrder.push(tam) }
+      if ((qtdMap[tam] ?? 0) > 0) sizeHasQty.add(tam)
+    }
+  }
+  const activeSizes = sizeOrder.filter(t => sizeHasQty.has(t))
+
   // ── product rows ─────────────────────────────────────────────────────────
   const prodRows = visPedidos.map(p => {
     const itens = p.itens ?? []
     const tipo_produto = p.tipo_produto ?? p.segmentacao?.tipo_produto ?? ''
-    const tipo_grade   = p.tipo_grade   ?? p.segmentacao?.tipo_grade   ?? 'AD'
-    const gradeTams    = GRADE_DEFINITIONS[tipo_grade]?.tamanhos ?? []
     const qtdMap       = Object.fromEntries(itens.map(i => [i.tamanho, i.qtd]))
 
-    const cells = []
-    for (let i = 0; i < N_TPAIRS; i++) {
-      if (i < gradeTams.length) {
-        const tam = gradeTams[i]
-        const q = qtdMap[tam] ?? 0
-        cells.push(`<td class="ct">${esc(tam)}</td><td class="${q === 0 ? 'cq cq0' : 'cq'}">${q}</td>`)
-      } else {
-        cells.push(`<td class="cd">—</td><td class="cd">—</td>`)
-      }
-    }
+    const cells = activeSizes.map(tam => {
+      const q = qtdMap[tam] ?? 0
+      return `<td class="ct">${esc(tam)}</td><td class="${q === 0 ? 'cq cq0' : 'cq'}">${q || '—'}</td>`
+    })
 
     const totalQ = itens.reduce((s, i) => s + i.qtd, 0)
     const totalV = totalQ * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100)
@@ -1998,8 +2006,8 @@ function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
     </tr>`
   }).join('')
 
-  // ── table header (T/Q pairs) ──────────────────────────────────────────────
-  const headerPairs = Array.from({ length: N_TPAIRS }, () => '<th>T</th><th>Q</th>').join('')
+  // ── table header (only active sizes) ─────────────────────────────────────
+  const headerPairs = activeSizes.map(() => '<th>T</th><th>Q</th>').join('')
 
   // ── store info (left) ────────────────────────────────────────────────────
   const storeHtml = `
@@ -2135,6 +2143,7 @@ async function salvarPDFVisita(sessao, vis, visPedidos, sessaoOverride = {}) {
         image: { type: 'jpeg', quality: 0.95 },
         html2canvas: { scale: 2, useCORS: true, logging: false },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+        pagebreak: { mode: ['avoid-all', 'css'] },
       })
       .from(container)
       .save()
