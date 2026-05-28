@@ -58,6 +58,31 @@ export const dashboard = {
       }))
   },
 
+  async pedidosColaborador(sessaoId, compradorId) {
+    const { data: sessao, error: e1 } = await supabase
+      .from('sessoes')
+      .select('id, fornecedor_nome, data_visita, fornecedor:fornecedores(nome)')
+      .eq('id', sessaoId)
+      .single()
+    if (e1) throw e1
+
+    const { data: visita, error: e2 } = await supabase
+      .from('visitas')
+      .select('id, comprador_nome, comprador_cnpj')
+      .eq('sessao_id', sessaoId)
+      .eq('comprador_id', compradorId)
+      .single()
+    if (e2) throw e2
+
+    const { data: pedidos, error: e3 } = await supabase
+      .from('pedidos')
+      .select('id, referencia, tipo_produto, tipo_grade, classe, preco_venda, cor, detalhe, pedido_itens(tamanho, qtd)')
+      .eq('visita_id', visita.id)
+    if (e3) throw e3
+
+    return { sessao, visita, pedidos: pedidos ?? [] }
+  },
+
   async data(colecao_id) {
     // Projecoes with segmentacao details
     const { data: proj, error: e1 } = await supabase
