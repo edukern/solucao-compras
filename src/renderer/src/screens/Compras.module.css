@@ -1910,6 +1910,70 @@
   background: rgba(var(--accent-rgb), 0.06);
 }
 
+/* ── Session summary dashboard (Phase 2, por-ref mode) ──────────────────── */
+.resumoSessao {
+  margin-top: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.resumoSessaoTitle {
+  padding: 0.5rem 0.85rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--border);
+}
+
+.resumoSessaoGrid {
+  display: flex;
+  flex-direction: column;
+}
+
+.resumoRow {
+  display: grid;
+  grid-template-columns: 1fr 100px 140px;
+  align-items: center;
+  padding: 0.45rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+  transition: background 0.12s;
+}
+.resumoRow:last-child { border-bottom: none; }
+.resumoRow:not(.resumoHeader):not(.resumoTotalRow):hover { background: var(--bg-hover); }
+
+.resumoHeader {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--border);
+}
+
+.resumoRowEmpty { opacity: 0.45; }
+
+.resumoTotalRow {
+  background: rgba(var(--accent-rgb), 0.06);
+  font-weight: 700;
+  font-size: 0.88rem;
+  border-top: 2px solid var(--border);
+}
+
+.resumoLojaCell { color: var(--text-primary); }
+
+.resumoNumCell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.resumoTotalRow .resumoNumCell { color: var(--accent-light); }
+
 /* ── Per-store frete/cond_pag config (Phase 3) ──────────────────────────── */
 .lojaConfigWrap {
   border: 1px solid var(--border);
