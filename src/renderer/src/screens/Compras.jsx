@@ -1124,6 +1124,20 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                     <span className={styles.porLojaItemMeta}>{it.tipo_produto} · {it.tipo_grade} · {it.classe}</span>
                     {it.valor && <span className={styles.porLojaItemValor}>R$ {it.valor}</span>}
                     <span className={styles.porLojaItemTotalBadge}>{total > 0 ? `${total} pç` : '—'}</span>
+                    {total > 0 && (
+                      <button
+                        className={styles.btnRemoveItemLoja}
+                        title={`Remover ${it.ref} do pedido de ${v.comprador_nome}`}
+                        onClick={() => setQtds(prev => {
+                          const next = { ...prev }
+                          if (next[it.localId]) {
+                            next[it.localId] = { ...next[it.localId] }
+                            delete next[it.localId][v.id]
+                          }
+                          return next
+                        })}
+                      >✕</button>
+                    )}
                   </div>
                   <div className={styles.porLojaGradeRow} data-grade-row="true">
                     {hideFirst ? (

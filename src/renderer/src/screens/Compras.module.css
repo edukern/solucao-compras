@@ -1837,6 +1837,26 @@
   white-space: nowrap;
 }
 
+.btnRemoveItemLoja {
+  margin-left: auto;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.btnRemoveItemLoja:hover {
+  border-color: #ef4444;
+  background: rgba(239,68,68,0.1);
+  color: #ef4444;
+  opacity: 1;
+}
+
 .porLojaGradeRow {
   display: flex;
   align-items: center;
