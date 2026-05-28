@@ -1107,15 +1107,10 @@
 }
 
 .itemRefDetail {
-  display: block;
-  font-size: 0.68rem;
+  margin-left: 0.4rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
   font-weight: 400;
-  margin-top: 1px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 140px;
 }
 
 .itemMarkupCell {
