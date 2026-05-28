@@ -1036,6 +1036,34 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.btnRemoveVisita {
+  flex-shrink: 0;
+  padding: 0;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.12s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gradeInlineRow:hover .btnRemoveVisita { opacity: 0.5; }
+.btnRemoveVisita:hover {
+  background: rgba(239,68,68,0.15);
+  color: #ef4444;
+  opacity: 1 !important;
 }
 
 .gradeInlineSize {
@@ -1718,6 +1746,26 @@
   transition: all 0.15s;
 }
 .porLojaTab:hover { border-color: var(--accent); color: var(--text-primary); }
+.porLojaTabRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  line-height: 1;
+  color: var(--text-muted);
+  opacity: 0.5;
+  transition: all 0.12s;
+  margin-left: 2px;
+}
+.porLojaTab:hover .porLojaTabRemove { opacity: 1; }
+.porLojaTabRemove:hover {
+  background: rgba(239,68,68,0.15);
+  color: #ef4444;
+  opacity: 1;
+}
 .porLojaTabActive {
   border-color: var(--accent);
   background: rgba(var(--accent-rgb), 0.12);

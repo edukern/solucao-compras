@@ -551,7 +551,7 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
 
 // ─── Phase 2: Tabela de itens ─────────────────────────────────────────────
 
-function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, segs = [],
+function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, onRemoveVisita, segs = [],
   initialItems = [], initialQtds = {}, initialActiveId = null, initialLojaIdx = 0 }) {
   const [items,         setItems]         = useState(initialItems)
   const [activeId,      setActiveId]      = useState(initialActiveId)
@@ -778,6 +778,32 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
     if (curIdx >= 0 && curIdx < allInputs.length - 1) {
       allInputs[curIdx + 1].focus()
     }
+  }
+
+  async function removeVisita(visId, visNome) {
+    const hasData = items.some(it => totalQtdLoja(it.localId, visId) > 0)
+    if (hasData) {
+      const confirmed = window.confirm(
+        `A loja "${visNome}" tem peças lançadas nesta sessão.\n\nDeseja mesmo removê-la? Os dados lançados para ela serão perdidos.`
+      )
+      if (!confirmed) return
+    }
+    // Clear local qtds for this visita
+    setQtds(prev => {
+      const next = {}
+      for (const [lid, lojas] of Object.entries(prev)) {
+        const { [visId]: _removed, ...rest } = lojas
+        next[lid] = rest
+      }
+      return next
+    })
+    // Adjust lojaIdx so it stays in range
+    const newLen = visitas.length - 1
+    if (lojaIdx >= newLen) setLojaIdx(Math.max(0, newLen - 1))
+    // Delete from Supabase (best-effort)
+    try { await pedidosService.deleteVisita(visId) } catch {}
+    // Notify parent to trim its state
+    onRemoveVisita?.(visId)
   }
 
   function findSegId(item) {
@@ -1066,6 +1092,13 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                 >
                   {v.comprador_nome}
                   {total > 0 && <span className={styles.porLojaTabTotal}>{total}</span>}
+                  {visitas.length > 1 && (
+                    <span
+                      className={styles.porLojaTabRemove}
+                      onClick={e => { e.stopPropagation(); removeVisita(v.id, v.comprador_nome) }}
+                      title={`Remover ${v.comprador_nome} da sessão`}
+                    >×</span>
+                  )}
                 </button>
               )
             })}
@@ -1403,7 +1436,16 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                                 className={`${styles.gradeInlineRow} ${i === lojaIdx ? styles.gradeInlineRowActive : ''}`}
                                 onClick={() => setLojaIdx(i)}
                               >
-                                <div className={styles.gradeInlineLoja}>{v.comprador_nome}</div>
+                                <div className={styles.gradeInlineLoja}>
+                                  {v.comprador_nome}
+                                  {visitas.length > 1 && (
+                                    <button
+                                      className={styles.btnRemoveVisita}
+                                      onClick={e => { e.stopPropagation(); removeVisita(v.id, v.comprador_nome) }}
+                                      title={`Remover ${v.comprador_nome} da sessão`}
+                                    >×</button>
+                                  )}
+                                </div>
                                 <div className={styles.gradeInlineTotalCell}>
                                   <input
                                     type="number"
@@ -2482,6 +2524,7 @@ export default function Compras() {
           colEstacao={active.estacao}
           segs={segs}
           onFechar={handleFechar}
+          onRemoveVisita={(visId) => setVisitas(prev => prev.filter(v => v.id !== visId))}
           initialItems={recoveryInitial?.items ?? []}
           initialQtds={recoveryInitial?.qtds ?? {}}
           initialActiveId={recoveryInitial?.activeId ?? null}

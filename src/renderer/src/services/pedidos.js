@@ -102,5 +102,10 @@ export const pedidos = {
   async updateVisita(id, fields) {
     const { error } = await supabase.from('visitas').update(fields).eq('id', id)
     if (error) throw error
+  },
+
+  async deleteVisita(id) {
+    const { error } = await supabase.from('visitas').delete().eq('id', id)
+    if (error) throw error
   }
 }
