@@ -2189,112 +2189,119 @@ async function salvarPDFVisita(sessao, vis, visPedidos, sessaoOverride = {}) {
     doc.line(ML, headerBottom, ML + PW, headerBottom)
     const tableStart = headerBottom + 3
 
-    // ── TABLE ─────────────────────────────────────────────────────────────
-    // Calcular tamanhos ativos (mesma lógica de gerarHTMLOrdem)
-    const sizeOrder = [], sizeSet = new Set(), sizeHasQty = new Set()
-    for (const p of visPedidos) {
-      const tipo_grade = p.tipo_grade ?? p.segmentacao?.tipo_grade ?? 'AD'
-      const gradeTams  = GRADE_DEFINITIONS[tipo_grade]?.tamanhos ?? []
-      const qtdMap     = Object.fromEntries((p.itens ?? []).map(i => [i.tamanho, i.qtd]))
-      for (const tam of gradeTams) {
-        if (!sizeSet.has(tam)) { sizeSet.add(tam); sizeOrder.push(tam) }
-        if ((qtdMap[tam] ?? 0) > 0) sizeHasQty.add(tam)
-      }
-    }
-    const activeSizes = sizeOrder.filter(t => sizeHasQty.has(t))
-
-    // Larguras das colunas fixas (mm)
-    const W_REF  = 24, W_PROD = 22, W_QT = 8 /* T col */, W_QQ = 9 /* Q col */
+    // ── TABLE — agrupado por tipo_grade, uma coluna por tamanho ──────────
+    const W_REF  = 24, W_PROD = 22, W_SZ = 11
     const W_QTOT = 10, W_PREC = 16, W_TOT = 18, W_RLIQ = 16, W_ICMS = 10
     const fixedCols = W_REF + W_PROD + W_QTOT + W_PREC + W_TOT + W_RLIQ + (temICMS ? W_ICMS : 0)
     const availForSizes = PW - fixedCols
-    // Se as colunas T+Q não cabem, comprimir proporcionalmente
-    const idealTQ = activeSizes.length * (W_QT + W_QQ)
-    const scale   = idealTQ > availForSizes ? availForSizes / idealTQ : 1
-    const wT = W_QT * scale, wQ = W_QQ * scale
 
-    // Cabeçalho da tabela
-    const head = [[
-      'Referência', 'Produto',
-      ...activeSizes.flatMap(t => [t, 'Q']),
-      'Qtd', 'R$ un.', 'Total', 'R$ Liq',
-      ...(temICMS ? ['ICMS%'] : []),
-    ]]
+    // Agrupar pedidos por tipo_grade preservando a ordem de entrada
+    const gradeOrder = []
+    const gradeGroups = {}
+    for (const p of visPedidos) {
+      const tg = p.tipo_grade ?? p.segmentacao?.tipo_grade ?? 'AD'
+      if (!gradeGroups[tg]) { gradeGroups[tg] = []; gradeOrder.push(tg) }
+      gradeGroups[tg].push(p)
+    }
 
-    // Linhas da tabela
-    const body = visPedidos.map(p => {
-      const itens  = p.itens ?? []
-      const qtdMap = Object.fromEntries(itens.map(i => [i.tamanho, i.qtd]))
-      const totalQ = itens.reduce((s, i) => s + i.qtd, 0)
-      const totalV = totalQ * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100)
-      const tipo_produto = p.tipo_produto ?? p.segmentacao?.tipo_produto ?? ''
-      const classe       = p.classe ?? p.segmentacao?.classe ?? ''
-      const refLabel  = [p.referencia, p.cor, p.detalhe].filter(Boolean).join(' ')
-      const prodLabel = [tipo_produto, classe].filter(Boolean).join(' ')
-      return [
-        refLabel,
-        prodLabel,
-        ...activeSizes.flatMap(t => [t, (qtdMap[t] ?? 0) || '—']),
-        totalQ || '—',
-        fmtV(p.valor_unitario ?? 0),
-        totalV > 0 ? fmtV(totalV) : '—',
-        fmtV(p.valor_unitario ?? 0),
-        ...(temICMS ? [String(sessaoFinal.icms_credito_pct)] : []),
-      ]
-    })
-
-    // Totais
-    const totalBruto   = visPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0) * (p.valor_unitario ?? 0), 0)
-    const totalLiquido = visPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0) * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100), 0)
-    const totalPecas   = visPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0), 0)
-    const nCols = 2 + activeSizes.length * 2 + 4 + (temICMS ? 1 : 0)
-    body.push(
-      Array(nCols).fill('').map((_, i) => i === 0 ? 'Total Bruto' : i === nCols - (temICMS ? 2 : 1) - 1 ? fmtV(totalBruto) : ''),
-      Array(nCols).fill('').map((_, i) => i === 0 ? 'Total Líquido' : i === nCols - (temICMS ? 2 : 1) - 1 ? fmtV(totalLiquido) : i === nCols - 1 ? `${totalPecas} pç` : ''),
-    )
-
-    // Larguras das colunas para autoTable
-    const colWidths = [
-      W_REF, W_PROD,
-      ...activeSizes.flatMap(() => [wT, wQ]),
-      W_QTOT, W_PREC, W_TOT, W_RLIQ,
-      ...(temICMS ? [W_ICMS] : []),
-    ]
-
-    const footerStartRow = body.length - 2
-
-    autoTable(doc, {
-      startY: tableStart,
-      margin: { left: ML, right: MR },
-      head,
-      body,
-      theme: 'grid',
-      styles: { fontSize: 7.5, cellPadding: 1, overflow: 'hidden', halign: 'center' },
-      headStyles: { fillColor: [220, 220, 220], textColor: 0, fontStyle: 'bold', fontSize: 7 },
-      columnStyles: {
-        0: { halign: 'left', cellWidth: W_REF },
-        1: { halign: 'left', cellWidth: W_PROD },
-        ...Object.fromEntries(activeSizes.flatMap((_, i) => [
-          [2 + i * 2,     { cellWidth: wT, fillColor: [245, 245, 245], textColor: [100,100,100] }],
-          [2 + i * 2 + 1, { cellWidth: wQ }],
-        ])),
-        [2 + activeSizes.length * 2]:     { cellWidth: W_QTOT, fontStyle: 'bold' },
-        [2 + activeSizes.length * 2 + 1]: { cellWidth: W_PREC, halign: 'right' },
-        [2 + activeSizes.length * 2 + 2]: { cellWidth: W_TOT,  halign: 'right', fontStyle: 'bold' },
-        [2 + activeSizes.length * 2 + 3]: { cellWidth: W_RLIQ, halign: 'right' },
-        ...(temICMS ? { [2 + activeSizes.length * 2 + 4]: { cellWidth: W_ICMS } } : {}),
-      },
-      didParseCell(data) {
-        // Estilo das linhas de rodapé (Total Bruto / Total Líquido)
-        if (data.row.index >= footerStartRow) {
-          data.cell.styles.fillColor = [240, 240, 240]
-          data.cell.styles.fontStyle = 'bold'
-          if (data.row.index === footerStartRow + 1 && data.column.index === 2 + activeSizes.length * 2 + 2) {
-            data.cell.styles.fontSize = 9
-          }
+    function renderGrupo(grupoPedidos, startY) {
+      // Tamanhos ativos só deste grupo
+      const sizeOrder = [], sizeSet = new Set(), sizeHasQty = new Set()
+      for (const p of grupoPedidos) {
+        const tg = p.tipo_grade ?? p.segmentacao?.tipo_grade ?? 'AD'
+        for (const tam of GRADE_DEFINITIONS[tg]?.tamanhos ?? []) {
+          if (!sizeSet.has(tam)) { sizeSet.add(tam); sizeOrder.push(tam) }
+          const qtdMap = Object.fromEntries((p.itens ?? []).map(i => [i.tamanho, i.qtd]))
+          if ((qtdMap[tam] ?? 0) > 0) sizeHasQty.add(tam)
         }
-      },
-    })
+      }
+      const activeSizes = sizeOrder.filter(t => sizeHasQty.has(t))
+      // Uma coluna por tamanho; comprimir se não couber
+      const idealSz = activeSizes.length * W_SZ
+      const wSZ = idealSz > availForSizes ? availForSizes / activeSizes.length : W_SZ
+
+      // Cabeçalho: tamanho como nome da coluna
+      const head = [[
+        'Referência', 'Produto',
+        ...activeSizes,
+        'Qtd', 'R$ un.', 'Total', 'R$ Liq',
+        ...(temICMS ? ['ICMS%'] : []),
+      ]]
+
+      const body = grupoPedidos.map(p => {
+        const itens  = p.itens ?? []
+        const qtdMap = Object.fromEntries(itens.map(i => [i.tamanho, i.qtd]))
+        const totalQ = itens.reduce((s, i) => s + i.qtd, 0)
+        const totalV = totalQ * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100)
+        const tipo_produto = p.tipo_produto ?? p.segmentacao?.tipo_produto ?? ''
+        const classe       = p.classe ?? p.segmentacao?.classe ?? ''
+        return [
+          [p.referencia, p.cor, p.detalhe].filter(Boolean).join(' '),
+          [tipo_produto, classe].filter(Boolean).join(' '),
+          ...activeSizes.map(t => (qtdMap[t] ?? 0) || '—'),
+          totalQ || '—',
+          fmtV(p.valor_unitario ?? 0),
+          totalV > 0 ? fmtV(totalV) : '—',
+          fmtV(p.valor_unitario ?? 0),
+          ...(temICMS ? [String(sessaoFinal.icms_credito_pct)] : []),
+        ]
+      })
+
+      const totalBruto   = grupoPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0) * (p.valor_unitario ?? 0), 0)
+      const totalLiquido = grupoPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0) * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100), 0)
+      const totalPecas   = grupoPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0), 0)
+      const nCols = 2 + activeSizes.length + 4 + (temICMS ? 1 : 0)
+      const iTotal = 2 + activeSizes.length      // índice da col Qtd
+      body.push(
+        Array(nCols).fill('').map((_, i) => i === 0 ? 'Total Bruto'   : i === iTotal + 2 ? fmtV(totalBruto)   : ''),
+        Array(nCols).fill('').map((_, i) => i === 0 ? 'Total Líquido' : i === iTotal + 2 ? fmtV(totalLiquido) : i === nCols - 1 ? `${totalPecas} pç` : ''),
+      )
+      const footerStartRow = body.length - 2
+
+      autoTable(doc, {
+        startY,
+        margin: { left: ML, right: MR },
+        head,
+        body,
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 1.5, overflow: 'hidden', halign: 'center' },
+        headStyles: { fillColor: [220, 220, 220], textColor: 0, fontStyle: 'bold', fontSize: 7.5 },
+        columnStyles: {
+          0: { halign: 'left', cellWidth: W_REF },
+          1: { halign: 'left', cellWidth: W_PROD },
+          ...Object.fromEntries(activeSizes.map((_, i) => [
+            2 + i, { cellWidth: wSZ, fontStyle: 'bold', fontSize: 9 },
+          ])),
+          [iTotal]:     { cellWidth: W_QTOT, fontStyle: 'bold' },
+          [iTotal + 1]: { cellWidth: W_PREC, halign: 'right' },
+          [iTotal + 2]: { cellWidth: W_TOT,  halign: 'right', fontStyle: 'bold' },
+          [iTotal + 3]: { cellWidth: W_RLIQ, halign: 'right' },
+          ...(temICMS ? { [iTotal + 4]: { cellWidth: W_ICMS } } : {}),
+        },
+        didParseCell(data) {
+          if (data.row.index >= footerStartRow) {
+            data.cell.styles.fillColor = [240, 240, 240]
+            data.cell.styles.fontStyle = 'bold'
+            if (data.row.index === footerStartRow + 1 && data.column.index === iTotal + 2) {
+              data.cell.styles.fontSize = 9
+            }
+          }
+        },
+      })
+    }
+
+    const multiGrade = gradeOrder.length > 1
+    let nextY = tableStart
+    for (const tg of gradeOrder) {
+      if (multiGrade) {
+        doc.setFontSize(7).setFont('helvetica', 'bold').setTextColor(80, 80, 80)
+        doc.text(`Grade: ${tg}`, ML, nextY + 3)
+        doc.setTextColor(0)
+        nextY += 5
+      }
+      renderGrupo(gradeGroups[tg], nextY)
+      nextY = doc.lastAutoTable.finalY + (multiGrade ? 4 : 0)
+    }
 
     // Obs
     if (sessaoFinal.obs) {
@@ -2435,23 +2442,26 @@ function FecharSessao({ sessao, visitas, segs, pedidos: pedidosProp, onNovaSessa
 
   async function handleSalvarTodos() {
     setErroPDF(null)
-    for (const vis of visitasComPedidos) {
-      if (salvos.has(vis.id)) continue
-      setSalvandoPDF(vis.id)
+    const pendentes = visitasComPedidos.filter(v => !salvos.has(v.id))
+    setSalvandoPDF('all')
+    const results = await Promise.all(pendentes.map(async vis => {
+      const visPedidos = pedidos.filter(p => p.visita_id === vis.id)
+      const ovr = buildVisitaOverride(vis.id)
       try {
-        const visPedidos = pedidos.filter(p => p.visita_id === vis.id)
-        const ovr = buildVisitaOverride(vis.id)
         const result = await salvarPDFVisita(sessao, vis, visPedidos, ovr)
         if (result?.ok) {
           if (Object.keys(ovr).length) pedidosService.updateVisita(vis.id, ovr).catch(() => {})
-          setSalvos(prev => new Set([...prev, vis.id]))
+          return { visId: vis.id, ok: true }
         }
+        return { visId: vis.id, ok: false, nome: vis.comprador_nome }
       } catch {
-        setErroPDF(`Erro ao salvar PDF de ${vis.comprador_nome}.`)
-        setSalvandoPDF(null)
-        return
+        return { visId: vis.id, ok: false, nome: vis.comprador_nome }
       }
-    }
+    }))
+    const salvosNovos = results.filter(r => r.ok).map(r => r.visId)
+    if (salvosNovos.length) setSalvos(prev => new Set([...prev, ...salvosNovos]))
+    const erros = results.filter(r => !r.ok).map(r => r.nome)
+    if (erros.length) setErroPDF(`Erro ao salvar PDF de: ${erros.join(', ')}`)
     setSalvandoPDF(null)
   }
 
@@ -2614,6 +2624,26 @@ function FecharSessao({ sessao, visitas, segs, pedidos: pedidosProp, onNovaSessa
         )}
       </div>
 
+      <div className={styles.phaseActions} style={{ marginBottom: '1rem' }}>
+        <button className={styles.btnSecondary} onClick={onNovaSessao}>← Nova sessão</button>
+        {podeSalvarPDF && (
+          <button
+            className={styles.btnPdf}
+            onClick={handleSalvarTodos}
+            disabled={salvandoPDF !== null || salvos.size === visitasComPedidos.length}
+          >
+            {salvos.size === visitasComPedidos.length
+              ? '✓ Todos os PDFs salvos'
+              : salvandoPDF !== null
+                ? 'Salvando…'
+                : `↓ Salvar todos os PDFs (${visitasComPedidos.length - salvos.size})`}
+          </button>
+        )}
+        <button className={styles.btnPrimary} onClick={handleGerarPDFs}>
+          Imprimir todos ({visitasComPedidos.length})
+        </button>
+      </div>
+
       <table className={styles.resumoTable}>
         <thead>
           <tr>
@@ -2663,25 +2693,6 @@ function FecharSessao({ sessao, visitas, segs, pedidos: pedidosProp, onNovaSessa
         </tfoot>
       </table>
 
-      <div className={styles.phaseActions}>
-        <button className={styles.btnSecondary} onClick={onNovaSessao}>← Nova sessão</button>
-        {podeSalvarPDF && (
-          <button
-            className={styles.btnPdf}
-            onClick={handleSalvarTodos}
-            disabled={salvandoPDF !== null || salvos.size === visitasComPedidos.length}
-          >
-            {salvos.size === visitasComPedidos.length
-              ? '✓ Todos os PDFs salvos'
-              : salvandoPDF !== null
-                ? 'Salvando…'
-                : `↓ Salvar todos os PDFs (${visitasComPedidos.length - salvos.size})`}
-          </button>
-        )}
-        <button className={styles.btnPrimary} onClick={handleGerarPDFs}>
-          Imprimir todos ({visitasComPedidos.length})
-        </button>
-      </div>
     </div>
   )
 }
