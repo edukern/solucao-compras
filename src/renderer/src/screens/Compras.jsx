@@ -4,6 +4,7 @@ import { tamanhosDeTipoGrade, GRADE_DEFINITIONS } from '../constants/grades'
 import { TIPOS_PRODUTO } from '../constants/tipoProduto'
 import ConfirmModal from '../components/ConfirmModal'
 import styles from './Compras.module.css'
+import { supabase } from '../lib/supabase'
 import { sessoes as sessoesService } from '../services/sessoes'
 import { pedidos as pedidosService } from '../services/pedidos'
 import { segmentacoes as segmentacoesService } from '../services/segmentacoes'
@@ -580,8 +581,30 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   const [editForm,       setEditForm]       = useState(null)
   const [gradeExtremes,  setGradeExtremes]  = useState({})
   const [showItemFields, setShowItemFields] = useState({})
+  const [otherDevices,   setOtherDevices]   = useState(0)
 
   const activeItem = items.find(it => it.localId === activeId) ?? null
+
+  // ── Supabase Realtime Presence: detecta outros dispositivos na mesma sessão ──
+  useEffect(() => {
+    if (!sessao?.id) return
+    let deviceId = localStorage.getItem('SC_DEVICE_ID')
+    if (!deviceId) {
+      deviceId = crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)
+      localStorage.setItem('SC_DEVICE_ID', deviceId)
+    }
+    const channel = supabase.channel(`session-presence-${sessao.id}`, {
+      config: { presence: { key: deviceId } }
+    })
+    channel.on('presence', { event: 'sync' }, () => {
+      const count = Object.keys(channel.presenceState()).length
+      setOtherDevices(Math.max(0, count - 1))
+    })
+    channel.subscribe(async status => {
+      if (status === 'SUBSCRIBED') await channel.track({ at: new Date().toISOString() })
+    })
+    return () => { supabase.removeChannel(channel) }
+  }, [sessao?.id])
 
   // Auto-save para recuperação em caso de crash
   useEffect(() => {
@@ -927,6 +950,13 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
 
   return (
     <div className={styles.phase}>
+      {otherDevices > 0 && (
+        <div className={styles.multiDeviceWarn}>
+          ⚠️ Esta sessão está aberta em {otherDevices} outro{otherDevices > 1 ? 's' : ''} dispositivo{otherDevices > 1 ? 's' : ''}.
+          Há risco de sobrescrita — evite preencher simultaneamente.
+        </div>
+      )}
+
       <div className={styles.visitaBanner}>
         <strong>{sessao.fornecedor?.nome || sessao.fornecedor_nome}</strong>
         <span className={styles.dot}>·</span>
@@ -2200,7 +2230,7 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
 
 // ─── Historico ────────────────────────────────────────────────────────────
 
-function Historico({ colId }) {
+function Historico({ colId, onNovaSessao, onVisualizar, refreshKey = 0 }) {
   const [sessoesList,      setSessoesList]      = useState([])
   const [loading,          setLoading]          = useState(true)
   const [expandedSessao,   setExpandedSessao]   = useState(null)
@@ -2246,7 +2276,7 @@ function Historico({ colId }) {
       })
     })
     return () => { cancelled = true }
-  }, [colId])
+  }, [colId, refreshKey])
 
   async function handleExpandVisita(visitaId) {
     if (expandedVisita === visitaId) { setExpandedVisita(null); return }
@@ -2326,11 +2356,17 @@ function Historico({ colId }) {
     }
   }
 
-  if (loading) return <p className={styles.muted}>Carregando histórico…</p>
-  if (sessoesList.length === 0) return <p className={styles.muted}>Nenhuma sessão registrada nesta coleção.</p>
-
   return (
     <div className={styles.historico}>
+      {onNovaSessao && (
+        <div className={styles.sessoesHomeHeader}>
+          <h2 className={styles.sessoesHomeTitle}>Sessões de compra</h2>
+          <button className={styles.btnNovaSessao} onClick={onNovaSessao}>
+            + Nova sessão
+          </button>
+        </div>
+      )}
+
       {confirmCancelar && (
         <ConfirmModal
           message="Cancelar este pedido? Essa ação não pode ser desfeita."
@@ -2349,6 +2385,12 @@ function Historico({ colId }) {
           onCancel={() => setConfirmDeleteSessao(null)}
         />
       )}
+
+      {loading && <p className={styles.muted}>Carregando histórico…</p>}
+      {sessoesList.length === 0 && !loading && (
+        <p className={styles.muted}>Nenhuma sessão registrada nesta coleção.</p>
+      )}
+
       {sessoesList.map(ses => {
         const fornNome = ses.fornecedor?.nome || ses.fornecedor_nome || '—'
         const stats = statsMap[ses.id]
@@ -2378,31 +2420,43 @@ function Historico({ colId }) {
               )}
               <span className={styles.histChevron}>{expandedSessao === ses.id ? '▲' : '▼'}</span>
             </button>
-            <button
-              className={styles.btnReimprimir}
-              onClick={() => handleReimprimir(ses)}
-              disabled={reimprimindo === ses.id}
-              title="Reimprimir PDFs desta sessão"
-            >
-              {reimprimindo === ses.id ? '…' : '🖨'}
-            </button>
-            <button
-              className={styles.btnReimprimir}
-              onClick={() => handleStartEditSessao(ses)}
-              disabled={editSessaoId !== null}
-              title="Editar dados da sessão"
-            >
-              ✎
-            </button>
-            <button
-              className={styles.btnReimprimir}
-              style={{ color: 'var(--red)' }}
-              onClick={() => setConfirmDeleteSessao(ses.id)}
-              disabled={editSessaoId !== null}
-              title="Excluir sessão"
-            >
-              🗑
-            </button>
+
+            <div className={styles.histSessaoActions}>
+              {onVisualizar && (
+                <button
+                  className={styles.btnHistAction}
+                  onClick={() => onVisualizar(ses.id)}
+                  title="Ver pedidos desta sessão (somente leitura)"
+                >
+                  Visualizar
+                </button>
+              )}
+              <button
+                className={`${styles.btnHistAction} ${styles.btnHistEdit}`}
+                onClick={() => handleStartEditSessao(ses)}
+                disabled={editSessaoId !== null}
+                title="Editar dados da sessão"
+              >
+                Editar
+              </button>
+              <button
+                className={styles.btnReimprimir}
+                onClick={() => handleReimprimir(ses)}
+                disabled={reimprimindo === ses.id}
+                title="Reimprimir PDFs desta sessão"
+              >
+                {reimprimindo === ses.id ? '…' : '🖨'}
+              </button>
+              <button
+                className={styles.btnReimprimir}
+                style={{ color: 'var(--red)' }}
+                onClick={() => setConfirmDeleteSessao(ses.id)}
+                disabled={editSessaoId !== null}
+                title="Excluir sessão"
+              >
+                🗑
+              </button>
+            </div>
           </div>
 
           {editSessaoId === ses.id && (
@@ -2533,6 +2587,163 @@ function Historico({ colId }) {
   )
 }
 
+// ─── Phase 4: View-only ────────────────────────────────────────────────────
+
+function VisualizarSessao({ sessaoId, onBack }) {
+  const [sessao,     setSessao]     = useState(null)
+  const [visitaData, setVisitaData] = useState([]) // [{id, comprador_nome, pedidos:[...]}]
+  const [loading,    setLoading]    = useState(true)
+  const [lastFetch,  setLastFetch]  = useState(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error,      setError]      = useState(null)
+
+  async function fetchData(isRefresh = false) {
+    if (isRefresh) setRefreshing(true)
+    try {
+      const [ses, vis] = await Promise.all([
+        sessoesService.byId(sessaoId),
+        pedidosService.itensPorFornecedor(sessaoId),
+      ])
+      setSessao(ses)
+      setVisitaData(vis ?? [])
+      setLastFetch(new Date())
+      setError(null)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchData()
+    const interval = setInterval(() => fetchData(true), 30_000)
+    return () => clearInterval(interval)
+  }, [sessaoId])
+
+  const totalGeral = visitaData.reduce((s, vis) => {
+    for (const ped of vis.pedidos ?? []) {
+      const pcs = (ped.itens ?? []).reduce((a, i) => a + (i.qtd || 0), 0)
+      s.pcs += pcs
+      s.valor += pcs * (ped.valor_unitario || 0)
+    }
+    return s
+  }, { pcs: 0, valor: 0 })
+
+  return (
+    <div className={styles.phase}>
+      {/* Header */}
+      <div className={styles.viewOnlyHeader}>
+        <button className={styles.btnBack} onClick={onBack}>← Voltar</button>
+        <div className={styles.viewOnlyRefreshArea}>
+          {lastFetch && (
+            <span className={styles.viewOnlyTimestamp}>
+              Atualizado {lastFetch.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+          )}
+          <button
+            className={styles.btnRefresh}
+            onClick={() => fetchData(true)}
+            disabled={refreshing}
+            title="Atualizar dados"
+          >
+            {refreshing ? '↻ Atualizando…' : '↻ Atualizar'}
+          </button>
+        </div>
+      </div>
+
+      {loading && <p className={styles.muted}>Carregando sessão…</p>}
+      {error && <div className={styles.errorBanner}>{error}</div>}
+
+      {sessao && (
+        <>
+          <div className={styles.visitaBanner}>
+            <strong>{sessao.fornecedor?.nome || sessao.fornecedor_nome}</strong>
+            {sessao.data_visita && <><span className={styles.dot}>·</span><span>{fmtDate(sessao.data_visita)}</span></>}
+            {sessao.vendedor && <><span className={styles.dot}>·</span><span>{sessao.vendedor}</span></>}
+            {sessao.cond_pag && <><span className={styles.dot}>·</span><span>{sessao.cond_pag}</span></>}
+            {sessao.frete    && <><span className={styles.dot}>·</span><span>Frete: {sessao.frete}</span></>}
+            <span className={styles.dot}>·</span>
+            <span className={styles.viewOnlyBadge}>Modo visualização</span>
+          </div>
+
+          <div className={styles.viewOnlyBody}>
+            {visitaData.length === 0 && !loading && (
+              <p className={styles.muted}>Nenhuma loja nesta sessão.</p>
+            )}
+            {visitaData.map(vis => {
+              const peds = vis.pedidos ?? []
+              const visPcs = peds.reduce((s, p) => s + (p.itens ?? []).reduce((a, i) => a + (i.qtd || 0), 0), 0)
+              const visValor = peds.reduce((s, p) => {
+                const pcs = (p.itens ?? []).reduce((a, i) => a + (i.qtd || 0), 0)
+                return s + pcs * (p.valor_unitario || 0)
+              }, 0)
+
+              return (
+                <div key={vis.id} className={styles.viewVisita}>
+                  <div className={styles.viewVisitaHeader}>
+                    <span className={styles.viewVisitaNome}>{vis.comprador?.nome ?? `Loja #${vis.comprador_id}`}</span>
+                    <span className={styles.viewVisitaStats}>
+                      {visPcs > 0
+                        ? `${visPcs} pç · R$ ${visValor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        : 'sem pedidos'}
+                    </span>
+                  </div>
+
+                  {peds.length === 0 ? (
+                    <p className={styles.muted} style={{ padding: '0.5rem 1rem', margin: 0 }}>Nenhum pedido registrado.</p>
+                  ) : (
+                    <div className={styles.viewPedidos}>
+                      {peds.map(ped => {
+                        const itens = ped.itens ?? []
+                        const pcs = itens.reduce((s, i) => s + (i.qtd || 0), 0)
+                        const total = pcs * (ped.valor_unitario || 0)
+                        const tamsComQtd = itens.filter(i => i.qtd > 0)
+                        return (
+                          <div key={ped.id} className={styles.viewPedidoBlock}>
+                            <div className={styles.viewPedidoTop}>
+                              <span className={styles.viewPedidoSeg}>
+                                {ped.classificacao} · {ped.tipo_produto} · {ped.classe}
+                              </span>
+                              <span className={styles.viewPedidoValor}>R$ {fmt(ped.valor_unitario)}/pç</span>
+                            </div>
+                            <div className={styles.viewPedidoGrade}>
+                              {tamsComQtd.length === 0 ? (
+                                <span className={styles.viewPedidoVazio}>— vazio</span>
+                              ) : tamsComQtd.map(i => (
+                                <span key={i.tamanho} className={styles.viewGradePill}>
+                                  <span className={styles.viewGradeTam}>{i.tamanho}</span>
+                                  <span className={styles.viewGradeQtd}>{i.qtd}</span>
+                                </span>
+                              ))}
+                            </div>
+                            <div className={styles.viewPedidoFooter}>
+                              {pcs} pç · R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+
+            {visitaData.length > 0 && totalGeral.pcs > 0 && (
+              <div className={styles.viewTotalGeral}>
+                <span>Total geral</span>
+                <span>{totalGeral.pcs} pç · R$ {totalGeral.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+
 // ─── Orchestrator ─────────────────────────────────────────────────────────
 
 export default function Compras() {
@@ -2540,11 +2751,13 @@ export default function Compras() {
   const [segs,        setSegs]        = useState([])
   const [forns,       setForns]       = useState([])
   const [compradores, setCompradores] = useState([])
-  const [phase,       setPhase]       = useState(1)
-  const [sessao,      setSessao]      = useState(null)
-  const [visitas,     setVisitas]     = useState([])
+  // phases: 0=home, 1=nova sessão, 2=registrar, 3=fechar, 4=visualizar
+  const [phase,           setPhase]           = useState(0)
+  const [sessao,          setSessao]          = useState(null)
+  const [visitas,         setVisitas]         = useState([])
   const [pedidosFechados, setPedidosFechados] = useState([])
-  const [view,            setView]            = useState('nova') // 'nova' | 'historico'
+  const [viewSessaoId,    setViewSessaoId]    = useState(null)
+  const [histRefreshKey,  setHistRefreshKey]  = useState(0)
   const [recoveryData,    setRecoveryData]    = useState(null)
   const [recoveryInitial, setRecoveryInitial] = useState(null)
   const [isOnline,        setIsOnline]        = useState(navigator.onLine)
@@ -2644,11 +2857,22 @@ export default function Compras() {
     setVisitas([])
     setPedidosFechados([])
     setRecoveryInitial(null)
-    setPhase(1)
+    setHistRefreshKey(k => k + 1)
+    setPhase(0)
+  }
+
+  function handleVisualizar(sessaoId) {
+    setViewSessaoId(sessaoId)
+    setPhase(4)
+  }
+
+  function handleBackFromView() {
+    setViewSessaoId(null)
+    setPhase(0)
   }
 
   const sessaoDisplay = sessao ?? null
-  const inSession = phase > 1
+  const inSession = phase >= 2
 
   if (!active) {
     return (
@@ -2669,10 +2893,11 @@ export default function Compras() {
         </div>
       )}
 
-      {view === 'nova' && phase === 1 && recoveryData && (
+      {/* Recovery banner — shown in Phase 0 (home) */}
+      {phase === 0 && recoveryData && (
         <div className={styles.recoveryBanner}>
           <span>
-            Sessão interrompida: <strong>{recoveryData.sessao.fornecedor_nome}</strong>
+            Sessão interrompida: <strong>{recoveryData.sessao.fornecedor?.nome || recoveryData.sessao.fornecedor_nome}</strong>
             {' '}em <strong>{fmtDate(recoveryData.sessao.data_visita)}</strong>. Deseja continuar de onde parou?
           </span>
           <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
@@ -2682,42 +2907,40 @@ export default function Compras() {
         </div>
       )}
 
-      {!inSession && (
-        <div className={styles.viewToggle}>
-          <button
-            className={`${styles.toggleBtn} ${view === 'nova' ? styles.toggleActive : ''}`}
-            onClick={() => setView('nova')}
-          >
-            Nova sessão
-          </button>
-          <button
-            className={`${styles.toggleBtn} ${view === 'historico' ? styles.toggleActive : ''}`}
-            onClick={() => setView('historico')}
-          >
-            Histórico
-          </button>
-        </div>
-      )}
-
-      {(inSession || view === 'nova') && phase === 1 && (
-        <div className={styles.stepBar}>
-          {['Iniciar sessão', 'Registrar pedidos', 'Gerar PDFs'].map((label, i) => (
-            <div key={i} className={`${styles.step} ${phase === i + 1 ? styles.stepActive : ''} ${phase > i + 1 ? styles.stepDone : ''}`}>
-              <span className={styles.stepNum}>{i + 1}</span>
-              <span>{label}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {view === 'nova' && phase === 1 && (
-        <IniciarSessao
-          forns={forns}
-          compradores={compradores}
+      {/* Phase 0: Home — sessions list */}
+      {phase === 0 && (
+        <Historico
           colId={active.id}
-          onStart={handleStart}
+          refreshKey={histRefreshKey}
+          onNovaSessao={() => setPhase(1)}
+          onVisualizar={handleVisualizar}
         />
       )}
+
+      {/* Phase 1: Nova sessão form */}
+      {phase === 1 && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem' }}>
+            <button className={styles.btnBack} onClick={() => setPhase(0)}>← Voltar</button>
+          </div>
+          <div className={styles.stepBar}>
+            {['Iniciar sessão', 'Registrar pedidos', 'Gerar PDFs'].map((label, i) => (
+              <div key={i} className={`${styles.step} ${phase === i + 1 ? styles.stepActive : ''} ${phase > i + 1 ? styles.stepDone : ''}`}>
+                <span className={styles.stepNum}>{i + 1}</span>
+                <span>{label}</span>
+              </div>
+            ))}
+          </div>
+          <IniciarSessao
+            forns={forns}
+            compradores={compradores}
+            colId={active.id}
+            onStart={handleStart}
+          />
+        </>
+      )}
+
+      {/* Phase 2: Registrar pedidos */}
       {phase === 2 && sessao && (
         <RegistrarPedidoSessao
           sessao={sessaoDisplay}
@@ -2733,6 +2956,8 @@ export default function Compras() {
           initialLojaIdx={recoveryInitial?.lojaIdx ?? 0}
         />
       )}
+
+      {/* Phase 3: Fechar sessão */}
       {phase === 3 && sessao && (
         <FecharSessao
           sessao={sessaoDisplay}
@@ -2743,8 +2968,12 @@ export default function Compras() {
         />
       )}
 
-      {view === 'historico' && !inSession && (
-        <Historico colId={active.id} />
+      {/* Phase 4: Visualizar sessão (somente leitura, auto-refresh) */}
+      {phase === 4 && viewSessaoId && (
+        <VisualizarSessao
+          sessaoId={viewSessaoId}
+          onBack={handleBackFromView}
+        />
       )}
     </div>
   )

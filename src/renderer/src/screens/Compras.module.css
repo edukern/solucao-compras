@@ -2200,3 +2200,228 @@
   border-top: 1px solid var(--border);
 }
 
+/* ── Multi-device warning ─────────────────────────────────────────────────── */
+.multiDeviceWarn {
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.4);
+  border-radius: 6px;
+  color: #ca8a04;
+  font-size: 0.85rem;
+  padding: 0.6rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+/* ── Sessions home header ─────────────────────────────────────────────────── */
+.sessoesHomeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+.sessoesHomeTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+.btnNovaSessao {
+  padding: 0.45rem 1.1rem;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btnNovaSessao:hover { opacity: 0.88; }
+
+/* ── History action buttons ──────────────────────────────────────────────── */
+.histSessaoActions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+.btnHistAction {
+  padding: 0.3rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-card);
+  color: var(--accent);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btnHistAction:hover { background: rgba(var(--accent-rgb), 0.08); }
+.btnHistAction:disabled { opacity: 0.4; cursor: not-allowed; }
+.btnHistEdit { color: var(--text-secondary); }
+.btnHistEdit:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+/* ── Back button ─────────────────────────────────────────────────────────── */
+.btnBack {
+  padding: 0.3rem 0.75rem;
+  font-size: 0.82rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.btnBack:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+/* ── Refresh button ──────────────────────────────────────────────────────── */
+.btnRefresh {
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-card);
+  color: var(--accent);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btnRefresh:hover { background: rgba(var(--accent-rgb), 0.08); }
+.btnRefresh:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── View-only mode ──────────────────────────────────────────────────────── */
+.viewOnlyHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+.viewOnlyRefreshArea {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.viewOnlyTimestamp {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.viewOnlyBadge {
+  display: inline-block;
+  background: rgba(var(--accent-rgb), 0.1);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
+  border-radius: 4px;
+  color: var(--accent-light);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.5rem;
+}
+.viewOnlyBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+.viewVisita {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.viewVisitaHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+.viewVisitaNome {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+.viewVisitaStats {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.viewPedidos {
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.viewPedidoBlock {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.viewPedidoTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.75rem;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+}
+.viewPedidoSeg {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.viewPedidoValor {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.viewPedidoGrade {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.45rem 0.75rem;
+  background: var(--bg-secondary);
+}
+.viewGradePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.78rem;
+}
+.viewGradeTam {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+.viewGradeQtd {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.viewPedidoVazio {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+.viewPedidoFooter {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+}
+.viewTotalGeral {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1rem;
+  background: rgba(var(--accent-rgb), 0.07);
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent-light);
+  margin-top: 0.25rem;
+}
+
