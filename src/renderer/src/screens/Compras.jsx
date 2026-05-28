@@ -568,7 +568,9 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   const [projCache,     setProjCache]     = useState({})
   const [distribTargets,setDistribTargets]= useState({})
   const RECOVERY_KEY = `SC_RECOVERY_${colId}`
-  const firstInputRef = useRef(null)
+  const firstInputRef   = useRef(null)
+  const autoSaveRef     = useRef(null)
+  const autoSaveInitRef = useRef(false)
   const [showAddForm,    setShowAddForm]    = useState(true)
   const [showCorDetalhe, setShowCorDetalhe] = useState(
     () => localStorage.getItem('SC_SHOW_COR_DETALHE') === 'true'
@@ -588,6 +590,8 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   const [otherDevices,   setOtherDevices]   = useState(0)
   const [liberando,      setLiberando]      = useState(false)
   const [liberadoInfo,   setLiberadoInfo]   = useState(null) // { count } after liberar
+  const [salvandoSessao, setSalvandoSessao] = useState(false)
+  const [salvoOk,        setSalvoOk]        = useState(false)
 
   const activeItem = items.find(it => it.localId === activeId) ?? null
 
@@ -612,11 +616,20 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     return () => { supabase.removeChannel(channel) }
   }, [sessao?.id])
 
-  // Auto-save para recuperação em caso de crash
+  // Auto-save local (crash recovery)
   useEffect(() => {
     if (!sessao?.id) return
     localStorage.setItem(RECOVERY_KEY, JSON.stringify({ sessao_id: sessao.id, items, qtds, activeId, lojaIdx }))
   }, [items, qtds, activeId, lojaIdx])
+
+  // Auto-save no banco com debounce de 2s quando items muda
+  useEffect(() => {
+    if (!autoSaveInitRef.current) { autoSaveInitRef.current = true; return }
+    if (!sessao?.id || !items.length) return
+    if (autoSaveRef.current) clearTimeout(autoSaveRef.current)
+    autoSaveRef.current = setTimeout(handleSalvarSessao, 2000)
+    return () => clearTimeout(autoSaveRef.current)
+  }, [items])
 
   // Focus first input when active item / loja changes
   useEffect(() => {
@@ -941,6 +954,46 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     }
   }
 
+  async function handleSalvarSessao() {
+    if (!items.length) return
+    setSalvandoSessao(true)
+    setSalvoOk(false)
+    setError(null)
+    try {
+      const orgVisita = visitas.find(v => v.comprador_id === myComprador?.id) ?? visitas[0]
+      if (!orgVisita) throw new Error('Visita do organizador não encontrada.')
+      const pedidoRows = []
+      for (const item of items) {
+        const { ref, tipo_produto, tipo_grade, classe, icms_pct, valor, markup_pct, preco_venda, cor, detalhe, obs } = item
+        const valorNum      = parseFloat((valor ?? '').replace(',', '.')) || 0
+        const icmsNum       = parseFloat((icms_pct ?? '').replace(',', '.')) || 0
+        const markupNum     = parseFloat((markup_pct ?? '').replace(',', '.')) || 0
+        const precoVendaNum = parseFloat((preco_venda ?? '').replace(',', '.')) || 0
+        const classDef = GRADE_DEFINITIONS[tipo_grade]
+        if (!classDef) continue
+        const classificacao = classDef.classificacao
+        const seg = await segmentacoesService.findOrCreate({
+          classificacao, tipo_produto, classe, tipo_grade, estacao: colEstacao ?? 'inverno',
+        })
+        pedidoRows.push({
+          comprador_id: orgVisita.comprador_id,
+          segmentacao_id: seg.id,
+          valor_unitario: valorNum, desconto_pct: 0,
+          referencia: ref, icms_pct: icmsNum,
+          markup_pct: markupNum, preco_venda: precoVendaNum,
+          cor: cor || '', detalhe: detalhe || '', obs: obs || '',
+        })
+      }
+      await pedidosService.salvarRascunho(orgVisita.id, pedidoRows)
+      setSalvoOk(true)
+      setTimeout(() => setSalvoOk(false), 4000)
+    } catch (e) {
+      setError(`Erro ao salvar sessão: ${e.message}`)
+    } finally {
+      setSalvandoSessao(false)
+    }
+  }
+
   async function handleFechar() {
     setSaving(true)
     setError(null)
@@ -1039,6 +1092,14 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
             {showCorDetalhe ? '✓ Cor/Detalhe' : '+ Cor/Detalhe'}
           </button>
         )}
+        <button
+          className={`${styles.btnSalvarSessao} ${salvoOk ? styles.btnSalvarSessaoOk : ''}`}
+          onClick={handleSalvarSessao}
+          disabled={salvandoSessao || !items.length}
+          title="Salva os itens no banco para não perder o trabalho (sem liberar para outras lojas)"
+        >
+          {salvandoSessao ? 'Salvando…' : salvoOk ? '✓ Salvo' : '💾 Salvar sessão'}
+        </button>
         <button
           className={styles.btnLiberar}
           onClick={handleLiberar}

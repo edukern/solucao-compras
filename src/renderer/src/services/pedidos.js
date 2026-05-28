@@ -119,6 +119,16 @@ export const pedidos = {
     return pedidoRows.length
   },
 
+  // Salva itens de rascunho para a visita do organizador (sem criar templates para outras lojas)
+  async salvarRascunho(visitaId, pedidoRows) {
+    if (!pedidoRows.length) return
+    const rows = pedidoRows.map(r => ({ ...r, visita_id: visitaId }))
+    const { error } = await supabase
+      .from('pedidos')
+      .upsert(rows, { onConflict: 'visita_id,segmentacao_id' })
+    if (error) throw error
+  },
+
   // Salva pedidos de uma visita específica (uso no preenchimento colaborativo)
   async salvarPedidosVisita(visitaId, updates) {
     // updates: [{ segmentacao_id, valor_unitario, ..., itens: [{tamanho, qtd}] }]

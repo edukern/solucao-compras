@@ -2445,6 +2445,24 @@
 }
 
 /* ── Collaborative fill (Phase 5) ── */
+.btnSalvarSessao {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 1rem;
+  background: none;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.btnSalvarSessao:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--accent); color: var(--accent); }
+.btnSalvarSessao:disabled { opacity: 0.5; cursor: not-allowed; }
+.btnSalvarSessaoOk { color: #16a34a !important; border-color: #16a34a !important; }
+
 .btnLiberar {
   display: inline-flex;
   align-items: center;
