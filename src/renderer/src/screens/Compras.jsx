@@ -1091,22 +1091,14 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
           <div className={styles.porLojaTabs}>
             {visitas.map((v, i) => {
               const total = totalQtdVisita(v.id)
-              const valor = totalValorVisita(v.id)
               return (
                 <button
                   key={v.id}
                   className={`${styles.porLojaTab} ${i === lojaIdx ? styles.porLojaTabActive : ''}`}
                   onClick={() => setLojaIdx(i)}
                 >
-                  <span className={styles.porLojaTabName}>{v.comprador_nome}</span>
-                  {total > 0 && (
-                    <span className={styles.porLojaTabInfo}>
-                      <span className={styles.porLojaTabTotal}>{total} pç</span>
-                      <span className={styles.porLojaTabValor}>
-                        R$ {valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                    </span>
-                  )}
+                  {v.comprador_nome}
+                  {total > 0 && <span className={styles.porLojaTabTotal}>{total}</span>}
                   {visitas.length > 1 && (
                     <span
                       className={styles.porLojaTabRemove}
@@ -1118,6 +1110,25 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
               )
             })}
           </div>
+          {/* ── Active store summary bar ── */}
+          {(() => {
+            const v = visitas[lojaIdx]
+            if (!v) return null
+            const pcs = totalQtdVisita(v.id)
+            const val = totalValorVisita(v.id)
+            if (pcs === 0) return null
+            return (
+              <div className={styles.porLojaActiveBar}>
+                <span className={styles.porLojaActiveBarName}>{v.comprador_nome}</span>
+                <span className={styles.porLojaActiveBarSep}>·</span>
+                <span className={styles.porLojaActiveBarStat}><strong>{pcs}</strong> peças</span>
+                <span className={styles.porLojaActiveBarSep}>·</span>
+                <span className={styles.porLojaActiveBarStat}>
+                  <strong>R$ {val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                </span>
+              </div>
+            )
+          })()}
           <div className={styles.porLojaItemsList}>
             {items.map(it => {
               const v = visitas[lojaIdx]
