@@ -39,7 +39,7 @@ export default defineConfig({
     },
     plugins: [react()],
     optimizeDeps: {
-      include: ['html2pdf.js'],
+      include: ['jspdf', 'jspdf-autotable'],
     },
   }
 })

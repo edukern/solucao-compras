@@ -70,7 +70,8 @@
     "@supabase/supabase-js": "^2.105.4",
     "better-sqlite3": "^12.10.0",
     "electron-updater": "^6.8.3",
-    "html2pdf.js": "^0.14.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
