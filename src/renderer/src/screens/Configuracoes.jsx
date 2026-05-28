@@ -6,6 +6,7 @@ import { colecoes as colecoesService } from '../services/colecoes'
 import { segmentacoes as segmentacoesService } from '../services/segmentacoes'
 import { compradores as compradoresService } from '../services/compradores'
 import { fornecedores as fornecedoresService } from '../services/fornecedores'
+import { supabase } from '../lib/supabase'
 
 // Bonus fix #4: module-level constant
 const anoAtual = new Date().getFullYear()
@@ -238,8 +239,8 @@ function AbaSegmentacoes() {
     try {
       await segmentacoesService.remove(id)
       setSegmentacoes(prev => prev.filter(s => s.id !== id))
-    } catch {
-      setErro('Erro ao remover segmentação.')
+    } catch (e) {
+      setErro(`Erro ao remover segmentação: ${e.message}`)
     }
   }
 
@@ -255,8 +256,8 @@ function AbaSegmentacoes() {
       await segmentacoesService.update(id, editForm)
       setEditId(null)
       await carregar()
-    } catch {
-      setErro('Erro ao salvar edição.')
+    } catch (e) {
+      setErro(`Erro ao salvar edição: ${e.message}`)
     } finally {
       setSavingEdit(false)
     }
@@ -477,7 +478,7 @@ function AbaCompradores() {
       setNovoForm({ nome: '', cnpj: '', cidade: '' })
       await carregar()
     } catch (e) {
-      setErro('Erro ao adicionar comprador.')
+      setErro(`Erro ao adicionar comprador: ${e.message}`)
     } finally {
       setSavingNovo(false)
     }
@@ -501,7 +502,7 @@ function AbaCompradores() {
       setEditId(null)
       await carregar()
     } catch (e) {
-      setErro('Erro ao salvar comprador.')
+      setErro(`Erro ao salvar comprador: ${e.message}`)
     } finally {
       setSavingEdit(false)
     }
@@ -513,7 +514,7 @@ function AbaCompradores() {
       await compradoresService.remove(id)
       setCompradores(prev => prev.filter(c => c.id !== id))
     } catch (e) {
-      setErro('Erro ao remover comprador.')
+      setErro(`Erro ao remover comprador: ${e.message}`)
     }
   }
 
@@ -652,29 +653,29 @@ function AbaCompradores() {
 function AbaBackup() {
   const [status, setStatus] = useState(null)
   const [working, setWorking] = useState(false)
-  const hasBackup = !!window.api?.backup
 
   async function handleExport() {
     setWorking(true)
     setStatus(null)
     try {
-      const ok = await window.api.backup.export()
-      setStatus(ok ? 'Backup exportado com sucesso.' : null)
-    } catch {
-      setStatus('Erro ao exportar backup. Tente novamente.')
-    } finally {
-      setWorking(false)
-    }
-  }
-
-  async function handleImport() {
-    if (!window.confirm('ATENÇÃO: Isso vai sobrescrever todos os dados atuais com o backup selecionado. Tem certeza?')) return
-    setWorking(true)
-    setStatus(null)
-    try {
-      await window.api.backup.import()
-    } catch {
-      setStatus('Erro ao restaurar backup.')
+      const { data, error } = await supabase
+        .from('sessoes')
+        .select(`*, fornecedor:fornecedores(nome), visitas(*, comprador:compradores(nome,cnpj,cidade), pedidos(*, segmentacao:segmentacoes(classificacao,tipo_produto,classe,tipo_grade), itens:pedido_itens(tamanho,qtd)))`)
+        .order('data_visita', { ascending: false })
+      if (error) throw error
+      const json = JSON.stringify({ exportedAt: new Date().toISOString(), sessoes: data }, null, 2)
+      const blob = new Blob([json], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `backup-${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      setStatus(`Backup exportado: ${data.length} sessão(ões).`)
+    } catch (e) {
+      setStatus(`Erro ao exportar: ${e.message}`)
     } finally {
       setWorking(false)
     }
@@ -683,29 +684,18 @@ function AbaBackup() {
   return (
     <div className={styles.section}>
       <div className={styles.backupCard}>
-        <h2 className={styles.sectionTitle}>Backup do banco de dados</h2>
-        {hasBackup ? (
-          <>
-            <p className={styles.hint}>
-              Exporta ou restaura o arquivo <code>.db</code> com todos os dados do sistema.
-            </p>
-            <div className={styles.backupActions}>
-              <button className={styles.btnPrimary} onClick={handleExport} disabled={working}>
-                ↓ Exportar backup
-              </button>
-              <button className={styles.btnDanger} onClick={handleImport} disabled={working}>
-                ↑ Restaurar backup
-              </button>
-            </div>
-            {status && (
-              <p className={status.startsWith('Erro') ? styles.backupError : styles.backupStatus}>
-                {status}
-              </p>
-            )}
-          </>
-        ) : (
-          <p className={styles.hint}>
-            Backup disponível apenas no app instalado. Os dados ficam armazenados na nuvem (Supabase).
+        <h2 className={styles.sectionTitle}>Backup dos dados</h2>
+        <p className={styles.hint}>
+          Os dados ficam armazenados na nuvem (Supabase). Use o botão abaixo para exportar todas as sessões e pedidos em formato JSON.
+        </p>
+        <div className={styles.backupActions}>
+          <button className={styles.btnPrimary} onClick={handleExport} disabled={working}>
+            {working ? 'Exportando…' : '↓ Exportar backup (JSON)'}
+          </button>
+        </div>
+        {status && (
+          <p className={status.startsWith('Erro') ? styles.backupError : styles.backupStatus}>
+            {status}
           </p>
         )}
       </div>
@@ -742,29 +732,10 @@ function AbaFornecedores() {
 
   useEffect(() => { carregar() }, [])
 
-  async function handleImportar() {
+  function handleImportar() {
     setErro(null)
     setSucesso(null)
-    if (window.api?.dialog) {
-      const filePath = await window.api.dialog.openFile({
-        title: 'Selecione o arquivo do ERP',
-        filters: [{ name: 'Excel', extensions: ['xlsx', 'xls'] }],
-        properties: ['openFile']
-      })
-      if (!filePath) return
-      setImporting(true)
-      try {
-        const result = await window.api.fornecedores.importarArquivo(filePath)
-        setFornecedores(result.fornecedores)
-        setSucesso(`${result.inserted} fornecedores importados, ${result.skipped} já existiam.`)
-      } catch (e) {
-        setErro('Erro ao importar arquivo.')
-      } finally {
-        setImporting(false)
-      }
-    } else {
-      fileInputRef.current?.click()
-    }
+    fileInputRef.current?.click()
   }
 
   async function handleFileChange(e) {
@@ -787,8 +758,8 @@ function AbaFornecedores() {
       const data = await fornecedoresService.importarDados(parsed)
       await carregar()
       setSucesso(`${data.length} fornecedores importados/atualizados.`)
-    } catch (e) {
-      setErro('Erro ao importar arquivo.')
+    } catch (err) {
+      setErro(`Erro ao importar arquivo: ${err.message}`)
     } finally {
       setImporting(false)
       e.target.value = ''
@@ -806,7 +777,7 @@ function AbaFornecedores() {
       setNovoForm({ nome: '', contato: '', categoria: '' })
       await carregar()
     } catch (e) {
-      setErro('Erro ao adicionar fornecedor.')
+      setErro(`Erro ao adicionar fornecedor: ${e.message}`)
     } finally {
       setSaving(false)
     }
@@ -831,7 +802,7 @@ function AbaFornecedores() {
       setSucesso(null)
       await carregar()
     } catch (e) {
-      setErro('Erro ao salvar fornecedor.')
+      setErro(`Erro ao salvar fornecedor: ${e.message}`)
     } finally {
       setSavingEdit(false)
     }
@@ -844,7 +815,7 @@ function AbaFornecedores() {
       await fornecedoresService.remove(id)
       setFornecedores(prev => prev.filter(f => f.id !== id))
     } catch (e) {
-      setErro('Erro ao remover fornecedor.')
+      setErro(`Erro ao remover fornecedor: ${e.message}`)
     }
   }
 
@@ -998,48 +969,7 @@ function AbaFornecedores() {
 // AbaAtualizacoes
 // ---------------------------------------------------------------------------
 function AbaAtualizacoes() {
-  const [versao, setVersao] = useState(null)
-  const [status, setStatus] = useState(null)
-  const [checking, setChecking] = useState(false)
-
-  useEffect(() => {
-    window.api?.app?.version().then(setVersao)
-    if (!window.api?.updater) return
-    return window.api.updater.onStatus(s => {
-      setChecking(false)
-      setStatus(s)
-    })
-  }, [])
-
-  function handleCheck() {
-    setChecking(true)
-    setStatus(null)
-    window.api.updater.check()
-    // Se em 10s não chegar nenhum evento, o app está na versão mais recente
-    setTimeout(() => setChecking(prev => {
-      if (prev) setStatus({ type: 'upToDate' })
-      return false
-    }), 10000)
-  }
-
-  const statusMsg = {
-    upToDate:    'Você está na versão mais recente.',
-    available:   s => `Versão ${s.version} disponível — baixando em segundo plano…`,
-    downloading: s => `Baixando… ${s.percent}%`,
-    ready:       'Atualização baixada e pronta para instalar.',
-    error:       s => `Erro: ${s.message}`,
-  }
-
-  function renderStatus() {
-    if (!status) return null
-    const color = status.type === 'ready' || status.type === 'upToDate'
-      ? 'var(--green)'
-      : status.type === 'error' ? 'var(--red, #ef4444)' : 'var(--accent)'
-    const msg = typeof statusMsg[status.type] === 'function'
-      ? statusMsg[status.type](status)
-      : statusMsg[status.type] ?? status.type
-    return <p style={{ color, marginTop: '0.75rem', fontSize: '0.875rem' }}>{msg}</p>
-  }
+  const versao = import.meta.env.VITE_APP_VERSION ?? null
 
   return (
     <div className={styles.section}>
@@ -1047,33 +977,12 @@ function AbaAtualizacoes() {
         <h2 className={styles.sectionTitle}>Versão do aplicativo</h2>
         {versao && (
           <p className={styles.hint}>
-            Versão instalada: <strong>{versao}</strong>
+            Versão atual: <strong>{versao}</strong>
           </p>
         )}
         <p className={styles.hint}>
-          Atualizações são baixadas automaticamente em segundo plano quando o app está aberto.
-          Use o botão abaixo para checar agora.
+          O aplicativo é atualizado automaticamente a cada novo deploy — não é necessária nenhuma ação.
         </p>
-        <div className={styles.backupActions}>
-          <button
-            className={styles.btnPrimary}
-            onClick={handleCheck}
-            disabled={checking || !window.api?.updater}
-          >
-            {checking ? 'Verificando…' : 'Verificar atualizações'}
-          </button>
-          {status?.type === 'ready' && (
-            <button className={styles.btnPrimary} onClick={() => window.api.updater.install()}>
-              Reiniciar e instalar
-            </button>
-          )}
-        </div>
-        {renderStatus()}
-        {!window.api?.updater && (
-          <p className={styles.hint} style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-            (Verificação de atualizações disponível apenas no app instalado.)
-          </p>
-        )}
       </div>
     </div>
   )

@@ -12,18 +12,32 @@ export const dashboard = {
       .eq('colecao_id', colecao_id)
     if (e1) throw e1
 
-    // Orders nested via sessoes → visitas → pedidos → pedido_itens
+    // Flatten orders across 3 queries to avoid the 1000-row nested join limit
+    const totals = new Map()
+
     const { data: sessoes, error: e2 } = await supabase
       .from('sessoes')
-      .select('visitas(pedidos(segmentacao_id, pedido_itens(tamanho, qtd)))')
+      .select('id')
       .eq('colecao_id', colecao_id)
     if (e2) throw e2
 
-    // Aggregate total_pedido per (segmentacao_id, tamanho)
-    const totals = new Map()
-    for (const s of sessoes ?? []) {
-      for (const v of s.visitas ?? []) {
-        for (const p of v.pedidos ?? []) {
+    const sessaoIds = (sessoes ?? []).map(s => s.id)
+    if (sessaoIds.length) {
+      const { data: visitas, error: e3 } = await supabase
+        .from('visitas')
+        .select('id')
+        .in('sessao_id', sessaoIds)
+      if (e3) throw e3
+
+      const visitaIds = (visitas ?? []).map(v => v.id)
+      if (visitaIds.length) {
+        const { data: pedidos, error: e4 } = await supabase
+          .from('pedidos')
+          .select('segmentacao_id, pedido_itens(tamanho, qtd)')
+          .in('visita_id', visitaIds)
+        if (e4) throw e4
+
+        for (const p of pedidos ?? []) {
           for (const item of p.pedido_itens ?? []) {
             const key = `${p.segmentacao_id}|${item.tamanho}`
             totals.set(key, (totals.get(key) ?? 0) + (item.qtd ?? 0))

@@ -2,43 +2,69 @@ import { supabase } from '../lib/supabase'
 
 export const pedidos = {
   async salvarBatch(batch, sessao_id) {
-    const results = []
-    for (const ped of batch) {
-      if (!ped.comprador_id) continue
-      let { data: visita } = await supabase
+    const validBatch = batch.filter(ped => ped.comprador_id)
+    if (!validBatch.length) return []
+
+    // 1. Fetch all existing visitas for this session in one query
+    const { data: existingVisitas, error: ve1 } = await supabase
+      .from('visitas')
+      .select('id, comprador_id')
+      .eq('sessao_id', sessao_id)
+    if (ve1) throw ve1
+
+    const visitaMap = Object.fromEntries((existingVisitas ?? []).map(v => [v.comprador_id, v.id]))
+
+    // 2. Create any missing visitas in one batch insert
+    const neededIds = [...new Set(validBatch.map(p => p.comprador_id))]
+    const missingIds = neededIds.filter(id => !visitaMap[id])
+    if (missingIds.length) {
+      const { data: newVisitas, error: ve2 } = await supabase
         .from('visitas')
-        .select('id')
-        .eq('sessao_id', sessao_id)
-        .eq('comprador_id', ped.comprador_id)
-        .single()
-      if (!visita) {
-        const { data: novaVisita, error: ve } = await supabase
-          .from('visitas')
-          .insert({ sessao_id, comprador_id: ped.comprador_id })
-          .select()
-          .single()
-        if (ve) throw ve
-        visita = novaVisita
-      }
-      const { itens, ...pedFields } = ped
-      const { data: pedido, error: pe } = await supabase
-        .from('pedidos')
-        .upsert(
-          { ...pedFields, visita_id: visita.id },
-          { onConflict: 'visita_id,segmentacao_id' }
-        )
-        .select()
-        .single()
-      if (pe) throw pe
-      await supabase.from('pedido_itens').delete().eq('pedido_id', pedido.id)
-      if (itens?.length) {
-        const rows = itens.map(it => ({ pedido_id: pedido.id, tamanho: it.tamanho, qtd: it.qtd }))
-        const { error: ie } = await supabase.from('pedido_itens').insert(rows)
-        if (ie) throw ie
-      }
-      results.push(pedido)
+        .insert(missingIds.map(id => ({ sessao_id, comprador_id: id })))
+        .select('id, comprador_id')
+      if (ve2) throw ve2
+      for (const v of newVisitas ?? []) visitaMap[v.comprador_id] = v.id
     }
-    return results
+
+    // 3. Upsert all pedidos in one batch
+    const pedidoRows = validBatch.map(({ itens: _itens, ...fields }) => ({
+      ...fields,
+      visita_id: visitaMap[fields.comprador_id],
+    }))
+    const { data: savedPedidos, error: pe } = await supabase
+      .from('pedidos')
+      .upsert(pedidoRows, { onConflict: 'visita_id,segmentacao_id' })
+      .select()
+    if (pe) throw pe
+
+    // 4. Replace all items in one delete + one insert
+    const pedidoIds = (savedPedidos ?? []).map(p => p.id)
+    if (pedidoIds.length) {
+      const { error: de } = await supabase.from('pedido_itens').delete().in('pedido_id', pedidoIds)
+      if (de) throw de
+    }
+
+    const byKey = Object.fromEntries(
+      (savedPedidos ?? []).map(p => [`${p.visita_id}|${p.segmentacao_id}`, p])
+    )
+    const allItems = []
+    for (const ped of validBatch) {
+      const saved = byKey[`${visitaMap[ped.comprador_id]}|${ped.segmentacao_id}`]
+      if (saved && ped.itens?.length) {
+        for (const it of ped.itens) {
+          allItems.push({ pedido_id: saved.id, tamanho: it.tamanho, qtd: it.qtd })
+        }
+      }
+    }
+    if (allItems.length) {
+      const { error: ie } = await supabase.from('pedido_itens').insert(allItems)
+      if (ie) throw ie
+    }
+
+    // Return in same order as input so caller's index-based meta merge stays correct
+    return validBatch
+      .map(b => byKey[`${visitaMap[b.comprador_id]}|${b.segmentacao_id}`])
+      .filter(Boolean)
   },
 
   async byVisita(visita_id) {
