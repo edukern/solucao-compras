@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { useCollection } from '../contexts/CollectionContext'
+import { useAuth } from '../contexts/AuthContext'
 import { tamanhosDeTipoGrade, GRADE_DEFINITIONS } from '../constants/grades'
 import { TIPOS_PRODUTO } from '../constants/tipoProduto'
 import ConfirmModal from '../components/ConfirmModal'
@@ -582,6 +583,8 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   const [gradeExtremes,  setGradeExtremes]  = useState({})
   const [showItemFields, setShowItemFields] = useState({})
   const [otherDevices,   setOtherDevices]   = useState(0)
+  const [liberando,      setLiberando]      = useState(false)
+  const [liberadoInfo,   setLiberadoInfo]   = useState(null) // { count } after liberar
 
   const activeItem = items.find(it => it.localId === activeId) ?? null
 
@@ -894,6 +897,46 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     setError(null)
   }
 
+  async function handleLiberar() {
+    if (!items.length) { setError('Adicione pelo menos uma referência antes de liberar.'); return }
+    setLiberando(true)
+    setError(null)
+    setLiberadoInfo(null)
+    try {
+      const pedidoRows = []
+      for (const item of items) {
+        const { ref, tipo_produto, tipo_grade, classe, icms_pct, valor, markup_pct, preco_venda, cor, detalhe, obs } = item
+        const valorNum      = parseFloat((valor ?? '').replace(',', '.')) || 0
+        const icmsNum       = parseFloat((icms_pct ?? '').replace(',', '.')) || 0
+        const markupNum     = parseFloat((markup_pct ?? '').replace(',', '.')) || 0
+        const precoVendaNum = parseFloat((preco_venda ?? '').replace(',', '.')) || 0
+        const classDef = GRADE_DEFINITIONS[tipo_grade]
+        if (!classDef) continue
+        const classificacao = classDef.classificacao
+        const seg = await segmentacoesService.findOrCreate({
+          classificacao, tipo_produto, classe, tipo_grade, estacao: colEstacao ?? 'inverno',
+        })
+        for (const v of visitas) {
+          pedidoRows.push({
+            visita_id: v.id,
+            comprador_id: v.comprador_id,
+            segmentacao_id: seg.id,
+            valor_unitario: valorNum, desconto_pct: 0,
+            referencia: ref, icms_pct: icmsNum,
+            markup_pct: markupNum, preco_venda: precoVendaNum,
+            cor: cor || '', detalhe: detalhe || '', obs: obs || '',
+          })
+        }
+      }
+      await pedidosService.inicializarColaboracao(pedidoRows)
+      setLiberadoInfo({ lojas: visitas.length, itens: items.length })
+    } catch (e) {
+      setError(`Erro ao liberar: ${e.message}`)
+    } finally {
+      setLiberando(false)
+    }
+  }
+
   async function handleFechar() {
     setSaving(true)
     setError(null)
@@ -992,7 +1035,21 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
             {showCorDetalhe ? '✓ Cor/Detalhe' : '+ Cor/Detalhe'}
           </button>
         )}
+        <button
+          className={styles.btnLiberar}
+          onClick={handleLiberar}
+          disabled={liberando || !items.length}
+          title="Salva os itens como template para todas as lojas preencherem simultaneamente"
+        >
+          {liberando ? 'Liberando…' : '⇢ Liberar para preenchimento'}
+        </button>
       </div>
+
+      {liberadoInfo && (
+        <div className={styles.liberadoBanner}>
+          ✓ Sessão liberada — {liberadoInfo.lojas} loja{liberadoInfo.lojas > 1 ? 's' : ''} pode{liberadoInfo.lojas > 1 ? 'm' : ''} agora preencher {liberadoInfo.itens} referência{liberadoInfo.itens > 1 ? 's' : ''} em seus próprios computadores.
+        </div>
+      )}
 
       {/* ── Add item form ── */}
       <datalist id="tipos-produto-list">
@@ -2230,7 +2287,8 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
 
 // ─── Historico ────────────────────────────────────────────────────────────
 
-function Historico({ colId, onNovaSessao, onVisualizar, refreshKey = 0 }) {
+function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, refreshKey = 0 }) {
+  const { comprador } = useAuth()
   const [sessoesList,      setSessoesList]      = useState([])
   const [loading,          setLoading]          = useState(true)
   const [expandedSessao,   setExpandedSessao]   = useState(null)
@@ -2422,6 +2480,20 @@ function Historico({ colId, onNovaSessao, onVisualizar, refreshKey = 0 }) {
             </button>
 
             <div className={styles.histSessaoActions}>
+              {(() => {
+                const minhaVisita = comprador
+                  ? (ses.visitas ?? []).find(v => v.comprador_id === comprador.id)
+                  : null
+                return minhaVisita && onPreencherLoja ? (
+                  <button
+                    className={`${styles.btnHistAction} ${styles.btnHistPreencher}`}
+                    onClick={() => onPreencherLoja(ses.id, minhaVisita.visita_id, comprador.nome)}
+                    title="Preencher os pedidos da minha loja nesta sessão"
+                  >
+                    Preencher
+                  </button>
+                ) : null
+              })()}
               {onVisualizar && (
                 <button
                   className={styles.btnHistAction}
@@ -2586,6 +2658,227 @@ function Historico({ colId, onNovaSessao, onVisualizar, refreshKey = 0 }) {
     </div>
   )
 }
+
+// ─── Phase 5: Collaborative store fill ────────────────────────────────────
+
+function PreencherMinhaLoja({ sessaoId, visitaId, compradorNome, colEstacao, onBack }) {
+  const [sessao,       setSessao]       = useState(null)
+  const [pedidos,      setPedidos]      = useState([])
+  const [qtds,         setQtds]         = useState({}) // { [pedido_id]: { [tamanho]: qty } }
+  const [loading,      setLoading]      = useState(true)
+  const [saving,       setSaving]       = useState(false)
+  const [saved,        setSaved]        = useState(false)
+  const [error,        setError]        = useState(null)
+  const [otherDevices, setOtherDevices] = useState(0)
+
+  // Presence: detect other devices editing same session
+  useEffect(() => {
+    if (!sessaoId) return
+    let deviceId = localStorage.getItem('SC_DEVICE_ID')
+    if (!deviceId) {
+      deviceId = crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)
+      localStorage.setItem('SC_DEVICE_ID', deviceId)
+    }
+    const channel = supabase.channel(`session-presence-${sessaoId}`, {
+      config: { presence: { key: deviceId } }
+    })
+    channel.on('presence', { event: 'sync' }, () => {
+      setOtherDevices(Math.max(0, Object.keys(channel.presenceState()).length - 1))
+    })
+    channel.subscribe(async status => {
+      if (status === 'SUBSCRIBED') await channel.track({ at: new Date().toISOString() })
+    })
+    return () => { supabase.removeChannel(channel) }
+  }, [sessaoId])
+
+  // Load session + this store's pedidos
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      sessoesService.byId(sessaoId),
+      pedidosService.byVisita(visitaId),
+    ]).then(([ses, peds]) => {
+      if (cancelled) return
+      setSessao(ses)
+      const pedList = peds ?? []
+      setPedidos(pedList)
+      // Seed local qtds from existing pedido_itens
+      const init = {}
+      for (const ped of pedList) {
+        init[ped.id] = {}
+        for (const it of ped.itens ?? []) {
+          if (it.qtd > 0) init[ped.id][it.tamanho] = it.qtd
+        }
+      }
+      setQtds(init)
+      setLoading(false)
+    }).catch(e => { if (!cancelled) { setError(e.message); setLoading(false) } })
+    return () => { cancelled = true }
+  }, [sessaoId, visitaId])
+
+  function getQtd(pedId, tam) { return qtds[pedId]?.[tam] ?? '' }
+
+  function setQtd(pedId, tam, raw) {
+    setSaved(false)
+    const val = raw === '' ? '' : Math.max(0, parseInt(raw, 10) || 0)
+    setQtds(prev => ({ ...prev, [pedId]: { ...prev[pedId], [tam]: val } }))
+  }
+
+  async function handleSalvar() {
+    setSaving(true)
+    setError(null)
+    try {
+      const updates = pedidos
+        .filter(ped => ped.segmentacao_id)
+        .map(ped => {
+          const tipoGrade = ped.segmentacao?.tipo_grade || ped.tipo_grade || ''
+          const tams = tamanhosDeTipoGrade(tipoGrade)
+          return {
+            segmentacao_id: ped.segmentacao_id,
+            valor_unitario: ped.valor_unitario ?? 0,
+            desconto_pct:   ped.desconto_pct   ?? 0,
+            icms_pct:       ped.icms_pct        ?? 0,
+            markup_pct:     ped.markup_pct      ?? 0,
+            preco_venda:    ped.preco_venda     ?? 0,
+            referencia:     ped.referencia      || '',
+            cor:            ped.cor             || '',
+            detalhe:        ped.detalhe         || '',
+            obs:            ped.obs             || '',
+            itens: tams
+              .map(t => ({ tamanho: t, qtd: parseInt(qtds[ped.id]?.[t]) || 0 }))
+              .filter(i => i.qtd > 0),
+          }
+        })
+      await pedidosService.salvarPedidosVisita(visitaId, updates)
+      setSaved(true)
+    } catch (e) {
+      setError(`Erro ao salvar: ${e.message}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const totalPcs   = pedidos.reduce((s, ped) => {
+    const tams = tamanhosDeTipoGrade(ped.segmentacao?.tipo_grade || '')
+    return s + tams.reduce((a, t) => a + (parseInt(qtds[ped.id]?.[t]) || 0), 0)
+  }, 0)
+  const totalValor = pedidos.reduce((s, ped) => {
+    const tams = tamanhosDeTipoGrade(ped.segmentacao?.tipo_grade || '')
+    const pcs  = tams.reduce((a, t) => a + (parseInt(qtds[ped.id]?.[t]) || 0), 0)
+    return s + pcs * (ped.valor_unitario || 0)
+  }, 0)
+
+  return (
+    <div className={styles.phase}>
+      {otherDevices > 0 && (
+        <div className={styles.multiDeviceWarn}>
+          ⚠️ Esta sessão está aberta em {otherDevices} outro{otherDevices > 1 ? 's' : ''} dispositivo{otherDevices > 1 ? 's' : ''}.
+        </div>
+      )}
+
+      <div className={styles.viewOnlyHeader}>
+        <button className={styles.btnBack} onClick={onBack}>← Voltar</button>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          {saved && <span className={styles.savedBadge}>✓ Salvo</span>}
+          <button className={styles.btnPrimary} onClick={handleSalvar} disabled={saving || pedidos.length === 0}>
+            {saving ? 'Salvando…' : 'Salvar pedido'}
+          </button>
+        </div>
+      </div>
+
+      {sessao && (
+        <div className={styles.visitaBanner}>
+          <strong>{sessao.fornecedor?.nome || sessao.fornecedor_nome}</strong>
+          <span className={styles.dot}>·</span>
+          <span>{fmtDate(sessao.data_visita)}</span>
+          {sessao.cond_pag && <><span className={styles.dot}>·</span><span>{sessao.cond_pag}</span></>}
+          <span className={styles.dot}>·</span>
+          <strong className={styles.preencherLojaName}>{compradorNome}</strong>
+          <span className={styles.viewOnlyBadge}>Preenchimento colaborativo</span>
+        </div>
+      )}
+
+      {error && <div className={styles.errorBanner}>{error}</div>}
+      {loading && <p className={styles.muted}>Carregando itens…</p>}
+
+      {!loading && pedidos.length === 0 && (
+        <div className={styles.preencherWaiting}>
+          ⏳ Aguardando o coordenador liberar os itens para preenchimento.
+          <br />
+          <span className={styles.preencherWaitingSub}>Quando ele clicar em "⇢ Liberar para preenchimento", os itens aparecerão aqui.</span>
+        </div>
+      )}
+
+      {pedidos.map(ped => {
+        const tipoGrade = ped.segmentacao?.tipo_grade || ped.tipo_grade || ''
+        const tams = tamanhosDeTipoGrade(tipoGrade)
+        const total = tams.reduce((s, t) => s + (parseInt(qtds[ped.id]?.[t]) || 0), 0)
+        const valor = parseFloat(ped.valor_unitario) || 0
+        return (
+          <div key={ped.id} className={`${styles.porLojaItemBlock} ${total > 0 ? styles.porLojaItemBlockFilled : ''}`}>
+            <div className={styles.porLojaItemHeader}>
+              <span className={styles.porLojaItemRef}>
+                {ped.referencia || ped.segmentacao?.tipo_produto || '—'}
+                {(ped.cor || ped.detalhe) && (
+                  <span className={styles.itemRefDetail}>{[ped.cor, ped.detalhe].filter(Boolean).join(' · ')}</span>
+                )}
+              </span>
+              <span className={styles.porLojaItemMeta}>
+                {ped.segmentacao?.tipo_produto} · {tipoGrade} · {ped.segmentacao?.classe}
+              </span>
+              {valor > 0 && <span className={styles.porLojaItemValor}>R$ {fmt(valor)}</span>}
+              <span className={styles.porLojaItemTotalBadge}>{total > 0 ? `${total} pç` : '—'}</span>
+            </div>
+            <div className={styles.porLojaGradeRow}>
+              {tams.map(tam => (
+                <div key={tam} className={styles.porLojaGradeTam}>
+                  <div className={styles.porLojaGradeTamLabel}>{tam}</div>
+                  <input
+                    type="number" min="0"
+                    className={styles.porLojaGradeInput}
+                    value={getQtd(ped.id, tam)}
+                    onChange={e => setQtd(ped.id, tam, e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key !== 'Enter' && !(e.key === 'Tab' && !e.shiftKey)) return
+                      e.preventDefault()
+                      const all = Array.from(document.querySelectorAll('[data-colab-input]'))
+                      const idx = all.indexOf(e.target)
+                      if (idx >= 0 && idx < all.length - 1) all[idx + 1].focus()
+                    }}
+                    placeholder="0"
+                    data-colab-input="1"
+                  />
+                </div>
+              ))}
+            </div>
+            {total > 0 && (
+              <div className={styles.preencherItemFooter}>
+                {total} pç · R$ {(total * valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+            )}
+          </div>
+        )
+      })}
+
+      {totalPcs > 0 && (
+        <div className={styles.viewTotalGeral}>
+          <span>Total do pedido — {compradorNome}</span>
+          <span>{totalPcs} pç · R$ {totalValor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+        </div>
+      )}
+
+      {pedidos.length > 0 && (
+        <div className={styles.phaseActions} style={{ marginTop: '1.25rem' }}>
+          {saved && <span className={styles.savedBadge}>✓ Salvo com sucesso</span>}
+          <button className={styles.btnPrimary} onClick={handleSalvar} disabled={saving}>
+            {saving ? 'Salvando…' : 'Salvar pedido'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 
 // ─── Phase 4: View-only ────────────────────────────────────────────────────
 
@@ -2757,6 +3050,7 @@ export default function Compras() {
   const [visitas,         setVisitas]         = useState([])
   const [pedidosFechados, setPedidosFechados] = useState([])
   const [viewSessaoId,    setViewSessaoId]    = useState(null)
+  const [preencherInfo,   setPreencherInfo]   = useState(null) // { sessaoId, visitaId, compradorNome }
   const [histRefreshKey,  setHistRefreshKey]  = useState(0)
   const [recoveryData,    setRecoveryData]    = useState(null)
   const [recoveryInitial, setRecoveryInitial] = useState(null)
@@ -2871,6 +3165,16 @@ export default function Compras() {
     setPhase(0)
   }
 
+  function handlePreencherLoja(sessaoId, visitaId, compradorNome) {
+    setPreencherInfo({ sessaoId, visitaId, compradorNome })
+    setPhase(5)
+  }
+
+  function handleBackFromPreencher() {
+    setPreencherInfo(null)
+    setPhase(0)
+  }
+
   const sessaoDisplay = sessao ?? null
   const inSession = phase >= 2
 
@@ -2914,6 +3218,7 @@ export default function Compras() {
           refreshKey={histRefreshKey}
           onNovaSessao={() => setPhase(1)}
           onVisualizar={handleVisualizar}
+          onPreencherLoja={handlePreencherLoja}
         />
       )}
 
@@ -2973,6 +3278,17 @@ export default function Compras() {
         <VisualizarSessao
           sessaoId={viewSessaoId}
           onBack={handleBackFromView}
+        />
+      )}
+
+      {/* Phase 5: Preenchimento colaborativo — loja do usuário logado */}
+      {phase === 5 && preencherInfo && (
+        <PreencherMinhaLoja
+          sessaoId={preencherInfo.sessaoId}
+          visitaId={preencherInfo.visitaId}
+          compradorNome={preencherInfo.compradorNome}
+          colEstacao={active.estacao}
+          onBack={handleBackFromPreencher}
         />
       )}
     </div>

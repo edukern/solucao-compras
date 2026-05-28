@@ -2425,3 +2425,90 @@
   margin-top: 0.25rem;
 }
 
+/* ── Collaborative fill (Phase 5) ── */
+.btnLiberar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 1rem;
+  background: #16a34a;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btnLiberar:hover:not(:disabled) { background: #15803d; }
+.btnLiberar:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.liberadoBanner {
+  margin-top: 0.6rem;
+  padding: 0.55rem 0.9rem;
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+:global(.dark) .liberadoBanner {
+  background: rgba(22, 163, 74, 0.15);
+  color: #86efac;
+  border-color: rgba(134, 239, 172, 0.3);
+}
+
+.preencherLojaName {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.preencherWaiting {
+  padding: 2rem;
+  text-align: center;
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+.preencherWaitingSub {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 0.4rem;
+}
+
+.preencherItemFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.75rem;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  border-radius: 0 0 8px 8px;
+}
+
+.savedBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.65rem;
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+:global(.dark) .savedBadge {
+  background: rgba(22, 163, 74, 0.15);
+  color: #86efac;
+  border-color: rgba(134, 239, 172, 0.3);
+}
+
+.btnHistPreencher {
+  background: #2563eb;
+  color: #fff;
+}
+.btnHistPreencher:hover { background: #1d4ed8; }

@@ -107,5 +107,50 @@ export const pedidos = {
   async deleteVisita(id) {
     const { error } = await supabase.from('visitas').delete().eq('id', id)
     if (error) throw error
+  },
+
+  // Cria pedidos-template para todas as lojas sem sobrescrever dados já preenchidos
+  async inicializarColaboracao(pedidoRows) {
+    if (!pedidoRows.length) return 0
+    const { error } = await supabase
+      .from('pedidos')
+      .upsert(pedidoRows, { onConflict: 'visita_id,segmentacao_id', ignoreDuplicates: true })
+    if (error) throw error
+    return pedidoRows.length
+  },
+
+  // Salva pedidos de uma visita específica (uso no preenchimento colaborativo)
+  async salvarPedidosVisita(visitaId, updates) {
+    // updates: [{ segmentacao_id, valor_unitario, ..., itens: [{tamanho, qtd}] }]
+    const pedidoRows = updates.map(({ itens: _itens, ...fields }) => ({
+      ...fields,
+      visita_id: visitaId,
+    }))
+    const { data: saved, error: pe } = await supabase
+      .from('pedidos')
+      .upsert(pedidoRows, { onConflict: 'visita_id,segmentacao_id' })
+      .select()
+    if (pe) throw pe
+
+    const pedidoIds = (saved ?? []).map(p => p.id)
+    if (pedidoIds.length) {
+      const { error: de } = await supabase.from('pedido_itens').delete().in('pedido_id', pedidoIds)
+      if (de) throw de
+    }
+
+    const bySegId = Object.fromEntries((saved ?? []).map(p => [p.segmentacao_id, p]))
+    const allItems = []
+    for (const upd of updates) {
+      const ped = bySegId[upd.segmentacao_id]
+      if (ped && upd.itens?.length) {
+        for (const it of upd.itens) {
+          allItems.push({ pedido_id: ped.id, tamanho: it.tamanho, qtd: it.qtd })
+        }
+      }
+    }
+    if (allItems.length) {
+      const { error: ie } = await supabase.from('pedido_itens').insert(allItems)
+      if (ie) throw ie
+    }
   }
 }
