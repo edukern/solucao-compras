@@ -23,7 +23,7 @@ const SCREENS = {
 
 function AppInner() {
   const { user, comprador } = useAuth()
-  const [screen, setScreen] = useState('dashboard')
+  const [screen, setScreen] = useState('compras')
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') ?? 'light')
 
   useEffect(() => {
