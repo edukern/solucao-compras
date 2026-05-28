@@ -482,6 +482,38 @@
 }
 
 /* Phase 3 summary */
+.resumoTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+.resumoTable thead tr {
+  background: var(--surface-secondary, #f5f5f5);
+}
+.resumoTable tfoot tr {
+  background: var(--surface-secondary, #f5f5f5);
+  border-top: 2px solid var(--border);
+}
+.resumoThLoja, .resumoTh {
+  padding: 0.6rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+.resumoThLoja { text-align: left; }
+.resumoTh { text-align: right; }
+.resumoTdLoja, .resumoTd {
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+.resumoTdLoja { text-align: left; color: var(--text-primary); }
+.resumoTd { text-align: right; color: var(--text-primary); }
+.resumoTable tbody tr:hover { background: var(--surface-hover, #fafafa); }
+
 .resumoGrid {
   display: flex;
   flex-wrap: wrap;

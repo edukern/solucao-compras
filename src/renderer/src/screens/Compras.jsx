@@ -2314,15 +2314,25 @@ async function salvarPDFVisita(sessao, vis, visPedidos, sessaoOverride = {}) {
 
 // ─── Phase 3: Close Session + PDFs ───────────────────────────────────────
 
-function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
-  const [salvandoPDF,   setSalvandoPDF]   = useState(null) // vis.id em andamento
+function FecharSessao({ sessao, visitas, segs, pedidos: pedidosProp, onNovaSessao }) {
+  const [salvandoPDF,   setSalvandoPDF]   = useState(null)
   const [salvos,        setSalvos]        = useState(new Set())
   const [erroPDF,       setErroPDF]       = useState(null)
   const [showPDFModal,  setShowPDFModal]  = useState(false)
   const [fornFull,      setFornFull]      = useState(null)
   const [modalFields,   setModalFields]   = useState({})
-  const [lojaOverrides, setLojaOverrides] = useState({}) // { [vis.id]: { cond_pag?, frete?, transportadora? } }
+  const [lojaOverrides, setLojaOverrides] = useState({})
   const [showLojaConfig,setShowLojaConfig]= useState(false)
+  // Pedidos com itens carregados do banco (pedidosProp vem do estado do Phase 2 sem itens completos)
+  const [pedidos, setPedidos] = useState(pedidosProp)
+  useEffect(() => {
+    pedidosService.itensPorFornecedor(sessao.id).then(visitasData => {
+      const flat = visitasData.flatMap(v =>
+        (v.pedidos ?? []).map(p => ({ ...p, visita_id: v.id }))
+      )
+      if (flat.length) setPedidos(flat)
+    }).catch(() => {})
+  }, [sessao.id])
 
   // Returns only non-empty override fields for a given visita
   function buildVisitaOverride(visId) {
@@ -2604,48 +2614,54 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
         )}
       </div>
 
-      <div className={styles.resumoGrid}>
-        {visitasComPedidos.map(vis => {
-          const visPedidos = pedidos.filter(p => p.visita_id === vis.id)
-          const totalComp = visPedidos.reduce((s, p) => {
-            const q = (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0)
-            return s + q * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100)
-          }, 0)
-          const foiSalvo = salvos.has(vis.id)
-          return (
-            <div key={vis.id} className={styles.resumoCard}>
-              <div className={styles.resumoCardHeader}>{vis.comprador_nome}</div>
-              {visPedidos.map((p, i) => {
-                const totalQ = (p.itens ?? []).reduce((s, i) => s + i.qtd, 0)
-                return (
-                  <div key={i} className={styles.resumoItem}>
-                    <span>
-                      {p.referencia ? `[${p.referencia}] ` : ''}
-                      {p.tipo_produto ? `${p.tipo_produto} ${p.classe}` : `Seg #${p.segmentacao_id}`}
-                    </span>
-                    <span>{totalQ} pç</span>
-                  </div>
-                )
-              })}
-              <div className={styles.resumoTotal}>R$ {fmt(totalComp)}</div>
-              {podeSalvarPDF && (
-                <button
-                  className={foiSalvo ? styles.btnSecondary : styles.btnPdf}
-                  style={{ marginTop: '0.5rem', width: '100%', padding: '0.35rem', fontSize: '0.78rem' }}
-                  onClick={() => handleSalvarPDF(vis)}
-                  disabled={salvandoPDF !== null}
-                >
-                  {salvandoPDF === vis.id ? 'Salvando…' : foiSalvo ? '✓ PDF salvo' : '↓ Salvar PDF'}
-                </button>
-              )}
-            </div>
-          )
-        })}
-      </div>
-
-      <div className={styles.resumoGeralTotal}>
-        Total geral: <strong>R$ {fmt(totalGeral)}</strong>
-      </div>
+      <table className={styles.resumoTable}>
+        <thead>
+          <tr>
+            <th className={styles.resumoThLoja}>Loja</th>
+            <th className={styles.resumoTh}>Peças</th>
+            <th className={styles.resumoTh}>Valor Total</th>
+            {podeSalvarPDF && <th className={styles.resumoTh}>PDF</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {visitasComPedidos.map(vis => {
+            const visPedidos = pedidos.filter(p => p.visita_id === vis.id)
+            const totalPecas = visPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0), 0)
+            const totalComp  = visPedidos.reduce((s, p) => {
+              const q = (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0)
+              return s + q * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100)
+            }, 0)
+            const foiSalvo = salvos.has(vis.id)
+            return (
+              <tr key={vis.id}>
+                <td className={styles.resumoTdLoja}>{vis.comprador_nome}</td>
+                <td className={styles.resumoTd}><strong>{totalPecas.toLocaleString('pt-BR')}</strong></td>
+                <td className={styles.resumoTd}>R$ {fmt(totalComp)}</td>
+                {podeSalvarPDF && (
+                  <td className={styles.resumoTd}>
+                    <button
+                      className={foiSalvo ? styles.btnSecondary : styles.btnPdf}
+                      style={{ padding: '0.25rem 0.75rem', fontSize: '0.78rem' }}
+                      onClick={() => handleSalvarPDF(vis)}
+                      disabled={salvandoPDF !== null}
+                    >
+                      {salvandoPDF === vis.id ? 'Salvando…' : foiSalvo ? '✓ Salvo' : '↓ PDF'}
+                    </button>
+                  </td>
+                )}
+              </tr>
+            )
+          })}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td className={styles.resumoTdLoja}><strong>Total geral</strong></td>
+            <td className={styles.resumoTd}><strong>{visitasComPedidos.reduce((s, vis) => s + pedidos.filter(p => p.visita_id === vis.id).reduce((s2, p) => s2 + (p.itens ?? []).reduce((s3, i) => s3 + i.qtd, 0), 0), 0).toLocaleString('pt-BR')}</strong></td>
+            <td className={styles.resumoTd}><strong>R$ {fmt(totalGeral)}</strong></td>
+            {podeSalvarPDF && <td />}
+          </tr>
+        </tfoot>
+      </table>
 
       <div className={styles.phaseActions}>
         <button className={styles.btnSecondary} onClick={onNovaSessao}>← Nova sessão</button>
