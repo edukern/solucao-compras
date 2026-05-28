@@ -2,11 +2,16 @@ import { supabase } from '../lib/supabase'
 
 function normalizeVisitas(visitas) {
   return (visitas ?? []).map(v => ({
-    visita_id:        v.id,
-    comprador_id:     v.comprador_id,
-    comprador_nome:   v.comprador?.nome   ?? '',
-    comprador_cnpj:   v.comprador?.cnpj   ?? '',
-    comprador_cidade: v.comprador?.cidade  ?? '',
+    visita_id:          v.id,
+    comprador_id:       v.comprador_id,
+    comprador_nome:     v.comprador?.nome     ?? '',
+    comprador_cnpj:     v.comprador?.cnpj     ?? '',
+    comprador_cidade:   v.comprador?.cidade   ?? '',
+    comprador_fantasia: v.comprador?.fantasia ?? '',
+    comprador_ie:       v.comprador?.ie       ?? '',
+    comprador_email:    v.comprador?.email    ?? '',
+    comprador_telefone: v.comprador?.telefone ?? '',
+    comprador_endereco: v.comprador?.endereco ?? '',
   }))
 }
 
@@ -26,7 +31,7 @@ export const sessoes = {
     if (ve) throw ve
     const { data: vis } = await supabase
       .from('visitas')
-      .select('id, comprador_id, comprador:compradores(nome,cnpj,cidade)')
+      .select('id, comprador_id, comprador:compradores(nome,cnpj,cidade,fantasia,ie,email,telefone,endereco)')
       .eq('sessao_id', sessao.id)
     return { ...sessao, visitas: normalizeVisitas(vis ?? []) }
   },
@@ -34,7 +39,7 @@ export const sessoes = {
   async list(colecao_id) {
     const { data, error } = await supabase
       .from('sessoes')
-      .select(`*, fornecedor:fornecedores(id,nome), visitas(id, comprador_id, comprador:compradores(nome,cnpj,cidade))`)
+      .select(`*, fornecedor:fornecedores(id,nome), visitas(id, comprador_id, comprador:compradores(nome,cnpj,cidade,fantasia,ie,email,telefone,endereco))`)
       .eq('colecao_id', colecao_id)
       .order('data_visita', { ascending: false })
     if (error) throw error
@@ -44,7 +49,7 @@ export const sessoes = {
   async byId(id) {
     const { data, error } = await supabase
       .from('sessoes')
-      .select(`*, fornecedor:fornecedores(id,nome), visitas(id, comprador_id, comprador:compradores(nome,cnpj,cidade))`)
+      .select(`*, fornecedor:fornecedores(id,nome), visitas(id, comprador_id, comprador:compradores(nome,cnpj,cidade,fantasia,ie,email,telefone,endereco))`)
       .eq('id', id)
       .single()
     if (error) throw error

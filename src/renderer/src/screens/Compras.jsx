@@ -557,6 +557,7 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
 
 function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, onRemoveVisita, segs = [],
   initialItems = [], initialQtds = {}, initialActiveId = null, initialLojaIdx = 0 }) {
+  console.log('PHASE2 MOUNT', { visitas, items: initialItems })
   const { comprador: myComprador } = useAuth()
   const [items,         setItems]         = useState(initialItems)
   const [activeId,      setActiveId]      = useState(initialActiveId)
@@ -661,15 +662,15 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   }
 
   function totalQtdItem(localId) {
-    return visitas.reduce((s, v) => s + totalQtdLoja(localId, v.id), 0)
+    return (visitas ?? []).reduce((s, v) => s + totalQtdLoja(localId, v.id), 0)
   }
 
   function totalQtdVisita(visitaId) {
-    return items.reduce((s, it) => s + totalQtdLoja(it.localId, visitaId), 0)
+    return (items ?? []).reduce((s, it) => s + totalQtdLoja(it.localId, visitaId), 0)
   }
 
   function totalValorVisita(visitaId) {
-    return items.reduce((s, it) => {
+    return (items ?? []).reduce((s, it) => {
       const unit = parseFloat((it.valor ?? '').replace(',', '.')) || 0
       return s + totalQtdLoja(it.localId, visitaId) * unit
     }, 0)
@@ -1032,8 +1033,14 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
             obs: obs || '', itens,
           })
           meta.push({
-            comprador_nome: v.comprador_nome, comprador_cnpj: v.comprador_cnpj ?? '',
-            comprador_cidade: v.comprador_cidade ?? '',
+            comprador_nome:     v.comprador_nome,
+            comprador_cnpj:     v.comprador_cnpj     ?? '',
+            comprador_cidade:   v.comprador_cidade   ?? '',
+            comprador_fantasia: v.comprador_fantasia ?? '',
+            comprador_ie:       v.comprador_ie       ?? '',
+            comprador_email:    v.comprador_email    ?? '',
+            comprador_telefone: v.comprador_telefone ?? '',
+            comprador_endereco: v.comprador_endereco ?? '',
             classificacao, tipo_produto, classe, tipo_grade,
           })
         }
@@ -1872,24 +1879,44 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
 // ─── PDF generation (shared between FecharSessao and Historico) ──────────
 
 const PDF_STYLES = `
-    body { font-family: Arial, sans-serif; font-size: 12px; color: #000; margin: 0; }
-    .order { padding: 24px; page-break-after: always; }
-    .order:last-child { page-break-after: avoid; }
-    h1 { font-size: 16px; font-weight: bold; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 4px; }
-    .section { margin: 12px 0; }
-    .section-title { font-weight:bold; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#555; margin-bottom:6px; }
-    .row { display: flex; gap: 24px; margin-bottom: 4px; }
-    .lbl { font-weight: bold; min-width: 120px; }
-    .seg-block { margin: 16px 0; border-top: 1px solid #ddd; padding-top: 10px; }
-    .seg-title { font-weight: bold; font-size: 11px; color: #333; margin-bottom: 6px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-    th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: right; }
-    th:first-child, td:first-child { text-align: left; }
-    th { background: #f0f0f0; font-weight: bold; }
-    .totals { margin-top: 10px; text-align: right; line-height: 1.7; }
-    .total-geral { display:flex; justify-content:space-between; align-items:center; margin-top:20px; padding:10px 12px; background:#f5f5f5; border:2px solid #333; border-radius:4px; font-size:13px; }
-    .footer { margin-top: 24px; font-size: 10px; color: #888; text-align: center; border-top: 1px solid #ddd; padding-top: 8px; }
-    @media print { @page { margin: 15mm; } }`
+  body { font-family: Arial, sans-serif; font-size: 9px; color: #000; margin: 0; }
+  .order { padding: 10px 12px; page-break-after: always; }
+  .order:last-child { page-break-after: avoid; }
+
+  /* Header */
+  .ph { display:flex; gap:14px; border-bottom:2px solid #000; padding-bottom:8px; margin-bottom:8px; }
+  .ph-store { flex:1.5; min-width:0; }
+  .ph-store-name { font-size:12px; font-weight:bold; line-height:1.3; margin-bottom:2px; }
+  .ph-store-line { font-size:8px; margin-top:2px; }
+  .ph-order { min-width:185px; max-width:220px; border-left:1.5px solid #ccc; padding-left:12px; font-size:8px; }
+  .ph-sup { font-size:11px; font-weight:bold; letter-spacing:.05em; margin-bottom:5px; color:#222; }
+  .ph-tbl { border-collapse:collapse; width:100%; }
+  .ph-tbl td { padding:1px 3px; }
+  .ph-tbl td:first-child { font-weight:bold; white-space:nowrap; padding-right:6px; }
+  .ph-note { font-size:7px; color:#555; margin:4px 0 2px; font-style:italic; }
+  .ph-credit { font-size:10px; font-weight:bold; margin-top:4px; }
+
+  /* Products table */
+  .pt { width:100%; border-collapse:collapse; font-size:7.5px; table-layout:fixed; margin-top:4px; }
+  .pt th,.pt td { border:0.5px solid #bbb; padding:1.5px 2px; text-align:center; overflow:hidden; white-space:nowrap; }
+  .pt th { background:#e0e0e0; font-weight:bold; font-size:6.5px; padding:2px; }
+  .pt .cp { text-align:left; width:88px; font-size:8px; white-space:normal; }
+  .pt .ct { width:19px; background:#f5f5f5; color:#555; font-size:6px; }
+  .pt .cq { width:22px; }
+  .pt .cq0 { color:#ccc; }
+  .pt .cd { color:#ddd; font-size:6px; }
+  .pt .cqt { width:28px; font-weight:bold; }
+  .pt .cpr { width:42px; }
+  .pt .ctot { width:50px; font-weight:bold; }
+  .pt .cic { width:20px; font-size:7px; }
+  .pt .crl { width:42px; }
+  .pt .cref { text-align:left; width:95px; font-size:7px; white-space:normal; overflow:visible; }
+  .pt tfoot td { font-weight:bold; background:#f0f0f0; border-top:1.5px solid #777; }
+  .pt .tl { text-align:right; font-size:8px; }
+  .pt .tv { text-align:right; font-size:9px; }
+  .pt .tv-big { font-size:10px; font-weight:900; }
+
+  @media print { @page { margin:8mm; size:A4 landscape; } }`
 
 function wrapDoc(ordersHtml, titulo) {
   return `<!DOCTYPE html>
@@ -1904,71 +1931,157 @@ function wrapDoc(ordersHtml, titulo) {
 </html>`
 }
 
-function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
-  const dateStr = new Date().toLocaleDateString('pt-BR')
-  const totalGeralComprador = visPedidos.reduce((s, p) => {
-    const q = p.itens.reduce((s2, i) => s2 + i.qtd, 0)
-    return s + q * p.valor_unitario * (1 - p.desconto_pct / 100)
-  }, 0)
-  const totalPecasComprador = visPedidos.reduce((s, p) => s + p.itens.reduce((s2, i) => s2 + i.qtd, 0), 0)
+const MESES_PT = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO']
+const fmtEntrega = iso => {
+  if (!iso) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    const [, m, d] = iso.split('-')
+    return `${parseInt(d, 10)} DE ${MESES_PT[parseInt(m, 10) - 1]}`
+  }
+  return iso.toUpperCase()
+}
+const fmtV = n => (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-  const pedidosHtml = visPedidos.map(p => {
-    const segLabel = p.referencia
-      ? `${esc(p.referencia)} — ${esc(p.tipo_produto ?? '')} — ${esc(p.classe ?? '')} (Grade ${esc(p.tipo_grade ?? '')})`
-      : p.classificacao
-        ? `${esc(p.classificacao)} — ${esc(p.tipo_produto)} — ${esc(p.classe)} (Grade ${esc(p.tipo_grade)})`
-        : `Segmentação #${p.segmentacao_id}`
-    const totalQ = p.itens.reduce((s, i) => s + i.qtd, 0)
-    const totalV = totalQ * p.valor_unitario * (1 - p.desconto_pct / 100)
-    const rowsHtml = p.itens.filter(i => i.qtd > 0).map(i =>
-      `<tr><td style="text-align:left; padding:5px 10px;">${i.tamanho}</td><td style="text-align:right; padding:5px 10px;">${i.qtd}</td></tr>`
-    ).join('')
-    return `
-      <div class="seg-block">
-        <div class="seg-title">${segLabel}</div>
-        <table>
-          <thead><tr><th style="text-align:left;">Tamanho</th><th>Quantidade</th></tr></thead>
-          <tbody>${rowsHtml}</tbody>
-          <tfoot><tr>
-            <td style="text-align:left; font-weight:bold; border-top:2px solid #aaa; padding:5px 10px;">Total</td>
-            <td style="font-weight:bold; border-top:2px solid #aaa; padding:5px 10px; text-align:right;">${totalQ}</td>
-          </tr></tfoot>
-        </table>
-        <div class="totals">
-          <div>Valor unitário: <strong>R$ ${p.valor_unitario.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>
-          ${p.desconto_pct > 0 ? `<div>Desconto: <strong>${p.desconto_pct}%</strong></div>` : ''}
-          <div style="font-size:14px; margin-top:4px;">Valor líquido: <strong>R$ ${totalV.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>
-        </div>
-      </div>`
+const N_TPAIRS = 10
+
+function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
+  if (!visPedidos.length) return ''
+
+  // ── totals ───────────────────────────────────────────────────────────────
+  const totalBruto = visPedidos.reduce((s, p) => {
+    const itens = p.itens ?? []
+    const q = itens.reduce((s2, i) => s2 + i.qtd, 0)
+    return s + q * (p.valor_unitario ?? 0)
+  }, 0)
+  const totalLiquido = visPedidos.reduce((s, p) => {
+    const itens = p.itens ?? []
+    const q = itens.reduce((s2, i) => s2 + i.qtd, 0)
+    return s + q * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100)
+  }, 0)
+  const totalPecas = visPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0), 0)
+  const temDesconto = visPedidos.some(p => (p.desconto_pct ?? 0) > 0)
+
+  // ── product rows ─────────────────────────────────────────────────────────
+  const prodRows = visPedidos.map(p => {
+    const itens = p.itens ?? []
+    const tipo_produto = p.tipo_produto ?? p.segmentacao?.tipo_produto ?? ''
+    const tipo_grade   = p.tipo_grade   ?? p.segmentacao?.tipo_grade   ?? 'AD'
+    const gradeTams    = GRADE_DEFINITIONS[tipo_grade]?.tamanhos ?? []
+    const qtdMap       = Object.fromEntries(itens.map(i => [i.tamanho, i.qtd]))
+
+    const cells = []
+    for (let i = 0; i < N_TPAIRS; i++) {
+      if (i < gradeTams.length) {
+        const tam = gradeTams[i]
+        const q = qtdMap[tam] ?? 0
+        cells.push(`<td class="ct">${esc(tam)}</td><td class="${q === 0 ? 'cq cq0' : 'cq'}">${q}</td>`)
+      } else {
+        cells.push(`<td class="cd">—</td><td class="cd">—</td>`)
+      }
+    }
+
+    const totalQ = itens.reduce((s, i) => s + i.qtd, 0)
+    const totalV = totalQ * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100)
+    const icmsPct = sessao.icms_credito_pct ?? ''
+
+    return `<tr>
+      <td class="cp">${esc(tipo_produto)}</td>
+      ${cells.join('')}
+      <td class="cqt">${totalQ || '—'}</td>
+      <td class="cpr">${fmtV(p.valor_unitario ?? 0)}</td>
+      <td class="ctot">${totalV > 0 ? fmtV(totalV) : '—'}</td>
+      <td class="cic">${icmsPct}</td>
+      <td class="crl">${fmtV(p.valor_unitario ?? 0)}</td>
+      <td class="cref">${esc(p.referencia ?? '')}</td>
+    </tr>`
   }).join('')
+
+  // ── table header (T/Q pairs) ──────────────────────────────────────────────
+  const headerPairs = Array.from({ length: N_TPAIRS }, () => '<th>T</th><th>Q</th>').join('')
+
+  // ── store info (left) ────────────────────────────────────────────────────
+  const storeHtml = `
+    <div class="ph-store">
+      <div class="ph-store-name">${esc(vis.comprador_nome)}</div>
+      ${vis.comprador_cnpj     ? `<div class="ph-store-line">CNPJ: ${esc(vis.comprador_cnpj)}</div>` : ''}
+      ${vis.comprador_fantasia ? `<div class="ph-store-line">Fantasia: ${esc(vis.comprador_fantasia)}${vis.comprador_ie ? `&nbsp;&nbsp;&nbsp;I.E.: ${esc(vis.comprador_ie)}` : ''}</div>` : ''}
+      ${vis.comprador_email    ? `<div class="ph-store-line">e-mail: ${esc(vis.comprador_email)}</div>` : ''}
+      ${vis.comprador_telefone ? `<div class="ph-store-line">${esc(vis.comprador_telefone)}</div>` : ''}
+      ${vis.comprador_endereco
+        ? `<div class="ph-store-line">End.: ${esc(vis.comprador_endereco)}</div>`
+        : vis.comprador_cidade ? `<div class="ph-store-line">${esc(vis.comprador_cidade)}</div>` : ''}
+    </div>`
+
+  // ── order info (right) ───────────────────────────────────────────────────
+  const suppName = esc(sessao.fornecedor_nome ?? '')
+  const orderHtml = `
+    <div class="ph-order">
+      ${suppName ? `<div class="ph-sup">${suppName}</div>` : ''}
+      <table class="ph-tbl">
+        <tr><td>Data:</td><td>${fmtDate(sessao.data_visita)}</td></tr>
+        ${sessao.data_entrega    ? `<tr><td>Entrega:</td><td>${fmtEntrega(sessao.data_entrega)}</td></tr>` : ''}
+        ${sessao.cond_pag        ? `<tr><td>Cond. Pagt.:</td><td>${esc(sessao.cond_pag)}</td></tr>` : ''}
+        ${sessao.frete           ? `<tr><td>Frete:</td><td>${esc(sessao.frete)}</td></tr>` : ''}
+      </table>
+      ${sessao.icms_credito_pct != null && sessao.icms_credito_pct !== ''
+        ? `<div class="ph-note">Empresa de lucro presumido, precisa do crédito de ICMS</div>` : ''}
+      <table class="ph-tbl" style="margin-top:4px;">
+        ${sessao.vendedor        ? `<tr><td>Vendedor:</td><td>${esc(sessao.vendedor)}</td></tr>` : ''}
+        ${sessao.contato         ? `<tr><td>Fone:</td><td>${esc(sessao.contato)}</td></tr>` : ''}
+        ${sessao.transportadora  ? `<tr><td>Transp.:</td><td>${esc(sessao.transportadora)}</td></tr>` : ''}
+      </table>
+      ${sessao.icms_credito_pct != null && sessao.icms_credito_pct !== ''
+        ? `<div class="ph-credit">Crédito: ${sessao.icms_credito_pct}%</div>` : ''}
+    </div>`
+
+  // ── footer totals (colspan = 1 produto + 20 TQ + 1 quant + 1 preco = 23 antes de Total) ───
+  const COL_TOTAL = 23
+  const COL_ICMS  = 1
+  const COL_RLIQ  = 1
+  const COL_REF   = 1
+  const footerLabelCols = COL_TOTAL
+  const footerRightCols = COL_ICMS + COL_RLIQ + COL_REF
+
+  const footerRows = `
+    <tr>
+      <td class="tl" colspan="${footerLabelCols}">Total Bruto</td>
+      <td class="tv">${fmtV(totalBruto)}</td>
+      <td colspan="${footerRightCols}"></td>
+    </tr>
+    <tr>
+      <td class="tl" colspan="${footerLabelCols}">Desc. 0%</td>
+      <td class="tv">0,00</td>
+      <td colspan="${footerRightCols}"></td>
+    </tr>
+    <tr>
+      <td class="tl" colspan="${footerLabelCols}">Total Liquido</td>
+      <td class="tv tv-big">${fmtV(totalLiquido)}</td>
+      <td colspan="${footerRightCols}" style="font-size:8px; text-align:right; color:#555;">${totalPecas} peças</td>
+    </tr>`
 
   return `
     <div class="order"${isLast ? ' style="page-break-after:avoid;"' : ''}>
-      <h1>PEDIDO DE COMPRA</h1>
-      <p style="font-size:10px; color:#888; margin-bottom:12px;">Gerado em: ${dateStr}</p>
-      <div class="section">
-        <div class="section-title">Fornecedor</div>
-        <div class="row"><span class="lbl">Fornecedor:</span><span>${esc(sessao.fornecedor_nome)}</span></div>
-        ${sessao.vendedor ? `<div class="row"><span class="lbl">Vendedor:</span><span>${esc(sessao.vendedor)}</span></div>` : ''}
-        <div class="row"><span class="lbl">Data pedido:</span><span>${fmtDate(sessao.data_visita)}</span></div>
-        ${sessao.data_entrega ? `<div class="row"><span class="lbl">Entrega:</span><span>${fmtDate(sessao.data_entrega)}</span></div>` : ''}
-        ${sessao.cond_pag ? `<div class="row"><span class="lbl">Cond. pag.:</span><span>${esc(sessao.cond_pag)}</span></div>` : ''}
-        ${sessao.frete    ? `<div class="row"><span class="lbl">Frete:</span><span>${esc(sessao.frete)}</span></div>` : ''}
-        ${sessao.frete === 'FOB' && sessao.transportadora ? `<div class="row"><span class="lbl">Transportadora:</span><span>${esc(sessao.transportadora)}</span></div>` : ''}
-        ${sessao.obs      ? `<div class="row"><span class="lbl">Obs.:</span><span>${esc(sessao.obs)}</span></div>` : ''}
+      <div class="ph">
+        ${storeHtml}
+        ${orderHtml}
       </div>
-      <div class="section" style="border-top:1px solid #ddd; padding-top:10px;">
-        <div class="section-title">Comprador</div>
-        <div class="row"><span class="lbl">Nome:</span><span><strong>${esc(vis.comprador_nome)}</strong></span></div>
-        ${vis.comprador_cnpj   ? `<div class="row"><span class="lbl">CNPJ:</span><span>${esc(vis.comprador_cnpj)}</span></div>`   : ''}
-        ${vis.comprador_cidade ? `<div class="row"><span class="lbl">Cidade:</span><span>${esc(vis.comprador_cidade)}</span></div>` : ''}
-      </div>
-      ${pedidosHtml}
-      <div class="total-geral">
-        <span>${totalPecasComprador} peça(s)</span>
-        <span>Total do pedido: <strong>R$ ${totalGeralComprador.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></span>
-      </div>
-      <div class="footer">Gerado por Solução Compras — ${dateStr}</div>
+      <table class="pt">
+        <thead>
+          <tr>
+            <th class="cp">Produto</th>
+            ${headerPairs}
+            <th class="cqt">Quant</th>
+            <th class="cpr">R$ un.</th>
+            <th class="ctot">Total</th>
+            <th class="cic">ICMS</th>
+            <th class="crl">R$ Liq</th>
+            <th class="cref">Referência</th>
+          </tr>
+        </thead>
+        <tbody>${prodRows}</tbody>
+        <tfoot>${footerRows}</tfoot>
+      </table>
+      ${sessao.obs ? `<div style="margin-top:6px;font-size:8px;"><strong>Obs.:</strong> ${esc(sessao.obs)}</div>` : ''}
     </div>`
 }
 
@@ -2493,10 +2606,15 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetom
         setPedidosPorVisita(allPeds)
       }
       const visitasForPDF = ses.visitas.map(v => ({
-        id: v.visita_id,
-        comprador_nome:   v.comprador_nome,
-        comprador_cnpj:   v.comprador_cnpj   ?? '',
-        comprador_cidade: v.comprador_cidade  ?? '',
+        id:                 v.visita_id,
+        comprador_nome:     v.comprador_nome,
+        comprador_cnpj:     v.comprador_cnpj     ?? '',
+        comprador_cidade:   v.comprador_cidade   ?? '',
+        comprador_fantasia: v.comprador_fantasia ?? '',
+        comprador_ie:       v.comprador_ie       ?? '',
+        comprador_email:    v.comprador_email    ?? '',
+        comprador_telefone: v.comprador_telefone ?? '',
+        comprador_endereco: v.comprador_endereco ?? '',
       }))
       gerarPDFSessao(ses, visitasForPDF, allPeds)
     } finally {
@@ -2595,24 +2713,14 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetom
                   Visualizar
                 </button>
               )}
-              {comprador?.is_editor && onRetomarSessao && (
-                <button
-                  className={`${styles.btnHistAction} ${styles.btnHistEdit}`}
-                  onClick={() => onRetomarSessao(ses)}
-                  disabled={retomarLoading === ses.id}
-                  title="Retomar edição de itens desta sessão no Phase 2"
-                >
-                  {retomarLoading === ses.id ? '…' : 'Retomar'}
-                </button>
-              )}
               {comprador?.is_editor && (
                 <button
                   className={`${styles.btnHistAction} ${styles.btnHistEdit}`}
-                  onClick={() => handleStartEditSessao(ses)}
-                  disabled={editSessaoId !== null}
-                  title="Editar dados da sessão"
+                  onClick={() => onRetomarSessao ? onRetomarSessao(ses) : handleStartEditSessao(ses)}
+                  disabled={onRetomarSessao ? retomarLoading === ses.id : editSessaoId !== null}
+                  title={onRetomarSessao ? 'Retomar edição de itens desta sessão' : 'Editar dados da sessão'}
                 >
-                  Editar
+                  {onRetomarSessao && retomarLoading === ses.id ? '…' : 'Editar'}
                 </button>
               )}
               <button
@@ -3223,11 +3331,16 @@ export default function Compras() {
         if (cancelled) return
         if (!sessaoDb) { localStorage.removeItem(key); setRecoveryData(null); return }
         const visEnriquecidas = sessaoDb.visitas.map(v => ({
-          id: v.visita_id,
-          comprador_id:     v.comprador_id,
-          comprador_nome:   v.comprador_nome,
-          comprador_cnpj:   v.comprador_cnpj   ?? '',
-          comprador_cidade: v.comprador_cidade  ?? '',
+          id:                 v.visita_id,
+          comprador_id:       v.comprador_id,
+          comprador_nome:     v.comprador_nome,
+          comprador_cnpj:     v.comprador_cnpj     ?? '',
+          comprador_cidade:   v.comprador_cidade   ?? '',
+          comprador_fantasia: v.comprador_fantasia ?? '',
+          comprador_ie:       v.comprador_ie       ?? '',
+          comprador_email:    v.comprador_email    ?? '',
+          comprador_telefone: v.comprador_telefone ?? '',
+          comprador_endereco: v.comprador_endereco ?? '',
         }))
         setRecoveryData({ sessao: sessaoDb, visitas: visEnriquecidas, ...data })
       })
@@ -3243,10 +3356,15 @@ export default function Compras() {
       const loja = lojas.find(l => l.id === v.comprador_id)
       return {
         id: v.visita_id,
-        comprador_id: v.comprador_id,
-        comprador_nome:   loja?.nome   ?? `Loja #${v.comprador_id}`,
-        comprador_cnpj:   loja?.cnpj   ?? '',
-        comprador_cidade: loja?.cidade  ?? '',
+        comprador_id:       v.comprador_id,
+        comprador_nome:     loja?.nome     ?? `Loja #${v.comprador_id}`,
+        comprador_cnpj:     loja?.cnpj     ?? '',
+        comprador_cidade:   loja?.cidade   ?? '',
+        comprador_fantasia: loja?.fantasia ?? '',
+        comprador_ie:       loja?.ie       ?? '',
+        comprador_email:    loja?.email    ?? '',
+        comprador_telefone: loja?.telefone ?? '',
+        comprador_endereco: loja?.endereco ?? '',
       }
     })
     // Ordenar visitas pela mesma ordem da tela de Configurações (compradores.ordem)
@@ -3288,32 +3406,45 @@ export default function Compras() {
       ])
 
       const visitasEnriquecidas = sessaoDb.visitas.map(v => ({
-        id: v.visita_id,
-        comprador_id: v.comprador_id,
-        comprador_nome: v.comprador_nome,
-        comprador_cnpj: v.comprador_cnpj ?? '',
-        comprador_cidade: v.comprador_cidade ?? '',
+        id:                 v.visita_id,
+        comprador_id:       v.comprador_id,
+        comprador_nome:     v.comprador_nome,
+        comprador_cnpj:     v.comprador_cnpj     ?? '',
+        comprador_cidade:   v.comprador_cidade   ?? '',
+        comprador_fantasia: v.comprador_fantasia ?? '',
+        comprador_ie:       v.comprador_ie       ?? '',
+        comprador_email:    v.comprador_email    ?? '',
+        comprador_telefone: v.comprador_telefone ?? '',
+        comprador_endereco: v.comprador_endereco ?? '',
       }))
       const ordemIds = compradores.map(c => c.id)
       visitasEnriquecidas.sort((a, b) => ordemIds.indexOf(a.comprador_id) - ordemIds.indexOf(b.comprador_id))
 
-      const srcVisita = visitasComPedidos.find(v => (v.pedidos ?? []).length > 0)
       const toStr = n => (n != null && n !== '') ? String(n).replace('.', ',') : ''
 
-      const items = (srcVisita?.pedidos ?? []).map(ped => ({
-        localId: ped.referencia,
-        ref: ped.referencia,
-        tipo_produto: ped.segmentacao?.tipo_produto ?? '',
-        tipo_grade: ped.segmentacao?.tipo_grade ?? 'AD',
-        classe: ped.segmentacao?.classe ?? 'FEM',
-        icms_pct: toStr(ped.icms_pct),
-        valor: toStr(ped.valor_unitario),
-        markup_pct: toStr(ped.markup_pct),
-        preco_venda: toStr(ped.preco_venda),
-        cor: ped.cor ?? '',
-        detalhe: ped.detalhe ?? '',
-        obs: ped.obs ?? '',
-      }))
+      // Build items as union of all refs across all visitas (keyed by referencia to deduplicate)
+      const itemMap = new Map()
+      for (const visita of visitasComPedidos) {
+        for (const ped of visita.pedidos ?? []) {
+          if (!itemMap.has(ped.referencia)) {
+            itemMap.set(ped.referencia, {
+              localId: ped.referencia,
+              ref: ped.referencia,
+              tipo_produto: ped.segmentacao?.tipo_produto ?? '',
+              tipo_grade: ped.segmentacao?.tipo_grade ?? 'AD',
+              classe: ped.segmentacao?.classe ?? 'FEM',
+              icms_pct: toStr(ped.icms_pct),
+              valor: toStr(ped.valor_unitario),
+              markup_pct: toStr(ped.markup_pct),
+              preco_venda: toStr(ped.preco_venda),
+              cor: ped.cor ?? '',
+              detalhe: ped.detalhe ?? '',
+              obs: ped.obs ?? '',
+            })
+          }
+        }
+      }
+      const items = [...itemMap.values()]
 
       // Load ALL stores' qtds (Phase 5 fills + Phase 2 organizer fills)
       const qtds = {}
