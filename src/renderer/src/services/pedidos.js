@@ -26,14 +26,14 @@ export const pedidos = {
       for (const v of newVisitas ?? []) visitaMap[v.comprador_id] = v.id
     }
 
-    // 3. Upsert all pedidos in one batch
+    // 3. Upsert all pedidos in one batch (keyed by visita_id + referencia)
     const pedidoRows = validBatch.map(({ itens: _itens, ...fields }) => ({
       ...fields,
       visita_id: visitaMap[fields.comprador_id],
     }))
     const { data: savedPedidos, error: pe } = await supabase
       .from('pedidos')
-      .upsert(pedidoRows, { onConflict: 'visita_id,segmentacao_id' })
+      .upsert(pedidoRows, { onConflict: 'visita_id,referencia' })
       .select()
     if (pe) throw pe
 
@@ -45,11 +45,11 @@ export const pedidos = {
     }
 
     const byKey = Object.fromEntries(
-      (savedPedidos ?? []).map(p => [`${p.visita_id}|${p.segmentacao_id}`, p])
+      (savedPedidos ?? []).map(p => [`${p.visita_id}|${p.referencia}`, p])
     )
     const allItems = []
     for (const ped of validBatch) {
-      const saved = byKey[`${visitaMap[ped.comprador_id]}|${ped.segmentacao_id}`]
+      const saved = byKey[`${visitaMap[ped.comprador_id]}|${ped.referencia}`]
       if (saved && ped.itens?.length) {
         for (const it of ped.itens) {
           allItems.push({ pedido_id: saved.id, tamanho: it.tamanho, qtd: it.qtd })
@@ -63,7 +63,7 @@ export const pedidos = {
 
     // Return in same order as input so caller's index-based meta merge stays correct
     return validBatch
-      .map(b => byKey[`${visitaMap[b.comprador_id]}|${b.segmentacao_id}`])
+      .map(b => byKey[`${visitaMap[b.comprador_id]}|${b.referencia}`])
       .filter(Boolean)
   },
 
@@ -114,7 +114,7 @@ export const pedidos = {
     if (!pedidoRows.length) return 0
     const { error } = await supabase
       .from('pedidos')
-      .upsert(pedidoRows, { onConflict: 'visita_id,segmentacao_id', ignoreDuplicates: true })
+      .upsert(pedidoRows, { onConflict: 'visita_id,referencia', ignoreDuplicates: true })
     if (error) throw error
     return pedidoRows.length
   },
@@ -125,20 +125,19 @@ export const pedidos = {
     const rows = pedidoRows.map(r => ({ ...r, visita_id: visitaId }))
     const { error } = await supabase
       .from('pedidos')
-      .upsert(rows, { onConflict: 'visita_id,segmentacao_id' })
+      .upsert(rows, { onConflict: 'visita_id,referencia' })
     if (error) throw error
   },
 
   // Salva pedidos de uma visita específica (uso no preenchimento colaborativo)
   async salvarPedidosVisita(visitaId, updates) {
-    // updates: [{ segmentacao_id, valor_unitario, ..., itens: [{tamanho, qtd}] }]
     const pedidoRows = updates.map(({ itens: _itens, ...fields }) => ({
       ...fields,
       visita_id: visitaId,
     }))
     const { data: saved, error: pe } = await supabase
       .from('pedidos')
-      .upsert(pedidoRows, { onConflict: 'visita_id,segmentacao_id' })
+      .upsert(pedidoRows, { onConflict: 'visita_id,referencia' })
       .select()
     if (pe) throw pe
 
@@ -148,10 +147,10 @@ export const pedidos = {
       if (de) throw de
     }
 
-    const bySegId = Object.fromEntries((saved ?? []).map(p => [p.segmentacao_id, p]))
+    const byRef = Object.fromEntries((saved ?? []).map(p => [p.referencia, p]))
     const allItems = []
     for (const upd of updates) {
-      const ped = bySegId[upd.segmentacao_id]
+      const ped = byRef[upd.referencia]
       if (ped && upd.itens?.length) {
         for (const it of upd.itens) {
           allItems.push({ pedido_id: ped.id, tamanho: it.tamanho, qtd: it.qtd })
