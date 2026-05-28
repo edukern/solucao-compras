@@ -2162,8 +2162,8 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
   const podeSalvarPDF = true
   const visitasComPedidos = visitas.filter(v => pedidos.some(p => p.visita_id === v.id))
   const totalGeral = pedidos.reduce((s, p) => {
-    const q = p.itens.reduce((s2, i) => s2 + i.qtd, 0)
-    return s + q * p.valor_unitario * (1 - p.desconto_pct / 100)
+    const q = (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0)
+    return s + q * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100)
   }, 0)
 
   useEffect(() => {
@@ -2426,15 +2426,15 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
         {visitasComPedidos.map(vis => {
           const visPedidos = pedidos.filter(p => p.visita_id === vis.id)
           const totalComp = visPedidos.reduce((s, p) => {
-            const q = p.itens.reduce((s2, i) => s2 + i.qtd, 0)
-            return s + q * p.valor_unitario * (1 - p.desconto_pct / 100)
+            const q = (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0)
+            return s + q * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100)
           }, 0)
           const foiSalvo = salvos.has(vis.id)
           return (
             <div key={vis.id} className={styles.resumoCard}>
               <div className={styles.resumoCardHeader}>{vis.comprador_nome}</div>
               {visPedidos.map((p, i) => {
-                const totalQ = p.itens.reduce((s, i) => s + i.qtd, 0)
+                const totalQ = (p.itens ?? []).reduce((s, i) => s + i.qtd, 0)
                 return (
                   <div key={i} className={styles.resumoItem}>
                     <span>
@@ -2575,7 +2575,12 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetom
   async function handleSaveEditSessao(id) {
     setSavingEditSessao(true)
     try {
-      const updated = await sessoesService.update(id, editSessaoForm)
+      const payload = {
+        ...editSessaoForm,
+        data_entrega: editSessaoForm.data_entrega || null,
+        data_visita:  editSessaoForm.data_visita  || null,
+      }
+      const updated = await sessoesService.update(id, payload)
       setSessoesList(prev => prev.map(s => s.id === id ? { ...updated, visitas: s.visitas } : s))
       setEditSessaoId(null)
     } catch (e) {
@@ -2838,7 +2843,7 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetom
                           </thead>
                           <tbody>
                             {pedidosPorVisita[vis.visita_id].map(p => {
-                              const pecas = p.itens.reduce((s, i) => s + i.qtd, 0)
+                              const pecas = (p.itens ?? []).reduce((s, i) => s + i.qtd, 0)
                               const total = pecas * p.valor_unitario * (1 - p.desconto_pct / 100)
                               return (
                                 <tr key={p.id}>
