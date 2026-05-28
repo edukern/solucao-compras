@@ -1879,44 +1879,44 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
 // ─── PDF generation (shared between FecharSessao and Historico) ──────────
 
 const PDF_STYLES = `
-  body { font-family: Arial, sans-serif; font-size: 9px; color: #000; margin: 0; }
-  .order { padding: 10px 12px; page-break-after: always; }
+  body { font-family: Arial, sans-serif; font-size: 10px; color: #000; margin: 0; }
+  .order { padding: 12px 14px; page-break-after: always; }
   .order:last-child { page-break-after: avoid; }
 
   /* Header */
-  .ph { display:flex; gap:14px; border-bottom:2px solid #000; padding-bottom:8px; margin-bottom:8px; }
+  .ph { display:flex; gap:16px; border-bottom:2px solid #000; padding-bottom:10px; margin-bottom:10px; }
   .ph-store { flex:1.5; min-width:0; }
-  .ph-store-name { font-size:12px; font-weight:bold; line-height:1.3; margin-bottom:2px; }
-  .ph-store-line { font-size:8px; margin-top:2px; }
-  .ph-order { min-width:185px; max-width:220px; border-left:1.5px solid #ccc; padding-left:12px; font-size:8px; }
-  .ph-sup { font-size:11px; font-weight:bold; letter-spacing:.05em; margin-bottom:5px; color:#222; }
+  .ph-store-name { font-size:14px; font-weight:bold; line-height:1.3; margin-bottom:3px; }
+  .ph-store-line { font-size:9px; margin-top:3px; }
+  .ph-order { min-width:200px; max-width:240px; border-left:1.5px solid #ccc; padding-left:14px; font-size:9px; }
+  .ph-sup { font-size:14px; font-weight:bold; letter-spacing:.05em; margin-bottom:6px; color:#222; }
   .ph-tbl { border-collapse:collapse; width:100%; }
-  .ph-tbl td { padding:1px 3px; }
-  .ph-tbl td:first-child { font-weight:bold; white-space:nowrap; padding-right:6px; }
-  .ph-note { font-size:7px; color:#555; margin:4px 0 2px; font-style:italic; }
-  .ph-credit { font-size:10px; font-weight:bold; margin-top:4px; }
+  .ph-tbl td { padding:2px 4px; }
+  .ph-tbl td:first-child { font-weight:bold; white-space:nowrap; padding-right:8px; }
+  .ph-note { font-size:8px; color:#555; margin:5px 0 2px; font-style:italic; }
+  .ph-credit { font-size:11px; font-weight:bold; margin-top:5px; }
 
   /* Products table */
-  .pt { width:100%; border-collapse:collapse; font-size:7.5px; table-layout:fixed; margin-top:4px; }
-  .pt th,.pt td { border:0.5px solid #bbb; padding:1.5px 2px; text-align:center; overflow:hidden; white-space:nowrap; }
-  .pt th { background:#e0e0e0; font-weight:bold; font-size:6.5px; padding:2px; }
-  .pt .cp { text-align:left; width:88px; font-size:8px; white-space:normal; }
-  .pt .ct { width:19px; background:#f5f5f5; color:#555; font-size:6px; }
-  .pt .cq { width:22px; }
+  .pt { width:100%; border-collapse:collapse; font-size:9px; table-layout:fixed; margin-top:6px; }
+  .pt th,.pt td { border:0.5px solid #bbb; padding:2px 3px; text-align:center; overflow:hidden; white-space:nowrap; }
+  .pt th { background:#e0e0e0; font-weight:bold; font-size:8px; padding:3px; }
+  .pt .cp { text-align:left; width:96px; font-size:9px; white-space:normal; }
+  .pt .ct { width:22px; background:#f5f5f5; color:#555; font-size:8px; }
+  .pt .cq { width:24px; }
   .pt .cq0 { color:#ccc; }
-  .pt .cd { color:#ddd; font-size:6px; }
-  .pt .cqt { width:28px; font-weight:bold; }
-  .pt .cpr { width:42px; }
-  .pt .ctot { width:50px; font-weight:bold; }
-  .pt .cic { width:20px; font-size:7px; }
-  .pt .crl { width:42px; }
-  .pt .cref { text-align:left; width:95px; font-size:7px; white-space:normal; overflow:visible; }
+  .pt .cd { color:#ddd; font-size:8px; }
+  .pt .cqt { width:32px; font-weight:bold; }
+  .pt .cpr { width:46px; }
+  .pt .ctot { width:56px; font-weight:bold; }
+  .pt .cic { width:24px; font-size:8px; }
+  .pt .crl { width:46px; }
+  .pt .cref { text-align:left; width:100px; font-size:9px; white-space:normal; overflow:visible; }
   .pt tfoot td { font-weight:bold; background:#f0f0f0; border-top:1.5px solid #777; }
-  .pt .tl { text-align:right; font-size:8px; }
-  .pt .tv { text-align:right; font-size:9px; }
-  .pt .tv-big { font-size:10px; font-weight:900; }
+  .pt .tl { text-align:right; font-size:9px; }
+  .pt .tv { text-align:right; font-size:10px; }
+  .pt .tv-big { font-size:12px; font-weight:900; }
 
-  @media print { @page { margin:8mm; size:A4 landscape; } }`
+  @media print { @page { margin:10mm; size:A4 landscape; } }`
 
 function wrapDoc(ordersHtml, titulo) {
   return `<!DOCTYPE html>
@@ -2215,12 +2215,12 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
       obs:          modalFields.obs,
       data_entrega: modalFields.data_entrega,
     }
-    const finalOverrides = {}
     for (const vis of visitasComPedidos) {
+      const visPedidos = pedMap[vis.id] ?? []
+      if (!visPedidos.length) continue
       const ovr = buildVisitaOverride(vis.id)
-      if (Object.keys(ovr).length) finalOverrides[vis.id] = ovr
+      salvarPDFVisita(sessaoComModal, vis, visPedidos, ovr)
     }
-    gerarPDFSessao(sessaoComModal, visitas, pedMap, finalOverrides)
   }
 
   async function handleSalvarPDF(vis) {
@@ -2619,7 +2619,11 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetom
         comprador_telefone: v.comprador_telefone ?? '',
         comprador_endereco: v.comprador_endereco ?? '',
       }))
-      gerarPDFSessao(ses, visitasForPDF, allPeds)
+      for (const vis of visitasForPDF) {
+        const visPedidos = allPeds[vis.id] ?? []
+        if (!visPedidos.length) continue
+        salvarPDFVisita(ses, vis, visPedidos)
+      }
     } finally {
       setReimprimindo(null)
     }
