@@ -65,5 +65,16 @@ export const sessoes = {
   async cancelar(id) {
     const { error } = await supabase.from('sessoes').delete().eq('id', id)
     if (error) throw error
+  },
+
+  // Loads piece count + order value totals for a set of sessao_ids in one query
+  async statsPorSessoes(sessaoIds) {
+    if (!sessaoIds.length) return []
+    const { data, error } = await supabase
+      .from('visitas')
+      .select(`id, sessao_id, pedidos(valor_unitario, pedido_itens(qtd))`)
+      .in('sessao_id', sessaoIds)
+    if (error) throw error
+    return data ?? []
   }
 }

@@ -2206,17 +2206,44 @@ function Historico({ colId }) {
   const [expandedSessao,   setExpandedSessao]   = useState(null)
   const [expandedVisita,   setExpandedVisita]   = useState(null)
   const [pedidosPorVisita, setPedidosPorVisita] = useState({})
-  const [reimprimindo,     setReimprimindo]     = useState(null) // sessao.id em andamento
-  const [confirmCancelar,     setConfirmCancelar]     = useState(null) // { pedidoId, visitaId }
+  const [reimprimindo,     setReimprimindo]     = useState(null)
+  const [confirmCancelar,     setConfirmCancelar]     = useState(null)
   const [editSessaoId,        setEditSessaoId]        = useState(null)
   const [editSessaoForm,      setEditSessaoForm]      = useState({})
   const [savingEditSessao,    setSavingEditSessao]    = useState(false)
-  const [confirmDeleteSessao, setConfirmDeleteSessao] = useState(null) // sessaoId
+  const [confirmDeleteSessao, setConfirmDeleteSessao] = useState(null)
+  const [statsMap,            setStatsMap]            = useState({}) // { [sessao_id]: { pcs, valor, lojas } }
 
   useEffect(() => {
     let cancelled = false
     sessoesService.list(colId).then(list => {
-      if (!cancelled) { setSessoesList(list); setLoading(false) }
+      if (cancelled) return
+      setSessoesList(list)
+      setLoading(false)
+      // Load aggregate stats for all sessions in one background query
+      const ids = list.map(s => s.id)
+      if (!ids.length) return
+      sessoesService.statsPorSessoes(ids).then(rows => {
+        if (cancelled) return
+        const map = {}
+        for (const row of rows) {
+          const sid = row.sessao_id
+          if (!map[sid]) map[sid] = { pcs: 0, valor: 0, lojasSet: new Set() }
+          let visitaHasData = false
+          for (const ped of row.pedidos ?? []) {
+            const qtd = (ped.pedido_itens ?? []).reduce((s, i) => s + (i.qtd || 0), 0)
+            map[sid].pcs += qtd
+            map[sid].valor += qtd * (ped.valor_unitario || 0)
+            if (qtd > 0) visitaHasData = true
+          }
+          if (visitaHasData) map[sid].lojasSet.add(row.id)
+        }
+        const final = {}
+        for (const [sid, stat] of Object.entries(map)) {
+          final[sid] = { pcs: stat.pcs, valor: stat.valor, lojas: stat.lojasSet.size }
+        }
+        setStatsMap(final)
+      })
     })
     return () => { cancelled = true }
   }, [colId])
@@ -2322,17 +2349,33 @@ function Historico({ colId }) {
           onCancel={() => setConfirmDeleteSessao(null)}
         />
       )}
-      {sessoesList.map(ses => (
+      {sessoesList.map(ses => {
+        const fornNome = ses.fornecedor_nome || ses.fornecedor?.nome || '—'
+        const stats = statsMap[ses.id]
+        return (
         <div key={ses.id} className={styles.histSessao}>
           <div className={styles.histSessaoHeader}>
             <button
               className={styles.histSessaoToggle}
               onClick={() => setExpandedSessao(expandedSessao === ses.id ? null : ses.id)}
             >
-              <strong>{ses.fornecedor_nome}</strong>
-              <span className={styles.dot}>·</span>
-              <span>{fmtDate(ses.data_visita)}</span>
-              {ses.vendedor && <><span className={styles.dot}>·</span><span>{ses.vendedor}</span></>}
+              <span className={styles.histSessaoMain}>
+                <strong className={styles.histFornNome}>{fornNome}</strong>
+                <span className={styles.histSessaoMeta}>
+                  <span>{fmtDate(ses.data_visita)}</span>
+                  {ses.vendedor && <><span className={styles.dot}>·</span><span>{ses.vendedor}</span></>}
+                  {ses.cond_pag && <><span className={styles.dot}>·</span><span>{ses.cond_pag}</span></>}
+                </span>
+              </span>
+              {stats && stats.pcs > 0 && (
+                <span className={styles.histSessaoStats}>
+                  <span>{stats.lojas} loja{stats.lojas !== 1 ? 's' : ''}</span>
+                  <span className={styles.dot}>·</span>
+                  <span>{stats.pcs} pç</span>
+                  <span className={styles.dot}>·</span>
+                  <strong>R$ {stats.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                </span>
+              )}
               <span className={styles.histChevron}>{expandedSessao === ses.id ? '▲' : '▼'}</span>
             </button>
             <button
@@ -2484,7 +2527,8 @@ function Historico({ colId }) {
             </div>
           )}
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
