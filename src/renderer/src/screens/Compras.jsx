@@ -928,7 +928,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   return (
     <div className={styles.phase}>
       <div className={styles.visitaBanner}>
-        <strong>{sessao.fornecedor_nome}</strong>
+        <strong>{sessao.fornecedor?.nome || sessao.fornecedor_nome}</strong>
         <span className={styles.dot}>·</span>
         <span>{fmtDate(sessao.data_visita)}</span>
         {sessao.vendedor && <><span className={styles.dot}>·</span><span>Vendedor: {sessao.vendedor}</span></>}
@@ -2053,7 +2053,7 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
       )}
 
       <div className={styles.visitaBanner}>
-        <strong>{sessao.fornecedor_nome}</strong>
+        <strong>{sessao.fornecedor?.nome || sessao.fornecedor_nome}</strong>
         <span className={styles.dot}>·</span>
         <span>{fmtDate(sessao.data_visita)}</span>
         <span className={styles.dot}>·</span>
@@ -2350,7 +2350,7 @@ function Historico({ colId }) {
         />
       )}
       {sessoesList.map(ses => {
-        const fornNome = ses.fornecedor_nome || ses.fornecedor?.nome || '—'
+        const fornNome = ses.fornecedor?.nome || ses.fornecedor_nome || '—'
         const stats = statsMap[ses.id]
         return (
         <div key={ses.id} className={styles.histSessao}>
@@ -2612,7 +2612,10 @@ export default function Compras() {
     // Ordenar visitas pela mesma ordem da tela de Configurações (compradores.ordem)
     const ordemIds = lojas.map(l => l.id)
     visitasEnriquecidas.sort((a, b) => ordemIds.indexOf(a.comprador_id) - ordemIds.indexOf(b.comprador_id))
-    setSessao(novaSessao)
+    // Enrich with fornecedor name from the already-loaded forns list
+    const forn = forns.find(f => f.id === novaSessao.fornecedor_id)
+    const sessaoEnriquecida = { ...novaSessao, fornecedor_nome: forn?.nome || novaSessao.fornecedor_nome || '' }
+    setSessao(sessaoEnriquecida)
     setVisitas(visitasEnriquecidas)
     setPhase(2)
   }
