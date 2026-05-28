@@ -626,6 +626,13 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     return items.reduce((s, it) => s + totalQtdLoja(it.localId, visitaId), 0)
   }
 
+  function totalValorVisita(visitaId) {
+    return items.reduce((s, it) => {
+      const unit = parseFloat((it.valor ?? '').replace(',', '.')) || 0
+      return s + totalQtdLoja(it.localId, visitaId) * unit
+    }, 0)
+  }
+
   function hasExtremeData(localId, tam) {
     return visitas.some(v => (parseInt(qtds[localId]?.[v.id]?.[tam]) || 0) > 0)
   }
@@ -1084,14 +1091,22 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
           <div className={styles.porLojaTabs}>
             {visitas.map((v, i) => {
               const total = totalQtdVisita(v.id)
+              const valor = totalValorVisita(v.id)
               return (
                 <button
                   key={v.id}
                   className={`${styles.porLojaTab} ${i === lojaIdx ? styles.porLojaTabActive : ''}`}
                   onClick={() => setLojaIdx(i)}
                 >
-                  {v.comprador_nome}
-                  {total > 0 && <span className={styles.porLojaTabTotal}>{total}</span>}
+                  <span className={styles.porLojaTabName}>{v.comprador_nome}</span>
+                  {total > 0 && (
+                    <span className={styles.porLojaTabInfo}>
+                      <span className={styles.porLojaTabTotal}>{total} pç</span>
+                      <span className={styles.porLojaTabValor}>
+                        R$ {valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </span>
+                  )}
                   {visitas.length > 1 && (
                     <span
                       className={styles.porLojaTabRemove}

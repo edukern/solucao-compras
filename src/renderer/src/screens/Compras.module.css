@@ -1746,6 +1746,20 @@
   transition: all 0.15s;
 }
 .porLojaTab:hover { border-color: var(--accent); color: var(--text-primary); }
+.porLojaTabName { white-space: nowrap; }
+.porLojaTabInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+  margin-left: 0.15rem;
+}
+.porLojaTabValor {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  line-height: 1.2;
+}
 .porLojaTabRemove {
   display: inline-flex;
   align-items: center;
@@ -1773,14 +1787,11 @@
   font-weight: 600;
 }
 .porLojaTabTotal {
-  background: var(--accent);
-  color: #fff;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  border-radius: 10px;
-  padding: 0.05rem 0.45rem;
-  min-width: 18px;
-  text-align: center;
+  color: var(--accent-light);
+  white-space: nowrap;
+  line-height: 1.2;
 }
 
 .porLojaItemsList {
