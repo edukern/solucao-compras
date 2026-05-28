@@ -1908,7 +1908,7 @@ const PDF_STYLES = `
   .pt .cd { color:#ddd; font-size:8px; }
   .pt .cqt { width:32px; font-weight:bold; }
   .pt .cpr { width:46px; }
-  .pt .ctot { width:56px; font-weight:bold; }
+  .pt .ctot { width:66px; font-weight:bold; }
   .pt .cic { width:24px; font-size:8px; }
   .pt .crl { width:46px; }
   .pt .cref { text-align:left; width:100px; font-size:9px; white-space:normal; overflow:visible; }
@@ -1962,12 +1962,15 @@ function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
   }, 0)
   const totalPecas = visPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0), 0)
   const temDesconto = visPedidos.some(p => (p.desconto_pct ?? 0) > 0)
+  const temICMS = sessao.icms_credito_pct != null && sessao.icms_credito_pct !== ''
+
+  const pedidosOrdenados = visPedidos
 
   // ── active sizes: union of sizes that have qty > 0 in any product ────────
   const sizeOrder = []
   const sizeSet   = new Set()
   const sizeHasQty = new Set()
-  for (const p of visPedidos) {
+  for (const p of pedidosOrdenados) {
     const tipo_grade = p.tipo_grade ?? p.segmentacao?.tipo_grade ?? 'AD'
     const gradeTams  = GRADE_DEFINITIONS[tipo_grade]?.tamanhos ?? []
     const qtdMap     = Object.fromEntries((p.itens ?? []).map(i => [i.tamanho, i.qtd]))
@@ -1979,7 +1982,7 @@ function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
   const activeSizes = sizeOrder.filter(t => sizeHasQty.has(t))
 
   // ── product rows ─────────────────────────────────────────────────────────
-  const prodRows = visPedidos.map(p => {
+  const prodRows = pedidosOrdenados.map(p => {
     const itens = p.itens ?? []
     const tipo_produto = p.tipo_produto ?? p.segmentacao?.tipo_produto ?? ''
     const qtdMap       = Object.fromEntries(itens.map(i => [i.tamanho, i.qtd]))
@@ -1991,7 +1994,6 @@ function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
 
     const totalQ = itens.reduce((s, i) => s + i.qtd, 0)
     const totalV = totalQ * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100)
-    const icmsPct = sessao.icms_credito_pct ?? ''
 
     const refLabel = [p.referencia, p.cor, p.detalhe].filter(Boolean).join(' ')
     const classeLabel = [tipo_produto, p.classe ?? p.segmentacao?.classe ?? ''].filter(Boolean).join(' ')
@@ -2003,7 +2005,7 @@ function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
       <td class="cpr">${fmtV(p.valor_unitario ?? 0)}</td>
       <td class="ctot">${totalV > 0 ? fmtV(totalV) : '—'}</td>
       <td class="crl">${fmtV(p.valor_unitario ?? 0)}</td>
-      <td class="cic">${icmsPct}</td>
+      ${temICMS ? `<td class="cic">${sessao.icms_credito_pct}</td>` : ''}
     </tr>`
   }).join('')
 
@@ -2045,23 +2047,15 @@ function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
         ? `<div class="ph-credit">Crédito: ${sessao.icms_credito_pct}%</div>` : ''}
     </div>`
 
-  // ── footer totals (colspan = 1 produto + 20 TQ + 1 quant + 1 preco = 23 antes de Total) ───
-  const COL_TOTAL = 23
-  const COL_ICMS  = 1
-  const COL_RLIQ  = 1
-  const COL_REF   = 1
-  const footerLabelCols = COL_TOTAL
-  const footerRightCols = COL_ICMS + COL_RLIQ + COL_REF
+  // ── footer totals: colspan dinâmico baseado em colunas ativas ───────────
+  // ref + produto + (T+Q)*activeSizes + quant + preco = total label cols, depois ctot, depois crl + (icms?)
+  const footerLabelCols = 2 + activeSizes.length * 2 + 2
+  const footerRightCols = 1 + (temICMS ? 1 : 0)
 
   const footerRows = `
     <tr>
       <td class="tl" colspan="${footerLabelCols}">Total Bruto</td>
       <td class="tv">${fmtV(totalBruto)}</td>
-      <td colspan="${footerRightCols}"></td>
-    </tr>
-    <tr>
-      <td class="tl" colspan="${footerLabelCols}">Desc. 0%</td>
-      <td class="tv">0,00</td>
       <td colspan="${footerRightCols}"></td>
     </tr>
     <tr>
@@ -2086,13 +2080,13 @@ function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
             <th class="cpr">R$ un.</th>
             <th class="ctot">Total</th>
             <th class="crl">R$ Liq</th>
-            <th class="cic">ICMS</th>
+            ${temICMS ? '<th class="cic">ICMS%</th>' : ''}
           </tr>
         </thead>
         <tbody>${prodRows}</tbody>
         <tfoot>${footerRows}</tfoot>
       </table>
-      ${sessao.obs ? `<div style="margin-top:6px;font-size:8px;"><strong>Obs.:</strong> ${esc(sessao.obs)}</div>` : ''}
+      ${sessao.obs ? `<div style="margin-top:6px;font-size:9px;"><strong>Obs.:</strong> ${esc(sessao.obs)}</div>` : ''}
     </div>`
 }
 
