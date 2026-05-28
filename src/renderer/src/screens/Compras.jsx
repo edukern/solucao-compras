@@ -1135,7 +1135,14 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                       className={`${styles.itemRow} ${isActive ? styles.itemRowActive : ''}`}
                       onClick={() => { setEditingId(null); setEditForm(null); setActiveId(isActive ? null : it.localId); setLojaIdx(0) }}
                     >
-                      <td>{it.ref || <span className={styles.itemDot}>—</span>}</td>
+                      <td>
+                        {it.ref || <span className={styles.itemDot}>—</span>}
+                        {(it.cor || it.detalhe) && (
+                          <span className={styles.itemRefDetail}>
+                            {[it.cor, it.detalhe].filter(Boolean).join(' · ')}
+                          </span>
+                        )}
+                      </td>
                       <td>{it.tipo_produto} · {it.tipo_grade} · {it.classe}</td>
                       <td>{it.icms_pct || '0'}%</td>
                       <td>{it.valor ? `R$ ${it.valor}` : <span className={styles.itemDot}>—</span>}</td>

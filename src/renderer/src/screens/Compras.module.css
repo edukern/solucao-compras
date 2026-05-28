@@ -1106,6 +1106,18 @@
   color: var(--text-muted);
 }
 
+.itemRefDetail {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
 .itemMarkupCell {
   color: var(--text-secondary);
   font-size: 0.82rem;
