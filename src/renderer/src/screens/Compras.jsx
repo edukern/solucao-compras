@@ -570,7 +570,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   const [form,          setForm]          = useState({ ref: '', tipo_produto: '', tipo_grade: 'AD', classe: 'FEM', icms_pct: '', valor: '', markup_pct: '', preco_venda: '' })
   const [projCache,     setProjCache]     = useState({})
   const [distribTargets,setDistribTargets]= useState({})
-  const RECOVERY_KEY = `SC_RECOVERY_${colId}`
+  const RECOVERY_KEY = `SC_RECOVERY_SESSAO_${sessao.id}`
   const firstInputRef   = useRef(null)
   const autoSaveRef     = useRef(null)
   const autoSaveInitRef = useRef(false)
@@ -595,6 +595,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   const [liberadoInfo,   setLiberadoInfo]   = useState(null) // { count } after liberar
   const [salvandoSessao, setSalvandoSessao] = useState(false)
   const [salvoOk,        setSalvoOk]        = useState(false)
+  const [bulkMarkup,     setBulkMarkup]     = useState('')
 
   const activeItem = items.find(it => it.localId === activeId) ?? null
 
@@ -709,6 +710,18 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     const m = parseFloat((markupStr ?? '').replace(',', '.'))
     if (!v || isNaN(v) || !m || isNaN(m)) return ''
     return roundTo99(v * (1 + m))
+  }
+
+  function applyBulkMarkup() {
+    const m = bulkMarkup.trim()
+    if (!m || isNaN(parseFloat(m.replace(',', '.')))) return
+    setItems(prev => prev.map(it => {
+      const semMarkup = !it.markup_pct || it.markup_pct === '0'
+      if (!semMarkup) return it
+      const preco_venda = calcPrecoVenda(it.valor, m)
+      return { ...it, markup_pct: m, preco_venda }
+    }))
+    setBulkMarkup('')
   }
 
   function addItem() {
@@ -1110,6 +1123,14 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
           {salvandoSessao ? 'Salvando…' : salvoOk ? '✓ Salvo' : '💾 Salvar sessão'}
         </button>
         <button
+          className={styles.btnGerarPdfs}
+          onClick={handleFechar}
+          disabled={saving || !items.length}
+          title="Salva os pedidos e abre a tela de geração de PDFs"
+        >
+          {saving ? 'Salvando…' : '📄 Gerar PDFs'}
+        </button>
+        <button
           className={styles.btnLiberar}
           onClick={handleLiberar}
           disabled={liberando || !items.length}
@@ -1432,8 +1453,33 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
       )}
 
       {/* ── Por referência mode: Items table with inline grade expansion ── */}
-      {fillMode === 'ref' && items.length > 0 && (
-        <table className={styles.itemsTable}>
+      {fillMode === 'ref' && items.length > 0 && (() => {
+        const semMarkup = items.filter(it => !it.markup_pct || it.markup_pct === '0')
+        return (
+          <>
+            {semMarkup.length > 0 && (
+              <div className={styles.bulkMarkupBar}>
+                <span className={styles.bulkMarkupLabel}>
+                  {semMarkup.length} {semMarkup.length === 1 ? 'item sem markup' : 'itens sem markup'}
+                </span>
+                <input
+                  type="text"
+                  className={styles.bulkMarkupInput}
+                  placeholder="Mkp ×"
+                  value={bulkMarkup}
+                  onChange={e => setBulkMarkup(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') applyBulkMarkup() }}
+                />
+                <button
+                  className={styles.btnBulkMarkup}
+                  onClick={applyBulkMarkup}
+                  disabled={!bulkMarkup.trim()}
+                >
+                  Aplicar em todos sem markup
+                </button>
+              </div>
+            )}
+            <table className={styles.itemsTable}>
           <thead>
             <tr>
               <th>Ref</th>
@@ -1809,7 +1855,9 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
             })}
           </tbody>
         </table>
-      )}
+          </>
+        )
+      })()}
 
       {/* ── Resumo por loja (modo por referência) ── */}
       {fillMode === 'ref' && items.length > 0 && visitas.some(v => totalQtdVisita(v.id) > 0) && (
@@ -3506,7 +3554,7 @@ export default function Compras() {
   const [viewSessaoId,    setViewSessaoId]    = useState(null)
   const [preencherInfo,   setPreencherInfo]   = useState(null) // { sessaoId, visitaId, compradorNome }
   const [histRefreshKey,  setHistRefreshKey]  = useState(0)
-  const [recoveryData,    setRecoveryData]    = useState(null)
+  const [recoveryData,    setRecoveryData]    = useState([])
   const [recoveryInitial, setRecoveryInitial] = useState(null)
   const [retomarLoading,  setRetomarLoading]  = useState(null)
   const [isOnline,        setIsOnline]        = useState(navigator.onLine)
@@ -3532,18 +3580,36 @@ export default function Compras() {
     return () => { cancelled = true }
   }, [])
 
-  // Verifica se há sessão interrompida para recuperar
+  // Verifica se há sessões interrompidas para recuperar (uma ou mais)
   useEffect(() => {
     if (!active?.id) return
     let cancelled = false
-    const key = `SC_RECOVERY_${active.id}`
-    const saved = localStorage.getItem(key)
-    if (!saved) { setRecoveryData(null); return }
-    try {
-      const data = JSON.parse(saved)
-      sessoesService.byId(data.sessao_id).then(sessaoDb => {
-        if (cancelled) return
-        if (!sessaoDb) { localStorage.removeItem(key); setRecoveryData(null); return }
+    // Migra chave legada SC_RECOVERY_<colId> para o novo formato por sessão
+    const legacyKey = `SC_RECOVERY_${active.id}`
+    const legacyRaw = localStorage.getItem(legacyKey)
+    if (legacyRaw) {
+      try {
+        const legacyData = JSON.parse(legacyRaw)
+        if (legacyData.sessao_id) {
+          localStorage.setItem(`SC_RECOVERY_SESSAO_${legacyData.sessao_id}`, legacyRaw)
+        }
+      } catch {}
+      localStorage.removeItem(legacyKey)
+    }
+    const keys = Object.keys(localStorage).filter(k => k.startsWith('SC_RECOVERY_SESSAO_'))
+    if (!keys.length) { setRecoveryData([]); return }
+
+    Promise.all(keys.map(async key => {
+      try {
+        const data = JSON.parse(localStorage.getItem(key))
+        const sessaoDb = await sessoesService.byId(data.sessao_id)
+        if (!sessaoDb) { localStorage.removeItem(key); return null }
+        // Ignora sessões de outras coleções
+        if (sessaoDb.colecao_id !== active.id) return null
+        // Auto-limpa se a sessão já tem pedidos salvos no banco (foi concluída)
+        const totais = await pedidosService.totaisPorFornecedor(data.sessao_id)
+        const temPedidosSalvos = totais.some(v => v.pedidos?.length > 0)
+        if (temPedidosSalvos) { localStorage.removeItem(key); return null }
         const visEnriquecidas = sessaoDb.visitas.map(v => ({
           id:                 v.visita_id,
           comprador_id:       v.comprador_id,
@@ -3556,12 +3622,15 @@ export default function Compras() {
           comprador_telefone: v.comprador_telefone ?? '',
           comprador_endereco: v.comprador_endereco ?? '',
         }))
-        setRecoveryData({ sessao: sessaoDb, visitas: visEnriquecidas, ...data })
-      })
-    } catch {
-      localStorage.removeItem(key)
-      setRecoveryData(null)
-    }
+        return { sessao: sessaoDb, visitas: visEnriquecidas, ...data }
+      } catch {
+        localStorage.removeItem(key)
+        return null
+      }
+    })).then(results => {
+      if (cancelled) return
+      setRecoveryData(results.filter(Boolean))
+    })
     return () => { cancelled = true }
   }, [active?.id])
 
@@ -3597,18 +3666,18 @@ export default function Compras() {
     setPhase(3)
   }
 
-  function handleRecover() {
-    const { sessao, visitas, items, qtds, activeId, lojaIdx } = recoveryData
+  function handleRecover(entry) {
+    const { sessao, visitas, items, qtds, activeId, lojaIdx } = entry
     setSessao(sessao)
     setVisitas(visitas)
     setRecoveryInitial({ items: items ?? [], qtds: qtds ?? {}, activeId: activeId ?? null, lojaIdx: lojaIdx ?? 0 })
-    setRecoveryData(null)
+    setRecoveryData([])
     setPhase(2)
   }
 
-  function handleDismissRecovery() {
-    localStorage.removeItem(`SC_RECOVERY_${active.id}`)
-    setRecoveryData(null)
+  function handleDismissRecovery(sessaoId) {
+    localStorage.removeItem(`SC_RECOVERY_SESSAO_${sessaoId}`)
+    setRecoveryData(prev => prev.filter(r => r.sessao.id !== sessaoId))
   }
 
   async function handleRetomarSessao(ses) {
@@ -3769,19 +3838,22 @@ export default function Compras() {
         </div>
       )}
 
-      {/* Recovery banner — shown in Phase 0 (home) */}
-      {phase === 0 && recoveryData && (
-        <div className={styles.recoveryBanner}>
+      {/* Recovery banners — shown in Phase 0 (home) */}
+      {phase === 0 && recoveryData.map(entry => (
+        <div key={entry.sessao.id} className={styles.recoveryBanner}>
           <span>
-            Sessão interrompida: <strong>{recoveryData.sessao.fornecedor?.nome || recoveryData.sessao.fornecedor_nome}</strong>
-            {' '}em <strong>{fmtDate(recoveryData.sessao.data_visita)}</strong>. Deseja continuar de onde parou?
+            Rascunho local não enviado: <strong>{entry.sessao.fornecedor?.nome || entry.sessao.fornecedor_nome}</strong>
+            {' '}em <strong>{fmtDate(entry.sessao.data_visita)}</strong>. Deseja continuar de onde parou?
+            <small style={{ display: 'block', color: 'inherit', opacity: 0.7, fontSize: '0.78em', marginTop: '2px' }}>
+              Ignorar apenas oculta este aviso — a sessão continua salva no banco.
+            </small>
           </span>
           <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
-            <button className={styles.btnPrimary} onClick={handleRecover}>Continuar</button>
-            <button className={styles.btnSecondary} onClick={handleDismissRecovery}>Descartar</button>
+            <button className={styles.btnPrimary} onClick={() => handleRecover(entry)}>Continuar</button>
+            <button className={styles.btnSecondary} onClick={() => handleDismissRecovery(entry.sessao.id)}>Ignorar</button>
           </div>
         </div>
-      )}
+      ))}
 
       {/* Phase 0: Home — sessions list */}
       {phase === 0 && (

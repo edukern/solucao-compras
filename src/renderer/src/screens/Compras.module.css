@@ -1030,6 +1030,36 @@
 }
 .btnAdd:disabled { opacity: 0.4; cursor: not-allowed; }
 
+.bulkMarkupBar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--bg-alt, #f9f5e8);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.82rem;
+}
+.bulkMarkupLabel { color: var(--text-muted, #888); flex: 1; }
+.bulkMarkupInput {
+  width: 72px;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.82rem;
+}
+.btnBulkMarkup {
+  padding: 0.25rem 0.75rem;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+.btnBulkMarkup:disabled { opacity: 0.4; cursor: not-allowed; }
+
 /* â”€â”€â”€ Phase 2: Items table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .itemsTable { width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: 0.85rem; }
 .itemsTable th { background: var(--bg-alt, #f0f0f0); padding: 6px 10px; text-align: left; border-bottom: 2px solid var(--border); white-space: nowrap; }
@@ -2494,6 +2524,23 @@
 .btnSalvarSessao:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--accent); color: var(--accent); }
 .btnSalvarSessao:disabled { opacity: 0.5; cursor: not-allowed; }
 .btnSalvarSessaoOk { color: #16a34a !important; border-color: #16a34a !important; }
+
+.btnGerarPdfs {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 1rem;
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.btnGerarPdfs:hover:not(:disabled) { background: var(--surface-hover); border-color: #2563eb; color: #2563eb; }
+.btnGerarPdfs:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btnLiberar {
   display: inline-flex;
