@@ -2024,7 +2024,7 @@ function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
     </div>`
 
   // ── order info (right) ───────────────────────────────────────────────────
-  const suppName = esc(sessao.fornecedor_nome ?? '')
+  const suppName = esc(sessao.fornecedor_nome ?? sessao.fornecedor?.nome ?? '')
   const orderHtml = `
     <div class="ph-order">
       ${suppName ? `<div class="ph-sup">${suppName}</div>` : ''}
@@ -2122,7 +2122,7 @@ async function salvarPDFVisita(sessao, vis, visPedidos, sessaoOverride = {}) {
   const sessaoFinal = Object.keys(sessaoOverride).length ? { ...sessao, ...sessaoOverride } : sessao
   const innerHtml = gerarHTMLOrdem(sessaoFinal, vis, visPedidos, true)
 
-  const forn = (sessaoFinal.fornecedor_nome ?? '').replace(/[^a-zA-Z0-9À-ú ]/g, '').trim()
+  const forn = (sessaoFinal.fornecedor_nome ?? sessaoFinal.fornecedor?.nome ?? '').replace(/[^a-zA-Z0-9À-ú ]/g, '').trim()
   const loja = (vis.comprador_nome ?? '').replace(/[^a-zA-Z0-9À-ú ]/g, '').trim()
   const data = (sessaoFinal.data_visita ?? '').replace(/-/g, '')
   const filename = `${forn} - ${loja} - ${data}.pdf`
