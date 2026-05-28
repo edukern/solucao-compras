@@ -15,6 +15,7 @@ import { projecoes as projecoesService } from '../services/projecoes'
 
 const fmt = n => (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtDate = iso => { if (!iso) return ''; const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}` }
+const PLUS_SIZE_DEFAULT = 4
 const today = () => new Date().toISOString().slice(0, 10)
 const esc = s => (s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
 
@@ -555,6 +556,7 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
 
 function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, onRemoveVisita, segs = [],
   initialItems = [], initialQtds = {}, initialActiveId = null, initialLojaIdx = 0 }) {
+  const { comprador: myComprador } = useAuth()
   const [items,         setItems]         = useState(initialItems)
   const [activeId,      setActiveId]      = useState(initialActiveId)
   const [lojaIdx,       setLojaIdx]       = useState(initialLojaIdx)
@@ -665,12 +667,13 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
 
   function getVisibleTams(localId, allTams) {
     if (allTams.length < 5) return allTams
-    const showFirst = gradeExtremes[localId]?.first || hasExtremeData(localId, allTams[0])
-    const showLast  = gradeExtremes[localId]?.last  || hasExtremeData(localId, allTams[allTams.length - 1])
+    const showFirst  = gradeExtremes[localId]?.first || hasExtremeData(localId, allTams[0])
+    const showLast   = gradeExtremes[localId]?.last  || hasExtremeData(localId, allTams[allTams.length - 1])
+    const maxVisible = gradeExtremes[localId]?.maxVisible ?? PLUS_SIZE_DEFAULT - 1
     return allTams.filter((_, i) => {
       if (i === 0) return showFirst
       if (i === allTams.length - 1) return showLast
-      return true
+      return i <= maxVisible || hasExtremeData(localId, allTams[i])
     })
   }
 
@@ -1217,6 +1220,9 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
               const vTams = getVisibleTams(it.localId, tams)
               const hideFirst = vTams[0] !== tams[0]
               const hideLast  = vTams[vTams.length - 1] !== tams[tams.length - 1]
+              const maxVisible2 = gradeExtremes[it.localId]?.maxVisible ?? PLUS_SIZE_DEFAULT - 1
+              const nextExpIdx2 = maxVisible2 + 1
+              const hideMiddle2 = tams.length > PLUS_SIZE_DEFAULT && nextExpIdx2 <= tams.length - 2
               const total = totalQtdLoja(it.localId, v.id)
               return (
                 <div key={it.localId} className={`${styles.porLojaItemBlock} ${total > 0 ? styles.porLojaItemBlockFilled : ''}`}>
@@ -1274,6 +1280,13 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                         />
                       </div>
                     ))}
+                    {hideMiddle2 && (
+                      <button
+                        className={styles.btnExpandSize}
+                        onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], maxVisible: nextExpIdx2 } }))}
+                        title={`Mostrar ${tams[nextExpIdx2]}`}
+                      >+{tams[nextExpIdx2]}</button>
+                    )}
                     {hideLast ? (
                       <button
                         className={styles.btnShowExtreme}
@@ -1294,53 +1307,56 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
           </div>
 
           {/* ── Bottom summary dashboard ── */}
-          {visitas.some(v => totalQtdVisita(v.id) > 0) && (
-            <div className={styles.resumoSessao}>
-              <div className={styles.resumoSessaoTitle}>Resumo da sessão</div>
-              <div className={styles.resumoSessaoGrid}>
-                <div className={`${styles.resumoRow} ${styles.resumoHeader}`}>
-                  <div className={styles.resumoLojaCell}>Loja</div>
-                  <div className={styles.resumoNumCell}>Peças</div>
-                  <div className={styles.resumoNumCell}>Valor total</div>
+          {visitas.some(v => totalQtdVisita(v.id) > 0) && (() => {
+            const dashVisitas = myComprador?.is_editor ? visitas : visitas.slice(lojaIdx, lojaIdx + 1)
+            return (
+              <div className={styles.resumoSessao}>
+                <div className={styles.resumoSessaoTitle}>Resumo da sessão</div>
+                <div className={styles.resumoSessaoGrid}>
+                  <div className={`${styles.resumoRow} ${styles.resumoHeader}`}>
+                    <div className={styles.resumoLojaCell}>Loja</div>
+                    <div className={styles.resumoNumCell}>Peças</div>
+                    <div className={styles.resumoNumCell}>Valor total</div>
+                  </div>
+                  {dashVisitas.map(v => {
+                    const pcs = totalQtdVisita(v.id)
+                    const val = totalValorVisita(v.id)
+                    return (
+                      <div
+                        key={v.id}
+                        className={`${styles.resumoRow} ${pcs === 0 ? styles.resumoRowEmpty : ''}`}
+                        onClick={() => myComprador?.is_editor && setLojaIdx(visitas.indexOf(v))}
+                        style={{ cursor: myComprador?.is_editor ? 'pointer' : 'default' }}
+                      >
+                        <div className={styles.resumoLojaCell}>{v.comprador_nome}</div>
+                        <div className={styles.resumoNumCell}>
+                          {pcs > 0 ? <strong>{pcs}</strong> : <span className={styles.itemDot}>—</span>}
+                        </div>
+                        <div className={styles.resumoNumCell}>
+                          {val > 0
+                            ? <strong>R$ {val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                            : <span className={styles.itemDot}>—</span>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {myComprador?.is_editor && visitas.length > 1 && (() => {
+                    const totalPcs = visitas.reduce((s, v) => s + totalQtdVisita(v.id), 0)
+                    const totalVal = visitas.reduce((s, v) => s + totalValorVisita(v.id), 0)
+                    return (
+                      <div className={`${styles.resumoRow} ${styles.resumoTotalRow}`}>
+                        <div className={styles.resumoLojaCell}>Total geral</div>
+                        <div className={styles.resumoNumCell}>{totalPcs}</div>
+                        <div className={styles.resumoNumCell}>
+                          R$ {totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
-                {visitas.map(v => {
-                  const pcs = totalQtdVisita(v.id)
-                  const val = totalValorVisita(v.id)
-                  return (
-                    <div
-                      key={v.id}
-                      className={`${styles.resumoRow} ${pcs === 0 ? styles.resumoRowEmpty : ''}`}
-                      onClick={() => setLojaIdx(visitas.indexOf(v))}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <div className={styles.resumoLojaCell}>{v.comprador_nome}</div>
-                      <div className={styles.resumoNumCell}>
-                        {pcs > 0 ? <strong>{pcs}</strong> : <span className={styles.itemDot}>—</span>}
-                      </div>
-                      <div className={styles.resumoNumCell}>
-                        {val > 0
-                          ? <strong>R$ {val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
-                          : <span className={styles.itemDot}>—</span>}
-                      </div>
-                    </div>
-                  )
-                })}
-                {visitas.length > 1 && (() => {
-                  const totalPcs = visitas.reduce((s, v) => s + totalQtdVisita(v.id), 0)
-                  const totalVal = visitas.reduce((s, v) => s + totalValorVisita(v.id), 0)
-                  return (
-                    <div className={`${styles.resumoRow} ${styles.resumoTotalRow}`}>
-                      <div className={styles.resumoLojaCell}>Total geral</div>
-                      <div className={styles.resumoNumCell}>{totalPcs}</div>
-                      <div className={styles.resumoNumCell}>
-                        R$ {totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </div>
-                    </div>
-                  )
-                })()}
               </div>
-            </div>
-          )}
+            )
+          })()}
         </div>
       )}
 
@@ -1366,6 +1382,9 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
               const vTams = getVisibleTams(it.localId, tams)
               const hideFirst = vTams[0] !== tams[0]
               const hideLast  = vTams[vTams.length - 1] !== tams[tams.length - 1]
+              const maxVisibleRef = gradeExtremes[it.localId]?.maxVisible ?? PLUS_SIZE_DEFAULT - 1
+              const nextExpIdxRef = maxVisibleRef + 1
+              const hideMiddleRef = tams.length > PLUS_SIZE_DEFAULT && nextExpIdxRef <= tams.length - 2
               const total = totalQtdItem(it.localId)
               return (
                 <Fragment key={it.localId}>
@@ -1608,6 +1627,13 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                             {vTams.map(t => (
                               <div key={t} className={styles.gradeInlineSize}>{t}</div>
                             ))}
+                            {hideMiddleRef && (
+                              <button
+                                className={styles.btnExpandSize}
+                                onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], maxVisible: nextExpIdxRef } }))}
+                                title={`Mostrar ${tams[nextExpIdxRef]}`}
+                              >+{tams[nextExpIdxRef]}</button>
+                            )}
                             {hideLast ? (
                               <button
                                 className={styles.btnShowExtreme}
@@ -1683,6 +1709,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                                     />
                                   </div>
                                 ))}
+                                {hideMiddleRef && <div className={styles.gradeInlineSizeSpacer} />}
                                 {hideLast && <div className={styles.gradeInlineSizeSpacer} />}
                                 <div className={styles.gradeInlineTotalReadonly}>{computedTotal || '—'}</div>
                               </div>
@@ -1697,6 +1724,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                                 const tot = visitas.reduce((s, v2) => s + (parseInt(qtds[it.localId]?.[v2.id]?.[tam]) || 0), 0)
                                 return <div key={tam} className={styles.gradeInlineSize}>{tot || ''}</div>
                               })}
+                              {hideMiddleRef && <div className={styles.gradeInlineSizeSpacer} />}
                               {hideLast && <div className={styles.gradeInlineSizeSpacer} />}
                               <div className={styles.gradeInlineTotalReadonly}>{totalQtdItem(it.localId) || ''}</div>
                             </div>
@@ -2416,12 +2444,14 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, refresh
 
   return (
     <div className={styles.historico}>
-      {onNovaSessao && (
+      {(onNovaSessao || true) && (
         <div className={styles.sessoesHomeHeader}>
           <h2 className={styles.sessoesHomeTitle}>Sessões de compra</h2>
-          <button className={styles.btnNovaSessao} onClick={onNovaSessao}>
-            + Nova sessão
-          </button>
+          {onNovaSessao && comprador?.is_editor && (
+            <button className={styles.btnNovaSessao} onClick={onNovaSessao}>
+              + Nova sessão
+            </button>
+          )}
         </div>
       )}
 
@@ -2503,14 +2533,16 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, refresh
                   Visualizar
                 </button>
               )}
-              <button
-                className={`${styles.btnHistAction} ${styles.btnHistEdit}`}
-                onClick={() => handleStartEditSessao(ses)}
-                disabled={editSessaoId !== null}
-                title="Editar dados da sessão"
-              >
-                Editar
-              </button>
+              {comprador?.is_editor && (
+                <button
+                  className={`${styles.btnHistAction} ${styles.btnHistEdit}`}
+                  onClick={() => handleStartEditSessao(ses)}
+                  disabled={editSessaoId !== null}
+                  title="Editar dados da sessão"
+                >
+                  Editar
+                </button>
+              )}
               <button
                 className={styles.btnReimprimir}
                 onClick={() => handleReimprimir(ses)}
@@ -2519,15 +2551,17 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, refresh
               >
                 {reimprimindo === ses.id ? '…' : '🖨'}
               </button>
-              <button
-                className={styles.btnReimprimir}
-                style={{ color: 'var(--red)' }}
-                onClick={() => setConfirmDeleteSessao(ses.id)}
-                disabled={editSessaoId !== null}
-                title="Excluir sessão"
-              >
-                🗑
-              </button>
+              {comprador?.is_editor && (
+                <button
+                  className={styles.btnReimprimir}
+                  style={{ color: 'var(--red)' }}
+                  onClick={() => setConfirmDeleteSessao(ses.id)}
+                  disabled={editSessaoId !== null}
+                  title="Excluir sessão"
+                >
+                  🗑
+                </button>
+              )}
             </div>
           </div>
 
@@ -2670,6 +2704,7 @@ function PreencherMinhaLoja({ sessaoId, visitaId, compradorNome, colEstacao, onB
   const [saved,        setSaved]        = useState(false)
   const [error,        setError]        = useState(null)
   const [otherDevices, setOtherDevices] = useState(0)
+  const [visibleUpTo,  setVisibleUpTo]  = useState({}) // { [pedido_id]: maxVisibleIdx }
 
   // Presence: detect other devices editing same session
   useEffect(() => {
@@ -2711,6 +2746,18 @@ function PreencherMinhaLoja({ sessaoId, visitaId, compradorNome, colEstacao, onB
         }
       }
       setQtds(init)
+      // Auto-expand visibleUpTo for pedidos that already have data beyond default
+      const initVis = {}
+      for (const ped of pedList) {
+        const tams5 = tamanhosDeTipoGrade(ped.segmentacao?.tipo_grade || ped.tipo_grade || '')
+        if (tams5.length <= PLUS_SIZE_DEFAULT) continue
+        let maxIdx = PLUS_SIZE_DEFAULT - 1
+        for (let i = PLUS_SIZE_DEFAULT; i < tams5.length; i++) {
+          if ((init[ped.id]?.[tams5[i]] || 0) > 0) maxIdx = i
+        }
+        if (maxIdx > PLUS_SIZE_DEFAULT - 1) initVis[ped.id] = maxIdx
+      }
+      if (Object.keys(initVis).length > 0) setVisibleUpTo(initVis)
       setLoading(false)
     }).catch(e => { if (!cancelled) { setError(e.message); setLoading(false) } })
     return () => { cancelled = true }
@@ -2814,6 +2861,9 @@ function PreencherMinhaLoja({ sessaoId, visitaId, compradorNome, colEstacao, onB
         const tams = tamanhosDeTipoGrade(tipoGrade)
         const total = tams.reduce((s, t) => s + (parseInt(qtds[ped.id]?.[t]) || 0), 0)
         const valor = parseFloat(ped.valor_unitario) || 0
+        const maxIdx5 = tams.length > PLUS_SIZE_DEFAULT ? (visibleUpTo[ped.id] ?? PLUS_SIZE_DEFAULT - 1) : tams.length - 1
+        const visibleTams5 = tams.slice(0, maxIdx5 + 1)
+        const nextTam5 = maxIdx5 + 1 < tams.length ? tams[maxIdx5 + 1] : null
         return (
           <div key={ped.id} className={`${styles.porLojaItemBlock} ${total > 0 ? styles.porLojaItemBlockFilled : ''}`}>
             <div className={styles.porLojaItemHeader}>
@@ -2830,7 +2880,7 @@ function PreencherMinhaLoja({ sessaoId, visitaId, compradorNome, colEstacao, onB
               <span className={styles.porLojaItemTotalBadge}>{total > 0 ? `${total} pç` : '—'}</span>
             </div>
             <div className={styles.porLojaGradeRow}>
-              {tams.map(tam => (
+              {visibleTams5.map(tam => (
                 <div key={tam} className={styles.porLojaGradeTam}>
                   <div className={styles.porLojaGradeTamLabel}>{tam}</div>
                   <input
@@ -2850,6 +2900,13 @@ function PreencherMinhaLoja({ sessaoId, visitaId, compradorNome, colEstacao, onB
                   />
                 </div>
               ))}
+              {nextTam5 && (
+                <button
+                  className={styles.btnExpandSize}
+                  onClick={() => setVisibleUpTo(prev => ({ ...prev, [ped.id]: maxIdx5 + 1 }))}
+                  title={`Mostrar ${nextTam5}`}
+                >+{nextTam5}</button>
+              )}
             </div>
             {total > 0 && (
               <div className={styles.preencherItemFooter}>
@@ -3041,6 +3098,7 @@ function VisualizarSessao({ sessaoId, onBack }) {
 
 export default function Compras() {
   const { active } = useCollection()
+  const { comprador: currentComprador } = useAuth()
   const [segs,        setSegs]        = useState([])
   const [forns,       setForns]       = useState([])
   const [compradores, setCompradores] = useState([])
@@ -3177,6 +3235,12 @@ export default function Compras() {
 
   const sessaoDisplay = sessao ?? null
   const inSession = phase >= 2
+
+  useEffect(() => {
+    if (phase === 2 && currentComprador !== undefined && !currentComprador?.is_editor) {
+      setPhase(0)
+    }
+  }, [phase, currentComprador])
 
   if (!active) {
     return (

@@ -1329,6 +1329,25 @@
   border-style: solid;
   opacity: 0.6;
 }
+.btnExpandSize {
+  min-width: 40px;
+  padding: 2px 4px;
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 0.62rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  align-self: center;
+  line-height: 1.4;
+  transition: background 0.12s, border-color 0.12s;
+}
+.btnExpandSize:hover {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: var(--accent);
+}
 .gradeInlineSizeSpacer {
   min-width: 40px;
 }
