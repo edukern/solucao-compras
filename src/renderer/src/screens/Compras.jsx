@@ -2377,7 +2377,7 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
 
 // ─── Historico ────────────────────────────────────────────────────────────
 
-function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, refreshKey = 0 }) {
+function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetomarSessao = null, retomarLoading = null, refreshKey = 0 }) {
   const { comprador } = useAuth()
   const [sessoesList,      setSessoesList]      = useState([])
   const [loading,          setLoading]          = useState(true)
@@ -2593,6 +2593,16 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, refresh
                   title="Ver pedidos desta sessão (somente leitura)"
                 >
                   Visualizar
+                </button>
+              )}
+              {comprador?.is_editor && onRetomarSessao && (
+                <button
+                  className={`${styles.btnHistAction} ${styles.btnHistEdit}`}
+                  onClick={() => onRetomarSessao(ses)}
+                  disabled={retomarLoading === ses.id}
+                  title="Retomar edição de itens desta sessão no Phase 2"
+                >
+                  {retomarLoading === ses.id ? '…' : 'Retomar'}
                 </button>
               )}
               {comprador?.is_editor && (
@@ -3176,6 +3186,7 @@ export default function Compras() {
   const [histRefreshKey,  setHistRefreshKey]  = useState(0)
   const [recoveryData,    setRecoveryData]    = useState(null)
   const [recoveryInitial, setRecoveryInitial] = useState(null)
+  const [retomarLoading,  setRetomarLoading]  = useState(null)
   const [isOnline,        setIsOnline]        = useState(navigator.onLine)
 
   useEffect(() => {
@@ -3268,6 +3279,69 @@ export default function Compras() {
     setRecoveryData(null)
   }
 
+  async function handleRetomarSessao(ses) {
+    setRetomarLoading(ses.id)
+    try {
+      const [sessaoDb, visitasComPedidos] = await Promise.all([
+        sessoesService.byId(ses.id),
+        pedidosService.itensPorFornecedor(ses.id),
+      ])
+
+      const visitasEnriquecidas = sessaoDb.visitas.map(v => ({
+        id: v.visita_id,
+        comprador_id: v.comprador_id,
+        comprador_nome: v.comprador_nome,
+        comprador_cnpj: v.comprador_cnpj ?? '',
+        comprador_cidade: v.comprador_cidade ?? '',
+      }))
+      const ordemIds = compradores.map(c => c.id)
+      visitasEnriquecidas.sort((a, b) => ordemIds.indexOf(a.comprador_id) - ordemIds.indexOf(b.comprador_id))
+
+      const srcVisita = visitasComPedidos.find(v => (v.pedidos ?? []).length > 0)
+      const toStr = n => (n != null && n !== '') ? String(n).replace('.', ',') : ''
+
+      const items = (srcVisita?.pedidos ?? []).map(ped => ({
+        localId: ped.referencia,
+        ref: ped.referencia,
+        tipo_produto: ped.segmentacao?.tipo_produto ?? '',
+        tipo_grade: ped.segmentacao?.tipo_grade ?? 'AD',
+        classe: ped.segmentacao?.classe ?? 'FEM',
+        icms_pct: toStr(ped.icms_pct),
+        valor: toStr(ped.valor_unitario),
+        markup_pct: toStr(ped.markup_pct),
+        preco_venda: toStr(ped.preco_venda),
+        cor: ped.cor ?? '',
+        detalhe: ped.detalhe ?? '',
+        obs: ped.obs ?? '',
+      }))
+
+      // Load ALL stores' qtds (Phase 5 fills + Phase 2 organizer fills)
+      const qtds = {}
+      for (const visita of visitasComPedidos) {
+        for (const ped of visita.pedidos ?? []) {
+          if (!qtds[ped.referencia]) qtds[ped.referencia] = {}
+          const visitaQtds = {}
+          for (const it of ped.itens ?? []) {
+            if (it.qtd > 0) visitaQtds[it.tamanho] = it.qtd
+          }
+          if (Object.keys(visitaQtds).length) {
+            qtds[ped.referencia][visita.id] = visitaQtds
+          }
+        }
+      }
+
+      const forn = forns.find(f => f.id === ses.fornecedor_id)
+      setSessao({ ...sessaoDb, fornecedor_nome: forn?.nome || sessaoDb.fornecedor?.nome || '' })
+      setVisitas(visitasEnriquecidas)
+      setRecoveryInitial({ items, qtds, activeId: items[0]?.localId ?? null, lojaIdx: 0 })
+      setPhase(2)
+    } catch (e) {
+      alert(`Erro ao retomar sessão: ${e.message}`)
+    } finally {
+      setRetomarLoading(null)
+    }
+  }
+
   function handleNovaSessao() {
     setSessao(null)
     setVisitas([])
@@ -3347,6 +3421,8 @@ export default function Compras() {
           onNovaSessao={() => setPhase(1)}
           onVisualizar={handleVisualizar}
           onPreencherLoja={handlePreencherLoja}
+          onRetomarSessao={handleRetomarSessao}
+          retomarLoading={retomarLoading}
         />
       )}
 
