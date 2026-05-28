@@ -565,6 +565,15 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
   const RECOVERY_KEY = `SC_RECOVERY_${colId}`
   const firstInputRef = useRef(null)
   const [showAddForm,    setShowAddForm]    = useState(true)
+  const [showCorDetalhe, setShowCorDetalhe] = useState(
+    () => localStorage.getItem('SC_SHOW_COR_DETALHE') === 'true'
+  )
+  function toggleCorDetalhe() {
+    setShowCorDetalhe(prev => {
+      localStorage.setItem('SC_SHOW_COR_DETALHE', String(!prev))
+      return !prev
+    })
+  }
   const addFormFirstRef = useRef(null)
   const [editingId,      setEditingId]      = useState(null)
   const [editForm,       setEditForm]       = useState(null)
@@ -882,7 +891,16 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
         <span>{visitas.length} loja(s)</span>
       </div>
 
-      <h2 className={styles.phaseTitle}>Fase 2 — Registrar Pedidos</h2>
+      <div className={styles.phaseTitleRow}>
+        <h2 className={styles.phaseTitle}>Fase 2 — Registrar Pedidos</h2>
+        <button
+          className={`${styles.btnToggleCor} ${showCorDetalhe ? styles.btnToggleCorOn : ''}`}
+          onClick={toggleCorDetalhe}
+          title="Editar cor e detalhe diretamente em cada item (sem expandir)"
+        >
+          {showCorDetalhe ? '✓ Cor/Detalhe' : '+ Cor/Detalhe'}
+        </button>
+      </div>
 
       {/* ── Add item form ── */}
       <datalist id="tipos-produto-list">
@@ -1167,6 +1185,28 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, s
                             title="Remover item"
                           >✕</button>
                         </div>
+                      </td>
+                    </tr>
+                  )}
+                  {showCorDetalhe && editingId !== it.localId && (
+                    <tr className={styles.corDetalheSubRow}>
+                      <td colSpan={8} className={styles.corDetalheSubCell}>
+                        <input
+                          type="text"
+                          className={styles.corDetalheSubInput}
+                          placeholder="Cor"
+                          value={it.cor || ''}
+                          onChange={e => setItems(prev => prev.map(x => x.localId === it.localId ? { ...x, cor: e.target.value } : x))}
+                          onClick={e => e.stopPropagation()}
+                        />
+                        <input
+                          type="text"
+                          className={`${styles.corDetalheSubInput} ${styles.corDetalheSubInputWide}`}
+                          placeholder="Detalhe / estampa"
+                          value={it.detalhe || ''}
+                          onChange={e => setItems(prev => prev.map(x => x.localId === it.localId ? { ...x, detalhe: e.target.value } : x))}
+                          onClick={e => e.stopPropagation()}
+                        />
                       </td>
                     </tr>
                   )}

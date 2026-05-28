@@ -1113,6 +1113,54 @@
   font-weight: 400;
 }
 
+/* ── Phase 2: cor/detalhe toggle + sub-row ───────────────────────────────── */
+.phaseTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.btnToggleCor {
+  padding: 0.2rem 0.7rem;
+  border: 1px dashed var(--border);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btnToggleCor:hover { border-color: var(--accent); color: var(--accent); }
+.btnToggleCorOn {
+  border-style: solid;
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.08);
+}
+
+.corDetalheSubRow > td {
+  padding: 0 !important;
+  background: var(--bg-hover) !important;
+  border-bottom: 1px solid var(--border);
+}
+.corDetalheSubCell {
+  padding: 0.2rem 0.6rem !important;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.corDetalheSubInput {
+  width: 110px;
+  font-size: 0.78rem;
+  padding: 0.18rem 0.4rem;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  color: var(--text-primary);
+}
+.corDetalheSubInput:focus { outline: none; border-color: var(--accent); }
+.corDetalheSubInput::placeholder { color: var(--text-muted); opacity: 0.6; }
+.corDetalheSubInputWide { width: 200px; }
+
 .itemMarkupCell {
   color: var(--text-secondary);
   font-size: 0.82rem;
