@@ -1984,15 +1984,17 @@ function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
     const totalV = totalQ * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100)
     const icmsPct = sessao.icms_credito_pct ?? ''
 
+    const refLabel = [p.referencia, p.cor, p.detalhe].filter(Boolean).join(' ')
+    const classeLabel = [tipo_produto, p.classe ?? p.segmentacao?.classe ?? ''].filter(Boolean).join(' ')
     return `<tr>
-      <td class="cp">${esc(tipo_produto)}</td>
+      <td class="cref">${esc(refLabel)}</td>
+      <td class="cp">${esc(classeLabel)}</td>
       ${cells.join('')}
       <td class="cqt">${totalQ || '—'}</td>
       <td class="cpr">${fmtV(p.valor_unitario ?? 0)}</td>
       <td class="ctot">${totalV > 0 ? fmtV(totalV) : '—'}</td>
-      <td class="cic">${icmsPct}</td>
       <td class="crl">${fmtV(p.valor_unitario ?? 0)}</td>
-      <td class="cref">${esc(p.referencia ?? '')}</td>
+      <td class="cic">${icmsPct}</td>
     </tr>`
   }).join('')
 
@@ -2068,14 +2070,14 @@ function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
       <table class="pt">
         <thead>
           <tr>
+            <th class="cref">Referência</th>
             <th class="cp">Produto</th>
             ${headerPairs}
             <th class="cqt">Quant</th>
             <th class="cpr">R$ un.</th>
             <th class="ctot">Total</th>
-            <th class="cic">ICMS</th>
             <th class="crl">R$ Liq</th>
-            <th class="cref">Referência</th>
+            <th class="cic">ICMS</th>
           </tr>
         </thead>
         <tbody>${prodRows}</tbody>
@@ -2600,16 +2602,12 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetom
   async function handleReimprimir(ses) {
     setReimprimindo(ses.id)
     try {
-      // Carrega pedidos de todas as visitas que ainda não foram abertas
-      const toLoad = ses.visitas.filter(v => !pedidosPorVisita[v.visita_id])
-      let allPeds = pedidosPorVisita
-      if (toLoad.length > 0) {
-        const loaded = await Promise.all(
-          toLoad.map(v => pedidosService.byVisita(v.visita_id).then(peds => [v.visita_id, peds]))
-        )
-        allPeds = { ...pedidosPorVisita, ...Object.fromEntries(loaded) }
-        setPedidosPorVisita(allPeds)
-      }
+      // Carrega pedidos de TODAS as visitas via itensPorFornecedor (inclui pedido_itens)
+      const visitasComPedidos = await pedidosService.itensPorFornecedor(ses.id)
+      const allPeds = Object.fromEntries(
+        visitasComPedidos.map(v => [v.id, v.pedidos ?? []])
+      )
+      setPedidosPorVisita(allPeds)
       const visitasForPDF = ses.visitas.map(v => ({
         id:                 v.visita_id,
         comprador_nome:     v.comprador_nome,
