@@ -1108,6 +1108,9 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
               const v = visitas[lojaIdx]
               if (!v) return null
               const tams = tamanhosDeTipoGrade(it.tipo_grade)
+              const vTams = getVisibleTams(it.localId, tams)
+              const hideFirst = vTams[0] !== tams[0]
+              const hideLast  = vTams[vTams.length - 1] !== tams[tams.length - 1]
               const total = totalQtdLoja(it.localId, v.id)
               return (
                 <div key={it.localId} className={`${styles.porLojaItemBlock} ${total > 0 ? styles.porLojaItemBlockFilled : ''}`}>
@@ -1123,7 +1126,20 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                     <span className={styles.porLojaItemTotalBadge}>{total > 0 ? `${total} pç` : '—'}</span>
                   </div>
                   <div className={styles.porLojaGradeRow} data-grade-row="true">
-                    {tams.map(tam => (
+                    {hideFirst ? (
+                      <button
+                        className={styles.btnShowExtreme}
+                        onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], first: true } }))}
+                        title={`Mostrar ${tams[0]}`}
+                      >+{tams[0]}</button>
+                    ) : tams.length >= 5 ? (
+                      <button
+                        className={`${styles.btnShowExtreme} ${styles.btnShowExtremeActive}`}
+                        onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], first: false } }))}
+                        title={`Ocultar ${tams[0]}`}
+                      >−{tams[0]}</button>
+                    ) : null}
+                    {vTams.map(tam => (
                       <div key={tam} className={styles.porLojaGradeTam}>
                         <div className={styles.porLojaGradeTamLabel}>{tam}</div>
                         <input
@@ -1138,6 +1154,19 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                         />
                       </div>
                     ))}
+                    {hideLast ? (
+                      <button
+                        className={styles.btnShowExtreme}
+                        onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], last: true } }))}
+                        title={`Mostrar ${tams[tams.length - 1]}`}
+                      >+{tams[tams.length - 1]}</button>
+                    ) : tams.length >= 5 ? (
+                      <button
+                        className={`${styles.btnShowExtreme} ${styles.btnShowExtremeActive}`}
+                        onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], last: false } }))}
+                        title={`Ocultar ${tams[tams.length - 1]}`}
+                      >−{tams[tams.length - 1]}</button>
+                    ) : null}
                   </div>
                 </div>
               )
