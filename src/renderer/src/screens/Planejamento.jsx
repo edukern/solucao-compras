@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useCollection } from '../contexts/CollectionContext'
+import { useAuth } from '../contexts/AuthContext'
 import { findBaseColecoes } from '../utils/colecoes'
 import SegmentacaoSelect from '../components/SegmentacaoSelect'
 import styles from './Planejamento.module.css'
@@ -15,6 +16,7 @@ const METODOS = [
 
 export default function Planejamento() {
   const { active, collections } = useCollection()
+  const { comprador, user } = useAuth()
   const [segs,      setSegs]      = useState([])
   const [segId,     setSegId]     = useState(null)
   const [metodo,    setMetodo]    = useState('media_simples')
@@ -34,7 +36,7 @@ export default function Planejamento() {
     if (!active || !segId) { setRows([]); setWarning(null); return }
     setSaved(false)
     loadPlanejamento(segId, metodo)
-  }, [active?.id, segId, metodo])
+  }, [active?.id, segId, metodo, comprador?.id])
 
   async function loadPlanejamento(sid, met) {
     if (!active) return
@@ -53,11 +55,12 @@ export default function Planejamento() {
     const n2Id = base.length >= 2 ? base[0].id : null
     const n1Id = base.length >= 2 ? base[1].id : base[0].id
 
+    const compradorId = comprador?.id ?? null
     const [gradeN2, gradeN1, projSaved, projCalc] = await Promise.all([
-      n2Id ? gradesService.get(sid, n2Id) : Promise.resolve([]),
-      gradesService.get(sid, n1Id),
-      projecoesService.get(sid, active.id),
-      projecoesService.calcular(sid, active.id, baseIds, met !== 'manual' ? met : 'media_simples'),
+      n2Id ? gradesService.get(sid, n2Id, compradorId) : Promise.resolve([]),
+      gradesService.get(sid, n1Id, compradorId),
+      projecoesService.get(sid, active.id, compradorId),
+      projecoesService.calcular(sid, active.id, baseIds, met !== 'manual' ? met : 'media_simples', compradorId),
     ])
 
     const savedMap = Object.fromEntries(projSaved.map(r => [r.tamanho, r.qtd_ajustada]))
@@ -121,11 +124,13 @@ export default function Planejamento() {
         const base = findBaseColecoes(collections, active)
         if (base.length >= 1) {
           const baseIds = base.map(c => c.id)
+          const compradorId = comprador?.id ?? null
+          const userId     = user?.id ?? null
           await Promise.allSettled(
             result.segIds.map(async sid => {
-              const projRows = await projecoesService.calcular(sid, active.id, baseIds, metodo)
+              const projRows = await projecoesService.calcular(sid, active.id, baseIds, metodo, compradorId)
               if (projRows.length > 0) {
-                await projecoesService.salvar(sid, active.id, projRows, metodo)
+                await projecoesService.salvar(sid, active.id, projRows, metodo, compradorId, userId)
               }
             })
           )
@@ -145,7 +150,7 @@ export default function Planejamento() {
     const toSave = rows.map(({ tamanho, ordem, qtd_projetada, qtd_ajustada }) =>
       ({ tamanho, ordem, qtd_projetada, qtd_ajustada })
     )
-    await projecoesService.salvar(segId, active.id, toSave, metodo)
+    await projecoesService.salvar(segId, active.id, toSave, metodo, comprador?.id ?? null, user?.id ?? null)
     setSaved(true)
   }
 
