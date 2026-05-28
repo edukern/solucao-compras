@@ -181,7 +181,8 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
         obs,
       }, lojas)
       const lojasPresentes = compradores.filter(c => lojas.includes(c.id))
-      onStart(sessao, lojasPresentes)
+      const fornSelecionado = forns.find(f => String(f.id) === fornId)
+      onStart({ ...sessao, fornecedor_nome: fornSelecionado?.nome ?? '' }, lojasPresentes)
     } catch (e) {
       setError(`Erro ao iniciar sessão: ${e.message}`)
     } finally {

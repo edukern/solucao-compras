@@ -1,4 +1,4 @@
 export function fmtColecao(id) {
-  const [yr, s] = id.split('-')
-  return `${parseInt(yr) % 100}/${s}`
+  const [yr, s] = (id ?? '').split('-')
+  return yr ? `${parseInt(yr) % 100}/${s}` : id
 }
