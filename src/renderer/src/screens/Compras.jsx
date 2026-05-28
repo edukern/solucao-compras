@@ -64,6 +64,7 @@ function TutorialOverlay({ onClose }) {
 const FIELD_NAMES = {
   fornecedor:     'Fornecedor',
   data:           'Data da visita',
+  dataEntrega:    'Data de entrega',
   vendedor:       'Vendedor',
   condPag:        'Cond. de pagamento',
   frete:          'Frete',
@@ -88,6 +89,7 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
   const [fornFilter,     setFornFilter]     = useState('')
   const [fornFocusIdx,   setFornFocusIdx]   = useState(0)
   const [data,           setData]           = useState(today())
+  const [dataEntrega,    setDataEntrega]    = useState('')
   const [vendedor,       setVendedor]       = useState('')
   const [condPag,        setCondPag]        = useState('')
   const [frete,          setFrete]          = useState('')
@@ -103,7 +105,7 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
   const activeRef = useRef(null)
 
   const ORDER = [
-    'fornecedor', 'data', 'vendedor', 'condPag', 'frete',
+    'fornecedor', 'data', 'dataEntrega', 'vendedor', 'condPag', 'frete',
     ...(frete === 'FOB' ? ['transportadora'] : []),
     'lojas',
   ]
@@ -115,6 +117,18 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
   )
 
   useEffect(() => { activeRef.current?.focus() }, [activeField])
+
+  // Autofill session fields from fornecedor defaults when supplier is selected
+  useEffect(() => {
+    if (!fornId) return
+    const forn = forns.find(f => String(f.id) === fornId)
+    if (!forn) return
+    if (forn.vendedor_padrao)        setVendedor(forn.vendedor_padrao)
+    if (forn.cond_pag_padrao)        setCondPag(forn.cond_pag_padrao)
+    if (forn.frete_padrao)           setFrete(forn.frete_padrao)
+    if (forn.transportadora_padrao)  setTransportadora(forn.transportadora_padrao)
+    if (forn.obs_padrao)             setObs(forn.obs_padrao)
+  }, [fornId])
 
   function stateOf(name) {
     const i = ORDER.indexOf(name)
@@ -153,11 +167,12 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
     setError(null)
     try {
       const sessao = await sessoesService.create({
-        fornecedor_id: Number(fornId),
-        colecao_id:    colId,
-        data_visita:   data,
+        fornecedor_id:  Number(fornId),
+        colecao_id:     colId,
+        data_visita:    data,
+        data_entrega:   dataEntrega || null,
         vendedor,
-        cond_pag:      condPag,
+        cond_pag:       condPag,
         frete,
         transportadora: frete === 'FOB' ? transportadora : '',
         obs,
@@ -313,7 +328,35 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
           )}
         </div>
 
-        {/* 3 — Vendedor */}
+        {/* 3 — Data de entrega */}
+        <div
+          className={fieldCls('dataEntrega')}
+          onClick={stateOf('dataEntrega') === 'done' ? () => setActiveField('dataEntrega') : undefined}
+        >
+          {stateOf('dataEntrega') === 'active' ? (
+            <>
+              <div className={styles.kbFieldLabel}>{FIELD_NAMES.dataEntrega}</div>
+              <input
+                ref={activeRef}
+                type="date"
+                className={styles.kbFieldInput}
+                value={dataEntrega}
+                onChange={e => setDataEntrega(e.target.value)}
+                onKeyDown={onTextKey}
+              />
+              <div className={styles.kbHint}><kbd>Enter</kbd> confirma · opcional</div>
+            </>
+          ) : stateOf('dataEntrega') === 'done' ? (
+            <>
+              <DoneLabel name="dataEntrega" />
+              <div className={styles.kbFieldValue}>{dataEntrega ? fmtDate(dataEntrega) : '—'}</div>
+            </>
+          ) : (
+            <UpcomingLabel name="dataEntrega" />
+          )}
+        </div>
+
+        {/* 4 — Vendedor */}
         <div
           className={fieldCls('vendedor')}
           onClick={stateOf('vendedor') === 'done' ? () => setActiveField('vendedor') : undefined}
@@ -342,7 +385,7 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
           )}
         </div>
 
-        {/* 4 — Cond. Pagamento */}
+        {/* 5 — Cond. Pagamento */}
         <div
           className={fieldCls('condPag')}
           onClick={stateOf('condPag') === 'done' ? () => setActiveField('condPag') : undefined}
@@ -371,7 +414,7 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
           )}
         </div>
 
-        {/* 5 — Frete */}
+        {/* 6 — Frete */}
         <div
           className={fieldCls('frete')}
           ref={stateOf('frete') === 'active' ? activeRef : null}
@@ -413,7 +456,7 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
           )}
         </div>
 
-        {/* 5b — Transportadora (only when FOB) */}
+        {/* 6b — Transportadora (only when FOB) */}
         {frete === 'FOB' && (
           <div
             className={fieldCls('transportadora')}
@@ -444,7 +487,7 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
           </div>
         )}
 
-        {/* 6 — Lojas */}
+        {/* 7 — Lojas */}
         <div
           className={fieldCls('lojas')}
           ref={stateOf('lojas') === 'active' ? activeRef : null}
@@ -1391,6 +1434,7 @@ function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
         <div class="row"><span class="lbl">Fornecedor:</span><span>${esc(sessao.fornecedor_nome)}</span></div>
         ${sessao.vendedor ? `<div class="row"><span class="lbl">Vendedor:</span><span>${esc(sessao.vendedor)}</span></div>` : ''}
         <div class="row"><span class="lbl">Data pedido:</span><span>${fmtDate(sessao.data_visita)}</span></div>
+        ${sessao.data_entrega ? `<div class="row"><span class="lbl">Entrega:</span><span>${fmtDate(sessao.data_entrega)}</span></div>` : ''}
         ${sessao.cond_pag ? `<div class="row"><span class="lbl">Cond. pag.:</span><span>${esc(sessao.cond_pag)}</span></div>` : ''}
         ${sessao.frete    ? `<div class="row"><span class="lbl">Frete:</span><span>${esc(sessao.frete)}</span></div>` : ''}
         ${sessao.frete === 'FOB' && sessao.transportadora ? `<div class="row"><span class="lbl">Transportadora:</span><span>${esc(sessao.transportadora)}</span></div>` : ''}
@@ -1454,6 +1498,9 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
   const [salvandoPDF,  setSalvandoPDF]  = useState(null) // vis.id em andamento
   const [salvos,       setSalvos]       = useState(new Set())
   const [erroPDF,      setErroPDF]      = useState(null)
+  const [showPDFModal, setShowPDFModal] = useState(false)
+  const [fornFull,     setFornFull]     = useState(null)
+  const [modalFields,  setModalFields]  = useState({})
 
   const podeSalvarPDF = true
   const visitasComPedidos = visitas.filter(v => pedidos.some(p => p.visita_id === v.id))
@@ -1462,13 +1509,49 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
     return s + q * p.valor_unitario * (1 - p.desconto_pct / 100)
   }, 0)
 
+  useEffect(() => {
+    if (!sessao?.fornecedor_id) return
+    fornecedoresService.getById(sessao.fornecedor_id).then(setFornFull).catch(() => {})
+  }, [sessao?.fornecedor_id])
+
   function handleGerarPDFs() {
+    setModalFields({
+      contato:          fornFull?.contato          ?? '',
+      vendedor:         sessao.vendedor            ?? '',
+      cond_pag:         sessao.cond_pag            ?? '',
+      frete:            sessao.frete               ?? '',
+      icms_credito_pct: String(fornFull?.icms_credito_pct ?? ''),
+      data_visita:      sessao.data_visita         ?? '',
+      data_entrega:     sessao.data_entrega        ?? '',
+      obs:              sessao.obs                 ?? '',
+    })
+    setShowPDFModal(true)
+  }
+
+  async function handleConfirmarPDF() {
+    setShowPDFModal(false)
+    if (fornFull) {
+      const updates = {}
+      if (modalFields.contato?.trim())         updates.contato        = modalFields.contato.trim()
+      if (modalFields.vendedor?.trim())        updates.vendedor_padrao = modalFields.vendedor.trim()
+      if (modalFields.cond_pag?.trim())        updates.cond_pag_padrao = modalFields.cond_pag.trim()
+      if (modalFields.frete?.trim())           updates.frete_padrao   = modalFields.frete.trim()
+      const icms = parseFloat(modalFields.icms_credito_pct)
+      if (!isNaN(icms))                        updates.icms_credito_pct = icms
+      if (Object.keys(updates).length) {
+        fornecedoresService.update(fornFull.id, updates).catch(() => {})
+      }
+    }
     const pedMap = {}
     for (const p of pedidos) {
       if (!pedMap[p.visita_id]) pedMap[p.visita_id] = []
       pedMap[p.visita_id].push(p)
     }
-    gerarPDFSessao(sessao, visitas, pedMap)
+    gerarPDFSessao(
+      { ...sessao, vendedor: modalFields.vendedor, cond_pag: modalFields.cond_pag,
+        frete: modalFields.frete, obs: modalFields.obs, data_entrega: modalFields.data_entrega },
+      visitas, pedMap
+    )
   }
 
   async function handleSalvarPDF(vis) {
@@ -1509,6 +1592,83 @@ function FecharSessao({ sessao, visitas, segs, pedidos, onNovaSessao }) {
 
   return (
     <div className={styles.phase}>
+      {showPDFModal && (
+        <div className={styles.pdfModalBackdrop} onClick={() => setShowPDFModal(false)}>
+          <div className={styles.pdfModalDialog} onClick={e => e.stopPropagation()}>
+            <div className={styles.pdfModalTitle}>
+              Confirmar pedido — {sessao.fornecedor_nome ?? fornFull?.nome ?? ''}
+            </div>
+
+            <div className={styles.pdfModalSection}>
+              <div className={styles.pdfModalSectionTitle}>Fornecedor</div>
+              <div className={styles.pdfModalGrid}>
+                <div className={styles.pdfModalField}>
+                  <label>Telefone / Contato</label>
+                  <input type="text" value={modalFields.contato ?? ''}
+                    onChange={e => setModalFields(p => ({ ...p, contato: e.target.value }))} />
+                </div>
+                <div className={styles.pdfModalField}>
+                  <label>ICMS Crédito (%)</label>
+                  <input type="number" step="0.01" min="0" max="100" value={modalFields.icms_credito_pct ?? ''}
+                    onChange={e => setModalFields(p => ({ ...p, icms_credito_pct: e.target.value }))}
+                    placeholder="Ex: 12" />
+                </div>
+                <div className={styles.pdfModalField}>
+                  <label>Vendedor</label>
+                  <input type="text" value={modalFields.vendedor ?? ''}
+                    onChange={e => setModalFields(p => ({ ...p, vendedor: e.target.value }))} />
+                </div>
+                <div className={styles.pdfModalField}>
+                  <label>Cond. Pagamento</label>
+                  <input type="text" value={modalFields.cond_pag ?? ''}
+                    onChange={e => setModalFields(p => ({ ...p, cond_pag: e.target.value }))} />
+                </div>
+                <div className={styles.pdfModalField}>
+                  <label>Frete</label>
+                  <select value={modalFields.frete ?? ''}
+                    onChange={e => setModalFields(p => ({ ...p, frete: e.target.value }))}>
+                    <option value="">—</option>
+                    <option value="CIF">CIF</option>
+                    <option value="FOB">FOB</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.pdfModalSection}>
+              <div className={styles.pdfModalSectionTitle}>Sessão</div>
+              <div className={styles.pdfModalGrid}>
+                <div className={styles.pdfModalField}>
+                  <label>Data da visita</label>
+                  <input type="date" value={modalFields.data_visita ?? ''}
+                    onChange={e => setModalFields(p => ({ ...p, data_visita: e.target.value }))} />
+                </div>
+                <div className={styles.pdfModalField}>
+                  <label>Data de entrega</label>
+                  <input type="date" value={modalFields.data_entrega ?? ''}
+                    onChange={e => setModalFields(p => ({ ...p, data_entrega: e.target.value }))} />
+                </div>
+                <div className={styles.pdfModalField} style={{ gridColumn: '1 / -1' }}>
+                  <label>Obs.</label>
+                  <input type="text" value={modalFields.obs ?? ''}
+                    onChange={e => setModalFields(p => ({ ...p, obs: e.target.value }))}
+                    placeholder="Observações" />
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.pdfModalActions}>
+              <button className={styles.btnSecondary} onClick={() => setShowPDFModal(false)}>
+                Cancelar
+              </button>
+              <button className={styles.btnPrimary} onClick={handleConfirmarPDF}>
+                Confirmar e Gerar PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className={styles.visitaBanner}>
         <strong>{sessao.fornecedor_nome}</strong>
         <span className={styles.dot}>·</span>
@@ -1634,6 +1794,7 @@ function Historico({ colId }) {
     setEditSessaoId(ses.id)
     setEditSessaoForm({
       data_visita:    ses.data_visita,
+      data_entrega:   ses.data_entrega   ?? '',
       vendedor:       ses.vendedor       ?? '',
       cond_pag:       ses.cond_pag       ?? '',
       frete:          ses.frete          ?? '',
@@ -1757,6 +1918,11 @@ function Historico({ colId }) {
                   <span className={styles.label}>Data</span>
                   <input type="date" value={editSessaoForm.data_visita}
                     onChange={e => setEditSessaoForm(p => ({ ...p, data_visita: e.target.value }))} />
+                </div>
+                <div className={styles.field}>
+                  <span className={styles.label}>Entrega</span>
+                  <input type="date" value={editSessaoForm.data_entrega}
+                    onChange={e => setEditSessaoForm(p => ({ ...p, data_entrega: e.target.value }))} />
                 </div>
                 <div className={styles.field}>
                   <span className={styles.label}>Vendedor</span>
