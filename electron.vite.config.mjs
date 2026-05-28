@@ -37,6 +37,9 @@ export default defineConfig({
         '@renderer': resolve(__dirname, 'src/renderer/src')
       }
     },
-    plugins: [react()]
+    plugins: [react()],
+    optimizeDeps: {
+      include: ['html2pdf.js'],
+    },
   }
 })

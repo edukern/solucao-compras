@@ -21,4 +21,7 @@ export default defineConfig({
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(version),
   },
   plugins: [react()],
+  optimizeDeps: {
+    include: ['html2pdf.js'],
+  },
 })
