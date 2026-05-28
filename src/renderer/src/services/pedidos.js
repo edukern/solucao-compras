@@ -27,10 +27,14 @@ export const pedidos = {
     }
 
     // 3. Upsert all pedidos in one batch (keyed by visita_id + referencia)
-    const pedidoRows = validBatch.map(({ itens: _itens, ...fields }) => ({
-      ...fields,
-      visita_id: visitaMap[fields.comprador_id],
-    }))
+    // Deduplica por (visita_id, referencia) mantendo a última ocorrência
+    const rowMap = new Map()
+    for (const ped of validBatch) {
+      const vid = visitaMap[ped.comprador_id]
+      const { itens: _itens, ...fields } = ped
+      rowMap.set(`${vid}|${ped.referencia}`, { ...fields, visita_id: vid })
+    }
+    const pedidoRows = [...rowMap.values()]
     const { data: savedPedidos, error: pe } = await supabase
       .from('pedidos')
       .upsert(pedidoRows, { onConflict: 'visita_id,referencia' })
@@ -112,9 +116,11 @@ export const pedidos = {
   // Cria pedidos-template para todas as lojas sem sobrescrever dados já preenchidos
   async inicializarColaboracao(pedidoRows) {
     if (!pedidoRows.length) return 0
+    const dedup = new Map()
+    for (const r of pedidoRows) dedup.set(`${r.visita_id}|${r.referencia}`, r)
     const { error } = await supabase
       .from('pedidos')
-      .upsert(pedidoRows, { onConflict: 'visita_id,referencia', ignoreDuplicates: true })
+      .upsert([...dedup.values()], { onConflict: 'visita_id,referencia', ignoreDuplicates: true })
     if (error) throw error
     return pedidoRows.length
   },
@@ -122,10 +128,11 @@ export const pedidos = {
   // Salva itens de rascunho para a visita do organizador (sem criar templates para outras lojas)
   async salvarRascunho(visitaId, pedidoRows) {
     if (!pedidoRows.length) return
-    const rows = pedidoRows.map(r => ({ ...r, visita_id: visitaId }))
+    const dedup = new Map()
+    for (const r of pedidoRows) dedup.set(r.referencia, { ...r, visita_id: visitaId })
     const { error } = await supabase
       .from('pedidos')
-      .upsert(rows, { onConflict: 'visita_id,referencia' })
+      .upsert([...dedup.values()], { onConflict: 'visita_id,referencia' })
     if (error) throw error
   },
 
