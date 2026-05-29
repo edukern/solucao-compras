@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { LayoutDashboard, Target, ShoppingBag, TrendingUp, BarChart2, Settings } from 'lucide-react'
 import { useCollection } from '../contexts/CollectionContext'
 import { useAuth } from '../contexts/AuthContext'
 import { colecoes as colecoesService } from '../services/colecoes'
@@ -6,12 +7,12 @@ import ColecaoModal from './ColecaoModal'
 import styles from './Sidebar.module.css'
 
 const NAV_ITEMS = [
-  { id: 'dashboard',    label: 'Visão Geral',  icon: '◉' },
-  { id: 'planejamento', label: 'Planejamento', icon: '◇' },
-  { id: 'compras',      label: 'Compras',      icon: '□' },
-  { id: 'historico',    label: 'Histórico',    icon: '△' },
-  { id: 'relatorios',   label: 'Relatórios',   icon: '≡' },
-  { id: 'configuracoes', label: 'Configurações', icon: '◈' },
+  { id: 'dashboard',     label: 'Visão Geral',   Icon: LayoutDashboard },
+  { id: 'planejamento',  label: 'Planejamento',  Icon: Target },
+  { id: 'compras',       label: 'Compras',       Icon: ShoppingBag },
+  { id: 'historico',     label: 'Histórico',     Icon: TrendingUp },
+  { id: 'relatorios',    label: 'Relatórios',    Icon: BarChart2 },
+  { id: 'configuracoes', label: 'Configurações', Icon: Settings },
 ]
 
 export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
@@ -48,14 +49,14 @@ export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
       </div>
 
       <nav className={styles.nav}>
-        {NAV_ITEMS.map(item => (
+        {NAV_ITEMS.map(({ id, label, Icon }) => (
           <button
-            key={item.id}
-            className={`${styles.navBtn} ${current === item.id ? styles.active : ''}`}
-            onClick={() => onNavigate(item.id)}
+            key={id}
+            className={`${styles.navBtn} ${current === id ? styles.active : ''}`}
+            onClick={() => onNavigate(id)}
           >
-            <span className={styles.icon}>{item.icon}</span>
-            <span>{item.label}</span>
+            <Icon size={15} strokeWidth={1.6} />
+            <span>{label}</span>
           </button>
         ))}
       </nav>
