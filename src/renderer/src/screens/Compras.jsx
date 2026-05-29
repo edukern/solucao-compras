@@ -2407,7 +2407,9 @@ function FecharSessao({ sessao, visitas, segs, pedidos: pedidosProp, onNovaSessa
   }
 
   const podeSalvarPDF = true
-  const visitasComPedidos = visitas.filter(v => pedidos.some(p => p.visita_id === v.id))
+  const visitasComPedidos = visitas.filter(v =>
+    pedidos.some(p => p.visita_id === v.id && (p.itens ?? []).some(i => i.qtd > 0))
+  )
   const totalGeral = pedidos.reduce((s, p) => {
     const q = (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0)
     return s + q * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100)
@@ -2597,7 +2599,7 @@ function FecharSessao({ sessao, visitas, segs, pedidos: pedidosProp, onNovaSessa
         <span className={styles.dot}>·</span>
         <span>{fmtDate(sessao.data_visita)}</span>
         <span className={styles.dot}>·</span>
-        <span>{pedidos.length} pedido(s) · {visitasComPedidos.length} loja(s)</span>
+        <span>{pedidos.filter(p => (p.itens ?? []).some(i => i.qtd > 0)).length} pedido(s) · {visitasComPedidos.length} loja(s)</span>
       </div>
 
       <h2 className={styles.phaseTitle}>Fase 3 — Resumo da Sessão</h2>
