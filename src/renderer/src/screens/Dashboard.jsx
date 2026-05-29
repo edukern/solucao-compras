@@ -138,6 +138,7 @@ export default function Dashboard({ onNavigate }) {
   useEffect(() => {
     if (lojaId !== undefined) return // já foi definido
     if (compradores.length === 0) return // ainda carregando compradores
+    if (comprador === undefined) return  // auth ainda carregando — aguarda
     const defaultId = comprador?.id ?? null
     setLojaId(defaultId)
   }, [compradores, comprador])
@@ -177,7 +178,6 @@ export default function Dashboard({ onNavigate }) {
 
       {/* Seletor de loja — contexto principal da página */}
       <div className={styles.lojaBar}>
-        <span className={styles.lojaBarIcon}>🏪</span>
         <span className={styles.lojaBarLabel}>Loja</span>
         <select
           className={styles.lojaSelect}
@@ -195,7 +195,7 @@ export default function Dashboard({ onNavigate }) {
       <div className={styles.cards}>
         <MetricCard label="Sessões"       value={totalSessoes}                          color="var(--accent-light)" />
         <MetricCard label="Total de peças" value={totalPecas.toLocaleString('pt-BR')}  sub="peças"    color="var(--green)"  />
-        <MetricCard label="Total em pedidos" value={`R$ ${fmt(totalValor)}`}            color="var(--purple)" />
+        <MetricCard label="Total em pedidos" value={`R$ ${fmt(totalValor)}`}            color="var(--green)" />
       </div>
 
       {/* Links rápidos */}

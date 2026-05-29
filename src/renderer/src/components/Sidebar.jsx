@@ -7,11 +7,11 @@ import styles from './Sidebar.module.css'
 
 const NAV_ITEMS = [
   { id: 'dashboard',    label: 'Visão Geral',  icon: '◉' },
-  { id: 'planejamento', label: 'Planejamento', icon: '🎯' },
-  { id: 'compras',      label: 'Compras',      icon: '🛍️' },
-  { id: 'historico',    label: 'Histórico',    icon: '📈' },
-  { id: 'relatorios',   label: 'Relatórios',   icon: '📊' },
-  { id: 'configuracoes', label: 'Configurações', icon: '⚙️' },
+  { id: 'planejamento', label: 'Planejamento', icon: '◇' },
+  { id: 'compras',      label: 'Compras',      icon: '□' },
+  { id: 'historico',    label: 'Histórico',    icon: '△' },
+  { id: 'relatorios',   label: 'Relatórios',   icon: '≡' },
+  { id: 'configuracoes', label: 'Configurações', icon: '◈' },
 ]
 
 export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
@@ -28,7 +28,7 @@ export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
 
   return (
     <aside className={styles.sidebar}>
-      <div className={styles.brand}>⚡ Bolt Compras</div>
+      <div className={styles.brand}>Bolt Compras</div>
 
       <div className={styles.collectionSection}>
         <div className={styles.colHeader}>
@@ -62,7 +62,7 @@ export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
 
       <div className={styles.bottom}>
         <button className={styles.themeBtn} onClick={onToggleTheme}>
-          {theme === 'dark' ? '☀️ Modo claro' : '🌙 Modo escuro'}
+          {theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
         </button>
         {comprador && (
           <div style={{ marginTop: '8px', fontSize: '12px', color: '#888', textAlign: 'center' }}>
