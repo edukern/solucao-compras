@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LayoutDashboard, Target, ShoppingBag, TrendingUp, BarChart2, Settings } from 'lucide-react'
+import { LayoutDashboard, Target, ShoppingBag, TrendingUp, BarChart2, Settings, Sun, Moon } from 'lucide-react'
 import { useCollection } from '../contexts/CollectionContext'
 import { useAuth } from '../contexts/AuthContext'
 import { colecoes as colecoesService } from '../services/colecoes'
@@ -64,10 +64,19 @@ export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
       <div className={styles.bottom}>
         <div className={styles.themeToggleWrap}>
           <button
-            className={`${styles.themeSwitch} ${theme === 'dark' ? styles.themeSwitchActive : ''}`}
-            onClick={onToggleTheme}
-            title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
-          />
+            className={`${styles.themeBtn} ${theme === 'light' ? styles.themeBtnActive : ''}`}
+            onClick={() => theme !== 'light' && onToggleTheme()}
+            title="Modo claro"
+          >
+            <Sun size={14} strokeWidth={1.8} />
+          </button>
+          <button
+            className={`${styles.themeBtn} ${theme === 'dark' ? styles.themeBtnActive : ''}`}
+            onClick={() => theme !== 'dark' && onToggleTheme()}
+            title="Modo escuro"
+          >
+            <Moon size={14} strokeWidth={1.8} />
+          </button>
         </div>
         {comprador && (
           <div style={{ marginTop: '8px', fontSize: '12px', color: '#888', textAlign: 'center' }}>
