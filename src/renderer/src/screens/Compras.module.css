@@ -2332,11 +2332,12 @@
   border: 1px solid var(--border);
   border-radius: 5px;
   background: var(--bg-card);
-  color: var(--accent);
+  color: var(--text-secondary);
   cursor: pointer;
   white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
 }
-.btnHistAction:hover { background: rgba(var(--accent-rgb), 0.08); }
+.btnHistAction:hover { background: var(--bg-hover); color: var(--text-primary); }
 .btnHistAction:disabled { opacity: 0.4; cursor: not-allowed; }
 .btnHistEdit { color: var(--text-secondary); }
 .btnHistEdit:hover { color: var(--text-primary); background: var(--bg-hover); }
@@ -2624,7 +2625,9 @@
 }
 
 .btnHistPreencher {
-  background: #2563eb;
-  color: #fff;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  font-weight: 600;
+  border-color: var(--border);
 }
-.btnHistPreencher:hover { background: #1d4ed8; }
+.btnHistPreencher:hover { background: var(--border); }
