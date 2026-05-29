@@ -61,9 +61,13 @@ export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
       </nav>
 
       <div className={styles.bottom}>
-        <button className={styles.themeBtn} onClick={onToggleTheme}>
-          {theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
-        </button>
+        <div className={styles.themeToggleWrap}>
+          <button
+            className={`${styles.themeSwitch} ${theme === 'dark' ? styles.themeSwitchActive : ''}`}
+            onClick={onToggleTheme}
+            title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+          />
+        </div>
         {comprador && (
           <div style={{ marginTop: '8px', fontSize: '12px', color: '#888', textAlign: 'center' }}>
             <span>{comprador.nome}</span>
