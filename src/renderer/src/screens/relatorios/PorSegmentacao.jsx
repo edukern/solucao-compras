@@ -60,8 +60,8 @@ export default function PorSegmentacao() {
             <div key={card.key} className={styles.card}>
               <div className={styles.cardHeader} onClick={() => toggleCard(card.key)}>
                 <div className={styles.cardTitle}>
-                  <span className={styles.classif}>{card.classificacao}</span>
                   <span className={styles.tipoProd}>{card.tipo_produto}</span>
+                  <span className={styles.classif}>{card.classificacao}</span>
                 </div>
                 <div className={styles.cardTotals}>
                   <span><span className={styles.totLabel}>SKUs</span> {card.total_skus}</span>
