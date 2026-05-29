@@ -1,99 +1,103 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useCollection } from '../../contexts/CollectionContext'
-import { segmentacoes as segmentacoesService } from '../../services/segmentacoes'
+import { useAuth } from '../../contexts/AuthContext'
 import { relatorios } from '../../services/relatorios'
+import { tamanhosDeTipoGrade } from '../../constants/grades'
 import styles from './PorSegmentacao.module.css'
 
-export default function PorSegmentacao({ onSelectForn }) {
+export default function PorSegmentacao() {
   const { active } = useCollection()
+  const { comprador } = useAuth()
+  const isEditor = comprador?.is_editor ?? false
+  const [verGlobal, setVerGlobal] = useState(false)
+  const compradorId = (isEditor && verGlobal) ? null : (comprador?.id ?? null)
 
-  const [segs,     setSegs]     = useState([])
-  const [selClass, setSelClass] = useState('')
-  const [selTipo,  setSelTipo]  = useState('')
-  const [selClasse, setSelClasse] = useState('')
-  const [results,  setResults]  = useState([])
-
-  useEffect(() => {
-    segmentacoesService.list().then(setSegs)
-  }, [])
-
-  const classificacoes = useMemo(() => [...new Set(segs.map(s => s.classificacao))].sort(), [segs])
-  const tipos  = useMemo(() =>
-    [...new Set(segs.filter(s => s.classificacao === selClass).map(s => s.tipo_produto))].sort(),
-    [segs, selClass]
-  )
-  const classes = useMemo(() =>
-    [...new Set(segs.filter(s => s.classificacao === selClass && s.tipo_produto === selTipo).map(s => s.classe))].sort(),
-    [segs, selClass, selTipo]
-  )
-
-  const selectedSeg = useMemo(() =>
-    segs.find(s => s.classificacao === selClass && s.tipo_produto === selTipo && s.classe === selClasse) ?? null,
-    [segs, selClass, selTipo, selClasse]
-  )
+  const [cards, setCards] = useState([])
+  const [expanded, setExpanded] = useState(new Set())
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (!active || !selectedSeg) { setResults([]); return }
-    relatorios.totaisPorFornecedor(active.id, selectedSeg.id).then(setResults)
-  }, [active?.id, selectedSeg?.id])
+    if (!active) return
+    setLoading(true)
+    relatorios.totaisPorSegmentacao(active.id, compradorId)
+      .then(setCards)
+      .finally(() => setLoading(false))
+  }, [active?.id, compradorId])
 
-  function handleClass(v)  { setSelClass(v); setSelTipo(''); setSelClasse('') }
-  function handleTipo(v)   { setSelTipo(v);  setSelClasse('') }
+  function toggleCard(key) {
+    setExpanded(prev => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  }
 
-  const hasFilter = selClass !== ''
+  if (!active) return <p className={styles.hint}>Selecione uma coleção ativa.</p>
 
   return (
     <div>
-      <div className={styles.filters}>
-        <select value={selClass} onChange={e => handleClass(e.target.value)}>
-          <option value="">Classificação</option>
-          {classificacoes.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <select value={selTipo} onChange={e => handleTipo(e.target.value)} disabled={!selClass}>
-          <option value="">Tipo de produto</option>
-          {tipos.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <select value={selClasse} onChange={e => setSelClasse(e.target.value)} disabled={!selTipo}>
-          <option value="">Classe</option>
-          {classes.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
+      <div className={styles.toolbar}>
+        {isEditor && (
+          <button
+            className={`${styles.globalToggle} ${verGlobal ? styles.globalToggleOn : ''}`}
+            onClick={() => setVerGlobal(v => !v)}
+          >
+            {verGlobal ? 'Global' : 'Minha loja'}
+          </button>
+        )}
       </div>
 
-      {!hasFilter && (
-        <p className={styles.hint}>Selecione uma segmentação para ver os fornecedores.</p>
+      {loading && <p className={styles.hint}>Carregando…</p>}
+
+      {!loading && cards.length === 0 && (
+        <p className={styles.hint}>Nenhum pedido nesta coleção.</p>
       )}
 
-      {hasFilter && results.length === 0 && selectedSeg && (
-        <p className={styles.hint}>Nenhum fornecedor com pedidos para essa segmentação.</p>
-      )}
+      <div className={styles.grid}>
+        {cards.map(card => {
+          const open = expanded.has(card.key)
+          return (
+            <div key={card.key} className={styles.card}>
+              <div className={styles.cardHeader} onClick={() => toggleCard(card.key)}>
+                <div className={styles.cardTitle}>
+                  <span className={styles.classif}>{card.classificacao}</span>
+                  <span className={styles.tipoProd}>{card.tipo_produto}</span>
+                </div>
+                <div className={styles.cardTotals}>
+                  <span><span className={styles.totLabel}>SKUs</span> {card.total_skus}</span>
+                  <span><span className={styles.totLabel}>Peças</span> {card.total_pecas.toLocaleString('pt-BR')}</span>
+                  <span><span className={styles.totLabel}>Valor</span> {card.total_valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}</span>
+                </div>
+                <span className={`${styles.chevron} ${open ? styles.chevronOpen : ''}`}>›</span>
+              </div>
 
-      {results.length > 0 && selectedSeg && (
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Fornecedor</th>
-              <th className={styles.numCol}>SKUs</th>
-              <th className={styles.numCol}>Peças</th>
-            </tr>
-          </thead>
-          <tbody>
-            {results.map(r => (
-              <tr
-                key={r.fornecedor_id}
-                onClick={() => onSelectForn(
-                  { id: r.fornecedor_id, nome: r.fornecedor_nome },
-                  { segId: selectedSeg.id, classificacao: selectedSeg.classificacao,
-                    tipo_produto: selectedSeg.tipo_produto, classe: selectedSeg.classe }
-                )}
-              >
-                <td>{r.fornecedor_nome}</td>
-                <td className={styles.numCol}>{r.num_skus}</td>
-                <td className={styles.numCol}>{r.total_pecas}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+              {open && (
+                <div className={styles.cardBody}>
+                  {card.classes.map(cl => {
+                    const tamanhos = tamanhosDeTipoGrade(cl.tipo_grade)
+                    return (
+                      <div key={cl.classe} className={styles.classeBlock}>
+                        <div className={styles.classeHeader}>
+                          <span className={styles.classeLabel}>{cl.classe}</span>
+                          <span className={styles.classeSub}>{cl.pecas.toLocaleString('pt-BR')} pç · {cl.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}</span>
+                        </div>
+                        <div className={styles.gradeRow}>
+                          {tamanhos.map(tam => (
+                            <div key={tam} className={styles.gradeCell}>
+                              <span className={styles.gradeTam}>{tam}</span>
+                              <span className={styles.gradeQtd}>{cl.grade[tam] ?? 0}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

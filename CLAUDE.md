@@ -1,8 +1,12 @@
 # Solução Compras — Mapa do projeto
 
 ## Stack
-React 18 + Vite + Supabase. SPA (sem Electron). Deploy: Cloudflare Pages (bolt-compras.pages.dev).
+React 18 + Vite + Supabase. SPA puro — **NÃO É Electron, não tem versão desktop**.
+Deploy: Cloudflare Pages (bolt-compras.pages.dev). O código do app fica em `src/renderer/src/`.
+O repositório contém arquivos de configuração do electron-vite mas são resquícios — ignorar.
 Hook git: prevent-destructive-commands.py bloqueia `git add`/`git commit` — usuário roda git manualmente.
+
+> Para rodar localmente: precisa de `.env` com as credenciais do Supabase. Sem isso o app não renderiza (tela preta).
 
 ## Compras.jsx — estrutura (~3600 linhas)
 

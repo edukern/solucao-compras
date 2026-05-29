@@ -29,7 +29,13 @@ export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
 
   return (
     <aside className={styles.sidebar}>
-      <div className={styles.brand}>Bolt Compras</div>
+      <div className={styles.brand}>
+        <svg width="16" height="16" viewBox="0 0 22 22" fill="none" style={{ flexShrink: 0 }}>
+          <polygon points="13,2 5,13 11,13 9,20 17,9 11,9" fill="var(--accent)" />
+        </svg>
+        <span style={{ fontWeight: 800, color: 'var(--accent)', fontSize: '0.9rem', letterSpacing: '-0.01em' }}>Bolt</span>
+        <span style={{ fontWeight: 400, color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Compras</span>
+      </div>
 
       <div className={styles.collectionSection}>
         <div className={styles.colHeader}>
@@ -68,14 +74,14 @@ export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
             onClick={() => theme !== 'light' && onToggleTheme()}
             title="Modo claro"
           >
-            <Sun size={14} strokeWidth={1.8} />
+            <Sun size={14} strokeWidth={1.6} />
           </button>
           <button
             className={`${styles.themeBtn} ${theme === 'dark' ? styles.themeBtnActive : ''}`}
             onClick={() => theme !== 'dark' && onToggleTheme()}
             title="Modo escuro"
           >
-            <Moon size={14} strokeWidth={1.8} />
+            <Moon size={13} strokeWidth={0} fill="currentColor" />
           </button>
         </div>
         {comprador && (

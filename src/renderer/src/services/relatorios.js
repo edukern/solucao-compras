@@ -1,13 +1,14 @@
 import { supabase } from '../lib/supabase'
 
 export const relatorios = {
-  async totaisPorFornecedor(colecao_id, segmentacao_id = null) {
-    const { data: sessoes, error } = await supabase
+  async totaisPorFornecedor(colecao_id, segmentacao_id = null, comprador_id = null) {
+    let visitasQuery = supabase
       .from('sessoes')
       .select(`
         fornecedor_id,
         fornecedor:fornecedores(id, nome),
         visitas(
+          comprador_id,
           pedidos(
             segmentacao_id,
             valor_unitario,
@@ -17,6 +18,7 @@ export const relatorios = {
         )
       `)
       .eq('colecao_id', colecao_id)
+    const { data: sessoes, error } = await visitasQuery
     if (error) throw error
 
     const byForn = new Map()
@@ -33,6 +35,7 @@ export const relatorios = {
       }
       const agg = byForn.get(fornId)
       for (const visita of sessao.visitas ?? []) {
+        if (comprador_id != null && visita.comprador_id !== comprador_id) continue
         for (const pedido of visita.pedidos ?? []) {
           if (segmentacao_id != null && pedido.segmentacao_id !== segmentacao_id) continue
           const qtd = (pedido.pedido_itens ?? []).reduce((s, i) => s + i.qtd, 0)
@@ -139,11 +142,96 @@ export const relatorios = {
     })
   },
 
-  async itensPorFornecedor(fornecedor_id, colecao_id) {
+  async totaisPorSegmentacao(colecao_id, comprador_id = null) {
     const { data: sessoes, error } = await supabase
       .from('sessoes')
       .select(`
         visitas(
+          comprador_id,
+          pedidos(
+            valor_unitario,
+            desconto_pct,
+            segmentacao:segmentacoes(classificacao, tipo_produto, classe, tipo_grade),
+            pedido_itens(tamanho, qtd)
+          )
+        )
+      `)
+      .eq('colecao_id', colecao_id)
+    if (error) throw error
+
+    // key: `classificacao|tipo_produto`
+    const bySegTipo = new Map()
+
+    for (const sessao of sessoes ?? []) {
+      for (const visita of sessao.visitas ?? []) {
+        if (comprador_id != null && visita.comprador_id !== comprador_id) continue
+        for (const pedido of visita.pedidos ?? []) {
+          const seg = pedido.segmentacao
+          if (!seg) continue
+          const key = `${seg.classificacao}|${seg.tipo_produto}`
+          if (!bySegTipo.has(key)) {
+            bySegTipo.set(key, {
+              key,
+              classificacao: seg.classificacao,
+              tipo_produto: seg.tipo_produto,
+              total_skus: 0,
+              total_pecas: 0,
+              total_valor: 0,
+              classes: new Map(),
+            })
+          }
+          const card = bySegTipo.get(key)
+          const classe = seg.classe || 'GERAL'
+
+          if (!card.classes.has(classe)) {
+            card.classes.set(classe, {
+              classe,
+              tipo_grade: seg.tipo_grade,
+              skus: 0,
+              pecas: 0,
+              valor: 0,
+              grade: new Map(),
+            })
+          }
+          const cl = card.classes.get(classe)
+
+          const itens = pedido.pedido_itens ?? []
+          const qtdTotal = itens.reduce((s, i) => s + i.qtd, 0)
+          if (qtdTotal === 0) continue
+
+          const precoLiq = pedido.valor_unitario * (1 - (pedido.desconto_pct ?? 0) / 100)
+          card.total_skus++
+          card.total_pecas += qtdTotal
+          card.total_valor += precoLiq * qtdTotal
+          cl.skus++
+          cl.pecas += qtdTotal
+          cl.valor += precoLiq * qtdTotal
+
+          for (const item of itens) {
+            if (item.qtd === 0) continue
+            cl.grade.set(item.tamanho, (cl.grade.get(item.tamanho) ?? 0) + item.qtd)
+          }
+        }
+      }
+    }
+
+    return [...bySegTipo.values()]
+      .filter(c => c.total_skus > 0)
+      .sort((a, b) => a.classificacao.localeCompare(b.classificacao) || a.tipo_produto.localeCompare(b.tipo_produto))
+      .map(c => ({
+        ...c,
+        classes: [...c.classes.values()]
+          .sort((a, b) => a.classe.localeCompare(b.classe))
+          .map(cl => ({ ...cl, grade: Object.fromEntries(cl.grade) })),
+      }))
+  },
+
+  async itensPorFornecedor(fornecedor_id, colecao_id, comprador_id = null) {
+    const { data: sessoes, error } = await supabase
+      .from('sessoes')
+      .select(`
+        visitas(
+          comprador_id,
           pedidos(
             segmentacao_id,
             segmentacao:segmentacoes(id, classificacao, tipo_produto, classe),
@@ -158,6 +246,7 @@ export const relatorios = {
     const bySeg = new Map()
     for (const sessao of sessoes ?? []) {
       for (const visita of sessao.visitas ?? []) {
+        if (comprador_id != null && visita.comprador_id !== comprador_id) continue
         for (const pedido of visita.pedidos ?? []) {
           const segId = pedido.segmentacao_id
           const seg = pedido.segmentacao

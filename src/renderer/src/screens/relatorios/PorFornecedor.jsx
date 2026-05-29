@@ -1,11 +1,16 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useCollection } from '../../contexts/CollectionContext'
+import { useAuth } from '../../contexts/AuthContext'
 import { relatorios } from '../../services/relatorios'
 import { projecoes as projecoesService } from '../../services/projecoes'
 import styles from './PorFornecedor.module.css'
 
 export default function PorFornecedor({ selectedForn, segFilter, onSelectForn, onClearForn, onClearSegFilter }) {
   const { active } = useCollection()
+  const { comprador } = useAuth()
+  const isEditor = comprador?.is_editor ?? false
+  const [verGlobal, setVerGlobal] = useState(false)
+  const compradorId = (isEditor && verGlobal) ? null : (comprador?.id ?? null)
 
   const [list,   setList]   = useState([])
   const [search, setSearch] = useState('')
@@ -16,11 +21,11 @@ export default function PorFornecedor({ selectedForn, segFilter, onSelectForn, o
 
   useEffect(() => {
     if (!active) return
-    relatorios.totaisPorFornecedor(active.id).then(setList)
-  }, [active?.id])
+    relatorios.totaisPorFornecedor(active.id, null, compradorId).then(setList)
+  }, [active?.id, compradorId])
 
   const loadDetail = useCallback(async (fornId, colId, filter) => {
-    const rows = await relatorios.itensPorFornecedor(fornId, colId)
+    const rows = await relatorios.itensPorFornecedor(fornId, colId, compradorId)
     setItems(rows)
     const projMap = {}
     await Promise.all(rows.map(async r => {
@@ -39,7 +44,7 @@ export default function PorFornecedor({ selectedForn, segFilter, onSelectForn, o
         tipo:  new Set(rows.map(r => r.tipo_produto)),
       })
     }
-  }, [])
+  }, [compradorId])
 
   useEffect(() => {
     if (!selectedForn || !active) return
@@ -85,6 +90,16 @@ export default function PorFornecedor({ selectedForn, segFilter, onSelectForn, o
 
   if (!active) return <p className={styles.empty}>Selecione uma coleção ativa.</p>
 
+  const globalToggle = isEditor && (
+    <button
+      className={`${styles.globalToggle} ${verGlobal ? styles.globalToggleOn : ''}`}
+      onClick={() => setVerGlobal(v => !v)}
+      title={verGlobal ? 'Mostrando números globais — clique para ver só sua loja' : 'Mostrando só sua loja — clique para ver global'}
+    >
+      {verGlobal ? '🌐 Global' : '🏪 Minha loja'}
+    </button>
+  )
+
   if (selectedForn) {
     return (
       <div>
@@ -99,6 +114,7 @@ export default function PorFornecedor({ selectedForn, segFilter, onSelectForn, o
               Ver todas as segmentações
             </button>
           )}
+          {globalToggle}
         </div>
 
         <div className={styles.pills}>
@@ -181,13 +197,16 @@ export default function PorFornecedor({ selectedForn, segFilter, onSelectForn, o
 
   return (
     <div>
-      <input
-        type="search"
-        className={styles.searchBar}
-        placeholder="Buscar fornecedor…"
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-      />
+      <div className={styles.listTopBar}>
+        <input
+          type="search"
+          className={styles.searchBar}
+          placeholder="Buscar fornecedor…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        {globalToggle}
+      </div>
       {filteredList.length === 0 ? (
         <p className={styles.empty}>Nenhum fornecedor com pedidos nesta coleção.</p>
       ) : (
