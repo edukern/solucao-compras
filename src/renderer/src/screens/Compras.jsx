@@ -307,6 +307,23 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
           )}
         </div>
 
+        {/* Cor/Detalhe toggle — aparece assim que fornecedor é selecionado */}
+        {stateOf('fornecedor') === 'done' && (
+          <div className={styles.corDetalheToggleRow}>
+            <span className={styles.corDetalheToggleLabel}>Cor e detalhe em todos os itens?</span>
+            <div className={styles.corDetalheToggleGroup}>
+              <button
+                className={`${styles.corDetalheToggleBtn} ${temCorDetalhe ? styles.corDetalheToggleBtnOn : ''}`}
+                onClick={() => setTemCorDetalhe(true)}
+              >Sim</button>
+              <button
+                className={`${styles.corDetalheToggleBtn} ${!temCorDetalhe ? styles.corDetalheToggleBtnOn : ''}`}
+                onClick={() => setTemCorDetalhe(false)}
+              >Não</button>
+            </div>
+          </div>
+        )}
+
         {/* 2 — Data */}
         <div
           className={fieldCls('data')}
@@ -536,23 +553,6 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
         </div>
 
       </div>
-
-      {/* Cor/Detalhe toggle — aparece após lojas selecionadas */}
-      {lojas.length > 0 && (
-        <div className={styles.corDetalheToggleRow}>
-          <span className={styles.corDetalheToggleLabel}>Ativar cor e detalhe em todos os itens?</span>
-          <div className={styles.corDetalheToggleGroup}>
-            <button
-              className={`${styles.corDetalheToggleBtn} ${temCorDetalhe ? styles.corDetalheToggleBtnOn : ''}`}
-              onClick={() => setTemCorDetalhe(true)}
-            >Sim</button>
-            <button
-              className={`${styles.corDetalheToggleBtn} ${!temCorDetalhe ? styles.corDetalheToggleBtnOn : ''}`}
-              onClick={() => setTemCorDetalhe(false)}
-            >Não</button>
-          </div>
-        </div>
-      )}
 
       {/* Error + fallback submit button */}
       {error && <div className={styles.errorBanner}>{error}</div>}
