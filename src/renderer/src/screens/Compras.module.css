@@ -1070,6 +1070,89 @@
 .itemRowActive td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .itemRowActive { font-weight: 500; }
 .itemDot { color: var(--accent); }
+
+/* Duplicate highlight — pisca por 3s para alertar sobre cor/detalhe */
+@keyframes dupeFlash {
+  0%   { background: rgba(var(--accent-rgb), 0.18); }
+  60%  { background: rgba(var(--accent-rgb), 0.18); }
+  100% { background: transparent; }
+}
+.itemRowDupeHighlight td { animation: dupeFlash 3s ease-out forwards; }
+
+/* Inline cor/detalhe na célula do produto */
+.inlineCorEdit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+}
+.inlineCorInput {
+  width: 70px;
+  font-size: 0.75rem;
+  font-family: inherit;
+  padding: 1px 5px;
+  background: var(--input-bg);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  color: var(--text-primary);
+  outline: none;
+}
+.inlineCorDisplay {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  border-bottom: 1px dashed var(--text-muted);
+  cursor: pointer;
+  padding: 0 1px;
+  transition: color 0.12s, border-color 0.12s;
+}
+.inlineCorDisplay:hover {
+  color: var(--text-secondary);
+  border-color: var(--text-secondary);
+}
+/* Alerta no campo após duplicar — destaca em âmbar */
+.inlineCorDisplayAlert {
+  color: var(--color-brand) !important;
+  border-color: var(--color-brand) !important;
+  font-weight: 600;
+  animation: dupeFlash 3s ease-out forwards;
+}
+
+/* Toggle cor/detalhe na Phase 1 */
+.corDetalheToggleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  border-top: 1px solid var(--border);
+  margin-top: 0.5rem;
+}
+.corDetalheToggleLabel {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+.corDetalheToggleGroup {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.corDetalheToggleBtn {
+  padding: 0.25rem 0.75rem;
+  border: none;
+  background: transparent;
+  font-size: 0.8rem;
+  font-family: inherit;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.corDetalheToggleBtnOn {
+  background: var(--text-primary);
+  color: var(--bg-secondary);
+  font-weight: 600;
+}
 .btnRemoveItem {
   background: none;
   border: none;
@@ -1119,7 +1202,11 @@
   transition: background 0.1s;
 }
 .gradeInlineRow:hover { background: var(--bg-hover); }
-.gradeInlineRowActive { background: rgba(var(--accent-rgb), 0.06); }
+.gradeInlineRowActive {
+  background: rgba(var(--accent-rgb), 0.08);
+  border-radius: 3px;
+  outline: 1px solid rgba(var(--accent-rgb), 0.18);
+}
 
 .gradeInlineLoja {
   width: 140px;

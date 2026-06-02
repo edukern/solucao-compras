@@ -101,6 +101,7 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
   const [transportadora, setTransportadora] = useState('')
   const [obs,            setObs]            = useState('')
   const [lojas,          setLojas]          = useState([])
+  const [temCorDetalhe,  setTemCorDetalhe]  = useState(false)
   const [saving,         setSaving]         = useState(false)
   const [error,          setError]          = useState(null)
   const [activeField,    setActiveField]    = useState('fornecedor')
@@ -184,7 +185,7 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
       }, lojas)
       const lojasPresentes = compradores.filter(c => lojas.includes(c.id))
       const fornSelecionado = forns.find(f => String(f.id) === fornId)
-      onStart({ ...sessao, fornecedor_nome: fornSelecionado?.nome ?? '' }, lojasPresentes)
+      onStart({ ...sessao, fornecedor_nome: fornSelecionado?.nome ?? '' }, lojasPresentes, temCorDetalhe)
     } catch (e) {
       setError(`Erro ao iniciar sessão: ${e.message}`)
     } finally {
@@ -536,6 +537,23 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
 
       </div>
 
+      {/* Cor/Detalhe toggle — aparece após lojas selecionadas */}
+      {lojas.length > 0 && (
+        <div className={styles.corDetalheToggleRow}>
+          <span className={styles.corDetalheToggleLabel}>Ativar cor e detalhe em todos os itens?</span>
+          <div className={styles.corDetalheToggleGroup}>
+            <button
+              className={`${styles.corDetalheToggleBtn} ${temCorDetalhe ? styles.corDetalheToggleBtnOn : ''}`}
+              onClick={() => setTemCorDetalhe(true)}
+            >Sim</button>
+            <button
+              className={`${styles.corDetalheToggleBtn} ${!temCorDetalhe ? styles.corDetalheToggleBtnOn : ''}`}
+              onClick={() => setTemCorDetalhe(false)}
+            >Não</button>
+          </div>
+        </div>
+      )}
+
       {/* Error + fallback submit button */}
       {error && <div className={styles.errorBanner}>{error}</div>}
       <div className={styles.phaseActions}>
@@ -558,7 +576,7 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
 // ─── Phase 2: Tabela de itens ─────────────────────────────────────────────
 
 function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, onRemoveVisita, segs = [],
-  initialItems = [], initialQtds = {}, initialActiveId = null, initialLojaIdx = 0 }) {
+  initialItems = [], initialQtds = {}, initialActiveId = null, initialLojaIdx = 0, initialCorDetalhe = false }) {
   console.log('PHASE2 MOUNT', { visitas, items: initialItems })
   const { comprador: myComprador } = useAuth()
   const [items,         setItems]         = useState(initialItems)
@@ -575,16 +593,11 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   const autoSaveRef     = useRef(null)
   const autoSaveInitRef = useRef(false)
   const [showAddForm,    setShowAddForm]    = useState(true)
-  const [showCorDetalhe, setShowCorDetalhe] = useState(
-    () => localStorage.getItem('SC_SHOW_COR_DETALHE') === 'true'
-  )
+  const [showCorDetalhe, setShowCorDetalhe] = useState(initialCorDetalhe)
+  const [editingCorId,   setEditingCorId]   = useState(null) // inline cor/detalhe editing
+  const [dupeHighlight,  setDupeHighlight]  = useState(null) // id do item recém duplicado
   const [fillMode, setFillMode] = useState('ref') // 'ref' | 'loja'
-  function toggleCorDetalhe() {
-    setShowCorDetalhe(prev => {
-      localStorage.setItem('SC_SHOW_COR_DETALHE', String(!prev))
-      return !prev
-    })
-  }
+  function toggleCorDetalhe() { setShowCorDetalhe(prev => !prev) }
   const addFormFirstRef = useRef(null)
   const [editingId,      setEditingId]      = useState(null)
   const [editForm,       setEditForm]       = useState(null)
@@ -759,16 +772,22 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   function duplicateItem(item, e) {
     e.stopPropagation()
     const newId = `item_${Date.now()}_${Math.random()}`
-    const copy = { ...item, localId: newId }
+    // Zera cor/detalhe e não copia a grade
+    const copy = { ...item, localId: newId, cor: '', detalhe: '' }
     setItems(prev => {
       const idx = prev.findIndex(it => it.localId === item.localId)
       const next = [...prev]
       next.splice(idx + 1, 0, copy)
       return next
     })
-    setQtds(prev => ({ ...prev, [newId]: JSON.parse(JSON.stringify(prev[item.localId] ?? {})) }))
+    setQtds(prev => ({ ...prev, [newId]: {} })) // grade zerada
     setActiveId(newId)
     setEditingId(newId)
+    // Destaca o item duplicado para alertar sobre cor/detalhe
+    setDupeHighlight(newId)
+    setTimeout(() => setDupeHighlight(null), 3000)
+    // Se cor/detalhe estiver ativo, abre edição inline automaticamente
+    if (showCorDetalhe) setEditingCorId(newId)
     setEditForm({
       ref:          item.ref,
       tipo_produto: item.tipo_produto,
@@ -1611,7 +1630,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                   ) : (
                     /* ── Normal row ── */
                     <tr
-                      className={`${styles.itemRow} ${isActive ? styles.itemRowActive : ''}`}
+                      className={`${styles.itemRow} ${isActive ? styles.itemRowActive : ''} ${dupeHighlight === it.localId ? styles.itemRowDupeHighlight : ''}`}
                       onClick={() => { setEditingId(null); setEditForm(null); setActiveId(isActive ? null : it.localId); setLojaIdx(0) }}
                     >
                       <td>
@@ -1622,7 +1641,40 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                           </span>
                         )}
                       </td>
-                      <td>{it.tipo_produto} · {it.tipo_grade} · {it.classe}</td>
+                      <td>
+                        {it.tipo_produto} · {it.tipo_grade} · {it.classe}
+                        {showCorDetalhe && (
+                          editingCorId === it.localId ? (
+                            <span className={styles.inlineCorEdit} onClick={e => e.stopPropagation()}>
+                              <input
+                                className={styles.inlineCorInput}
+                                placeholder="cor"
+                                value={it.cor || ''}
+                                autoFocus
+                                onChange={e => setItems(prev => prev.map(x => x.localId === it.localId ? { ...x, cor: e.target.value } : x))}
+                                onBlur={() => setEditingCorId(null)}
+                              />
+                              <input
+                                className={styles.inlineCorInput}
+                                placeholder="detalhe"
+                                value={it.detalhe || ''}
+                                onChange={e => setItems(prev => prev.map(x => x.localId === it.localId ? { ...x, detalhe: e.target.value } : x))}
+                                onBlur={() => setEditingCorId(null)}
+                              />
+                            </span>
+                          ) : (
+                            <span
+                              className={`${styles.inlineCorDisplay} ${dupeHighlight === it.localId ? styles.inlineCorDisplayAlert : ''}`}
+                              onClick={e => { e.stopPropagation(); setEditingCorId(it.localId) }}
+                              title="Clique para editar cor e detalhe"
+                            >
+                              {it.cor || it.detalhe
+                                ? [it.cor, it.detalhe].filter(Boolean).join(' · ')
+                                : '— cor / detalhe'}
+                            </span>
+                          )
+                        )}
+                      </td>
                       <td>{it.icms_pct || '0'}%</td>
                       <td>{it.valor ? `R$ ${it.valor}` : <span className={styles.itemDot}>—</span>}</td>
                       <td className={styles.itemMarkupCell}>{it.markup_pct && it.markup_pct !== '0' ? `+${it.markup_pct}` : <span className={styles.itemDot}>—</span>}</td>
@@ -3559,6 +3611,7 @@ export default function Compras() {
   const [recoveryData,    setRecoveryData]    = useState([])
   const [recoveryInitial, setRecoveryInitial] = useState(null)
   const [retomarLoading,  setRetomarLoading]  = useState(null)
+  const [sessaoCorDetalhe, setSessaoCorDetalhe] = useState(false)
   const [isOnline,        setIsOnline]        = useState(navigator.onLine)
 
   useEffect(() => {
@@ -3636,7 +3689,7 @@ export default function Compras() {
     return () => { cancelled = true }
   }, [active?.id])
 
-  function handleStart(novaSessao, lojas) {
+  function handleStart(novaSessao, lojas, temCorDetalhe = false) {
     const visitasEnriquecidas = novaSessao.visitas.map(v => {
       const loja = lojas.find(l => l.id === v.comprador_id)
       return {
@@ -3660,6 +3713,7 @@ export default function Compras() {
     const sessaoEnriquecida = { ...novaSessao, fornecedor_nome: forn?.nome || novaSessao.fornecedor_nome || '' }
     setSessao(sessaoEnriquecida)
     setVisitas(visitasEnriquecidas)
+    setSessaoCorDetalhe(temCorDetalhe)
     setPhase(2)
   }
 
@@ -3907,6 +3961,7 @@ export default function Compras() {
           initialQtds={recoveryInitial?.qtds ?? {}}
           initialActiveId={recoveryInitial?.activeId ?? null}
           initialLojaIdx={recoveryInitial?.lojaIdx ?? 0}
+          initialCorDetalhe={sessaoCorDetalhe}
         />
       )}
 
