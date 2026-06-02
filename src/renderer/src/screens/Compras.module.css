@@ -1623,6 +1623,33 @@
 }
 
 /* Frete options */
+.kbCorDetalheOpts {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+.kbCorDetalheBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  padding: 0.3rem 0;
+  border-radius: 6px;
+  background: var(--bg-hover);
+  border: 1.5px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.kbCorDetalheBtnOn {
+  background: var(--text-primary);
+  border-color: var(--text-primary);
+  color: var(--bg-secondary);
+}
+
 .kbFreteOpts {
   display: flex;
   gap: 0.5rem;
@@ -2648,6 +2675,88 @@
 }
 .btnLiberar:hover:not(:disabled) { background: #15803d; }
 .btnLiberar:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btnCancelarSessao {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.45rem 0.9rem;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-size: 0.82rem;
+  font-family: inherit;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-left: auto;
+  transition: border-color 0.15s, color 0.15s;
+}
+.btnCancelarSessao:hover { border-color: var(--red); color: var(--red); }
+
+/* Modal de confirmação */
+.cancelOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  backdrop-filter: blur(2px);
+}
+.cancelModal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+}
+.cancelTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+}
+.cancelMsg {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 1.25rem;
+}
+.cancelMsg strong { color: var(--text-primary); }
+.cancelActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+.cancelBtnVoltar {
+  padding: 0.45rem 1rem;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.cancelBtnVoltar:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+.cancelBtnConfirm {
+  padding: 0.45rem 1rem;
+  background: var(--red);
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.cancelBtnConfirm:disabled { opacity: 0.6; cursor: not-allowed; }
+.cancelBtnConfirm:hover:not(:disabled) { opacity: 0.85; }
 
 .liberadoBanner {
   margin-top: 0.6rem;

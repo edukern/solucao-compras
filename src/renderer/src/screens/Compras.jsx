@@ -68,6 +68,7 @@ function TutorialOverlay({ onClose }) {
 
 const FIELD_NAMES = {
   fornecedor:     'Fornecedor',
+  corDetalhe:     'Cor e detalhe',
   data:           'Data da visita',
   dataEntrega:    'Data de entrega',
   vendedor:       'Vendedor',
@@ -111,7 +112,7 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
   const activeRef = useRef(null)
 
   const ORDER = [
-    'fornecedor', 'data', 'dataEntrega', 'vendedor', 'condPag', 'frete',
+    'fornecedor', 'corDetalhe', 'data', 'dataEntrega', 'vendedor', 'condPag', 'frete',
     ...(frete === 'FOB' ? ['transportadora'] : []),
     'lojas',
   ]
@@ -307,24 +308,44 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
           )}
         </div>
 
-        {/* Cor/Detalhe toggle — aparece assim que fornecedor é selecionado */}
-        {stateOf('fornecedor') === 'done' && (
-          <div className={styles.corDetalheToggleRow}>
-            <span className={styles.corDetalheToggleLabel}>Cor e detalhe em todos os itens?</span>
-            <div className={styles.corDetalheToggleGroup}>
-              <button
-                className={`${styles.corDetalheToggleBtn} ${temCorDetalhe ? styles.corDetalheToggleBtnOn : ''}`}
-                onClick={() => setTemCorDetalhe(true)}
-              >Sim</button>
-              <button
-                className={`${styles.corDetalheToggleBtn} ${!temCorDetalhe ? styles.corDetalheToggleBtnOn : ''}`}
-                onClick={() => setTemCorDetalhe(false)}
-              >Não</button>
-            </div>
-          </div>
-        )}
+        {/* 2 — Cor e detalhe */}
+        <div
+          className={fieldCls('corDetalhe')}
+          onClick={stateOf('corDetalhe') === 'done' ? () => setActiveField('corDetalhe') : undefined}
+          ref={stateOf('corDetalhe') === 'active' ? activeRef : null}
+          tabIndex={stateOf('corDetalhe') === 'active' ? 0 : undefined}
+          onKeyDown={stateOf('corDetalhe') === 'active' ? (e => {
+            if (e.key === 's' || e.key === 'S') { setTemCorDetalhe(true); advance() }
+            else if (e.key === 'n' || e.key === 'N') { setTemCorDetalhe(false); advance() }
+            else if (e.key === 'Escape') goBack()
+          }) : undefined}
+        >
+          {stateOf('corDetalhe') === 'active' ? (
+            <>
+              <div className={styles.kbFieldLabel}>{FIELD_NAMES.corDetalhe}</div>
+              <div className={styles.kbCorDetalheOpts}>
+                <button
+                  className={`${styles.kbCorDetalheBtn} ${temCorDetalhe === true ? styles.kbCorDetalheBtnOn : ''}`}
+                  onMouseDown={() => { setTemCorDetalhe(true); advance() }}
+                >S</button>
+                <button
+                  className={`${styles.kbCorDetalheBtn} ${temCorDetalhe === false ? styles.kbCorDetalheBtnOn : ''}`}
+                  onMouseDown={() => { setTemCorDetalhe(false); advance() }}
+                >N</button>
+              </div>
+              <div className={styles.kbHint}><kbd>S</kbd> sim · <kbd>N</kbd> não · <kbd>Esc</kbd> volta</div>
+            </>
+          ) : stateOf('corDetalhe') === 'done' ? (
+            <>
+              <DoneLabel name="corDetalhe" />
+              <div className={styles.kbFieldValue}>{temCorDetalhe ? 'Sim' : 'Não'}</div>
+            </>
+          ) : (
+            <UpcomingLabel name="corDetalhe" />
+          )}
+        </div>
 
-        {/* 2 — Data */}
+        {/* 3 — Data */}
         <div
           className={fieldCls('data')}
           onClick={stateOf('data') === 'done' ? () => setActiveField('data') : undefined}
@@ -575,7 +596,7 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
 
 // ─── Phase 2: Tabela de itens ─────────────────────────────────────────────
 
-function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, onRemoveVisita, segs = [],
+function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, onRemoveVisita, onCancelarSessao, segs = [],
   initialItems = [], initialQtds = {}, initialActiveId = null, initialLojaIdx = 0, initialCorDetalhe = false }) {
   console.log('PHASE2 MOUNT', { visitas, items: initialItems })
   const { comprador: myComprador } = useAuth()
@@ -593,9 +614,11 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   const autoSaveRef     = useRef(null)
   const autoSaveInitRef = useRef(false)
   const [showAddForm,    setShowAddForm]    = useState(true)
-  const [showCorDetalhe, setShowCorDetalhe] = useState(initialCorDetalhe)
-  const [editingCorId,   setEditingCorId]   = useState(null) // inline cor/detalhe editing
-  const [dupeHighlight,  setDupeHighlight]  = useState(null) // id do item recém duplicado
+  const [showCorDetalhe,    setShowCorDetalhe]    = useState(initialCorDetalhe)
+  const [editingCorId,      setEditingCorId]      = useState(null)
+  const [dupeHighlight,     setDupeHighlight]     = useState(null)
+  const [confirmCancelar,   setConfirmCancelar]   = useState(false)
+  const [cancelando,        setCancelando]        = useState(false)
   const [fillMode, setFillMode] = useState('ref') // 'ref' | 'loja'
   function toggleCorDetalhe() { setShowCorDetalhe(prev => !prev) }
   const addFormFirstRef = useRef(null)
@@ -1157,7 +1180,48 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
         >
           {liberando ? 'Liberando…' : '⇢ Liberar para preenchimento'}
         </button>
+        <button
+          className={styles.btnCancelarSessao}
+          onClick={() => setConfirmCancelar(true)}
+          title="Apagar esta sessão permanentemente"
+        >
+          Cancelar sessão
+        </button>
       </div>
+
+      {/* Modal de confirmação de cancelamento */}
+      {confirmCancelar && (
+        <div className={styles.cancelOverlay}>
+          <div className={styles.cancelModal}>
+            <div className={styles.cancelTitle}>Cancelar sessão?</div>
+            <p className={styles.cancelMsg}>
+              Esta ação vai <strong>apagar permanentemente</strong> a sessão
+              {sessao.fornecedor_nome ? ` com ${sessao.fornecedor_nome}` : ''} e todos
+              os pedidos registrados. <strong>Não será possível retomar.</strong>
+            </p>
+            <div className={styles.cancelActions}>
+              <button
+                className={styles.cancelBtnVoltar}
+                onClick={() => setConfirmCancelar(false)}
+                disabled={cancelando}
+              >
+                Voltar
+              </button>
+              <button
+                className={styles.cancelBtnConfirm}
+                disabled={cancelando}
+                onClick={async () => {
+                  setCancelando(true)
+                  try { await onCancelarSessao() }
+                  finally { setCancelando(false) }
+                }}
+              >
+                {cancelando ? 'Apagando…' : 'Sim, apagar sessão'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {liberadoInfo && (
         <div className={styles.liberadoBanner}>
@@ -3956,6 +4020,13 @@ export default function Compras() {
           colEstacao={active.estacao}
           segs={segs}
           onFechar={handleFechar}
+          onCancelarSessao={async () => {
+            await sessoesService.cancelar(sessao.id)
+            setSessao(null)
+            setVisitas([])
+            setRecoveryInitial(null)
+            setPhase(0)
+          }}
           onRemoveVisita={(visId) => setVisitas(prev => prev.filter(v => v.id !== visId))}
           initialItems={recoveryInitial?.items ?? []}
           initialQtds={recoveryInitial?.qtds ?? {}}
