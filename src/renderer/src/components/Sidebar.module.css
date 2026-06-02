@@ -79,14 +79,14 @@
 }
 .navBtn:hover { background: var(--bg-hover); color: var(--text-primary); }
 .active {
-  background: rgba(var(--color-brand-rgb), 0.13) !important;
-  color: var(--text-primary) !important;
-  border-left: 2px solid var(--color-brand) !important;
+  background: var(--text-primary) !important;
+  color: var(--bg-primary) !important;
+  border-left: 2px solid transparent !important;
   font-weight: 500;
 }
 
 .navBtn svg { flex-shrink: 0; opacity: 0.5; }
-.active svg { opacity: 1; color: var(--color-brand-light); }
+.active svg { opacity: 1; color: var(--bg-primary); }
 
 .bottom {
   padding: 0.75rem;
