@@ -31,9 +31,9 @@ export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
     <aside className={styles.sidebar}>
       <div className={styles.brand}>
         <svg width="16" height="16" viewBox="0 0 22 22" fill="none" style={{ flexShrink: 0 }}>
-          <polygon points="13,2 5,13 11,13 9,20 17,9 11,9" fill="var(--accent)" />
+          <polygon points="13,2 5,13 11,13 9,20 17,9 11,9" fill="var(--color-brand)" />
         </svg>
-        <span style={{ fontWeight: 800, color: 'var(--accent)', fontSize: '0.9rem', letterSpacing: '-0.01em' }}>Bolt</span>
+        <span style={{ fontWeight: 800, color: 'var(--color-brand)', fontSize: '0.9rem', letterSpacing: '-0.01em' }}>Bolt</span>
         <span style={{ fontWeight: 400, color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Compras</span>
       </div>
 

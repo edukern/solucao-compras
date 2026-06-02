@@ -7,9 +7,14 @@
   --text-primary:  #f5f5f5;
   --text-secondary:#888888;
   --text-muted:    #444444;
-  --accent:        #F59E0B;
-  --accent-light:  #FCD34D;
-  --accent-rgb:    245,158,11;
+  /* UI interativa — neutra, não lembra alerta */
+  --accent:        #d4d4d4;
+  --accent-light:  #f5f5f5;
+  --accent-rgb:    212,212,212;
+  /* Identidade da marca — âmbar, usado só na sidebar */
+  --color-brand:       #F59E0B;
+  --color-brand-light: #FCD34D;
+  --color-brand-rgb:   245,158,11;
   --green:         #86efac;
   --yellow:        #fcd34d;
   --orange:        #fb923c;
@@ -30,9 +35,14 @@
   --text-muted:    #a3a3a3;
   --input-bg:      #f8fafc;
   --input-border:  #cbd5e1;
-  --accent:        #D97706;
-  --accent-light:  #B45309;
-  --accent-rgb:    217,119,6;
+  /* UI interativa — preto no claro */
+  --accent:        #171717;
+  --accent-light:  #404040;
+  --accent-rgb:    23,23,23;
+  /* Identidade da marca — âmbar escuro no claro */
+  --color-brand:       #D97706;
+  --color-brand-light: #B45309;
+  --color-brand-rgb:   217,119,6;
   --green:         #16a34a;
   --yellow:        #b45309;
   --orange:        #ea580c;
