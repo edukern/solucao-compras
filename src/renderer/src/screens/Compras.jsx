@@ -643,17 +643,31 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
       deviceId = crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)
       localStorage.setItem('SC_DEVICE_ID', deviceId)
     }
-    const channel = supabase.channel(`session-presence-${sessao.id}`, {
-      config: { presence: { key: deviceId } }
-    })
-    channel.on('presence', { event: 'sync' }, () => {
-      const count = Object.keys(channel.presenceState()).length
-      setOtherDevices(Math.max(0, count - 1))
-    })
-    channel.subscribe(async status => {
-      if (status === 'SUBSCRIBED') await channel.track({ at: new Date().toISOString() })
-    })
-    return () => { supabase.removeChannel(channel) }
+    let channel
+    try {
+      channel = supabase.channel(`session-presence-${sessao.id}`, {
+        config: { presence: { key: deviceId } }
+      })
+      channel.on('presence', { event: 'sync' }, () => {
+        try {
+          const count = Object.keys(channel.presenceState()).length
+          setOtherDevices(Math.max(0, count - 1))
+        } catch (_) {}
+      })
+      channel.subscribe(async status => {
+        try {
+          if (status === 'SUBSCRIBED') await channel.track({ at: new Date().toISOString() })
+        } catch (_) {}
+      })
+    } catch (e) {
+      // WebSocket não disponível — funcionalidade de presença desativada silenciosamente
+      console.warn('Realtime presence indisponível:', e?.message)
+    }
+    return () => {
+      if (channel) {
+        try { supabase.removeChannel(channel) } catch (_) {}
+      }
+    }
   }, [sessao?.id])
 
   // Auto-save local (crash recovery)
@@ -3274,16 +3288,23 @@ function PreencherMinhaLoja({ sessaoId, visitaId, compradorNome, colEstacao, onB
       deviceId = crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)
       localStorage.setItem('SC_DEVICE_ID', deviceId)
     }
-    const channel = supabase.channel(`session-presence-${sessaoId}`, {
-      config: { presence: { key: deviceId } }
-    })
-    channel.on('presence', { event: 'sync' }, () => {
-      setOtherDevices(Math.max(0, Object.keys(channel.presenceState()).length - 1))
-    })
-    channel.subscribe(async status => {
-      if (status === 'SUBSCRIBED') await channel.track({ at: new Date().toISOString() })
-    })
-    return () => { supabase.removeChannel(channel) }
+    let channel
+    try {
+      channel = supabase.channel(`session-presence-${sessaoId}`, {
+        config: { presence: { key: deviceId } }
+      })
+      channel.on('presence', { event: 'sync' }, () => {
+        try { setOtherDevices(Math.max(0, Object.keys(channel.presenceState()).length - 1)) } catch (_) {}
+      })
+      channel.subscribe(async status => {
+        try { if (status === 'SUBSCRIBED') await channel.track({ at: new Date().toISOString() }) } catch (_) {}
+      })
+    } catch (e) {
+      console.warn('Realtime presence indisponível:', e?.message)
+    }
+    return () => {
+      if (channel) { try { supabase.removeChannel(channel) } catch (_) {} }
+    }
   }, [sessaoId])
 
   // Load session + this store's pedidos
