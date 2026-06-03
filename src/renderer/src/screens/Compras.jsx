@@ -619,6 +619,9 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   const [dupeHighlight,     setDupeHighlight]     = useState(null)
   const [confirmCancelar,   setConfirmCancelar]   = useState(false)
   const [cancelando,        setCancelando]        = useState(false)
+  const [editandoSessao,    setEditandoSessao]    = useState(false)
+  const [editSessaoForm,    setEditSessaoForm]    = useState(null)
+  const [salvandoSessaoInfo, setSalvandoSessaoInfo] = useState(false)
   const [fillMode, setFillMode] = useState('ref') // 'ref' | 'loja'
   function toggleCorDetalhe() { setShowCorDetalhe(prev => !prev) }
   const addFormFirstRef = useRef(null)
@@ -1143,9 +1146,116 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
         {sessao.cond_pag && <><span className={styles.dot}>·</span><span>{sessao.cond_pag}</span></>}
         {sessao.frete    && <><span className={styles.dot}>·</span><span>Frete: {sessao.frete}</span></>}
         {sessao.frete === 'FOB' && sessao.transportadora && <><span className={styles.dot}>·</span><span>Transp.: {sessao.transportadora}</span></>}
+        {sessao.data_entrega && <><span className={styles.dot}>·</span><span>Entrega: {fmtDate(sessao.data_entrega)}</span></>}
         <span className={styles.dot}>·</span>
         <span>{visitas.length} loja(s)</span>
+        <button
+          className={styles.btnEditarSessaoInfo}
+          onClick={() => {
+            setEditSessaoForm({
+              data_visita:    sessao.data_visita    || '',
+              data_entrega:   sessao.data_entrega   || '',
+              vendedor:       sessao.vendedor       || '',
+              cond_pag:       sessao.cond_pag       || '',
+              frete:          sessao.frete          || '',
+              transportadora: sessao.transportadora || '',
+              obs:            sessao.obs            || '',
+            })
+            setEditandoSessao(true)
+          }}
+          title="Editar informações da sessão"
+        >✎</button>
       </div>
+
+      {/* Modal edição das informações da sessão */}
+      {editandoSessao && editSessaoForm && (
+        <div className={styles.cancelOverlay}>
+          <div className={styles.editSessaoModal}>
+            <div className={styles.cancelTitle}>Editar informações da sessão</div>
+            <div className={styles.editSessaoGrid}>
+              <label className={styles.editSessaoLabel}>
+                Data da visita
+                <input type="date" className={styles.editSessaoInput}
+                  value={editSessaoForm.data_visita}
+                  onChange={e => setEditSessaoForm(p => ({ ...p, data_visita: e.target.value }))} />
+              </label>
+              <label className={styles.editSessaoLabel}>
+                Data de entrega
+                <input type="date" className={styles.editSessaoInput}
+                  value={editSessaoForm.data_entrega}
+                  onChange={e => setEditSessaoForm(p => ({ ...p, data_entrega: e.target.value }))} />
+              </label>
+              <label className={styles.editSessaoLabel}>
+                Vendedor
+                <input type="text" className={styles.editSessaoInput}
+                  value={editSessaoForm.vendedor}
+                  onChange={e => setEditSessaoForm(p => ({ ...p, vendedor: e.target.value }))} />
+              </label>
+              <label className={styles.editSessaoLabel}>
+                Cond. de pagamento
+                <input type="text" className={styles.editSessaoInput}
+                  value={editSessaoForm.cond_pag}
+                  onChange={e => setEditSessaoForm(p => ({ ...p, cond_pag: e.target.value }))} />
+              </label>
+              <label className={styles.editSessaoLabel}>
+                Frete
+                <select className={styles.editSessaoInput}
+                  value={editSessaoForm.frete}
+                  onChange={e => setEditSessaoForm(p => ({ ...p, frete: e.target.value }))}>
+                  <option value="">—</option>
+                  <option value="CIF">CIF</option>
+                  <option value="FOB">FOB</option>
+                  <option value="Sem frete">Sem frete</option>
+                </select>
+              </label>
+              {editSessaoForm.frete === 'FOB' && (
+                <label className={styles.editSessaoLabel}>
+                  Transportadora
+                  <input type="text" className={styles.editSessaoInput}
+                    value={editSessaoForm.transportadora}
+                    onChange={e => setEditSessaoForm(p => ({ ...p, transportadora: e.target.value }))} />
+                </label>
+              )}
+              <label className={`${styles.editSessaoLabel} ${styles.editSessaoLabelFull}`}>
+                Obs
+                <input type="text" className={styles.editSessaoInput}
+                  value={editSessaoForm.obs}
+                  onChange={e => setEditSessaoForm(p => ({ ...p, obs: e.target.value }))} />
+              </label>
+            </div>
+            <div className={styles.cancelActions}>
+              <button className={styles.cancelBtnVoltar}
+                onClick={() => setEditandoSessao(false)}
+                disabled={salvandoSessaoInfo}>Cancelar</button>
+              <button className={styles.cancelBtnConfirm}
+                style={{ background: 'var(--text-primary)' }}
+                disabled={salvandoSessaoInfo}
+                onClick={async () => {
+                  setSalvandoSessaoInfo(true)
+                  try {
+                    await sessoesService.update(sessao.id, {
+                      data_visita:    editSessaoForm.data_visita || null,
+                      data_entrega:   editSessaoForm.data_entrega || null,
+                      vendedor:       editSessaoForm.vendedor || null,
+                      cond_pag:       editSessaoForm.cond_pag || null,
+                      frete:          editSessaoForm.frete || null,
+                      transportadora: editSessaoForm.frete === 'FOB' ? editSessaoForm.transportadora : null,
+                      obs:            editSessaoForm.obs || null,
+                    })
+                    // Atualiza o estado local da sessão
+                    Object.assign(sessao, editSessaoForm)
+                    setEditandoSessao(false)
+                  } catch (e) {
+                    alert('Erro ao salvar: ' + e.message)
+                  } finally {
+                    setSalvandoSessaoInfo(false)
+                  }
+                }}
+              >{salvandoSessaoInfo ? 'Salvando…' : 'Salvar'}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className={styles.phaseTitleRow}>
         <h2 className={styles.phaseTitle}>Fase 2 — Registrar Pedidos</h2>

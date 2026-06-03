@@ -2676,6 +2676,58 @@
 .btnLiberar:hover:not(:disabled) { background: #15803d; }
 .btnLiberar:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.btnEditarSessaoInfo {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0 0.3rem;
+  margin-left: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+.visitaBanner:hover .btnEditarSessaoInfo { opacity: 1; }
+.btnEditarSessaoInfo:hover { color: var(--text-primary); }
+
+.editSessaoModal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  max-width: 520px;
+  width: 95%;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+}
+.editSessaoGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin: 1rem 0 1.25rem;
+}
+.editSessaoLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.editSessaoLabelFull { grid-column: 1 / -1; }
+.editSessaoInput {
+  font-size: 0.85rem;
+  font-family: inherit;
+  padding: 0.35rem 0.6rem;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 5px;
+  color: var(--text-primary);
+  width: 100%;
+}
+.editSessaoInput:focus { outline: 1px solid var(--accent); }
+
 .btnCancelarSessao {
   display: inline-flex;
   align-items: center;
