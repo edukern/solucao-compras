@@ -606,7 +606,8 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   const [qtds,          setQtds]          = useState(initialQtds)
   const [saving,        setSaving]        = useState(false)
   const [error,         setError]         = useState(null)
-  const [form,          setForm]          = useState({ ref: '', tipo_produto: '', tipo_grade: 'AD', classe: 'FEM', icms_pct: '', valor: '', markup_pct: '', preco_venda: '' })
+  const [form,          setForm]          = useState({ ref: '', tipo_produto: '', tipo_grade: 'AD', classe: 'FEM', icms_pct: '', valor: '', desconto_pct: '', markup_pct: '', preco_venda: '' })
+  const [showIcms,      setShowIcms]      = useState(false)
   const [projCache,     setProjCache]     = useState({})
   const [distribTargets,setDistribTargets]= useState({})
   const RECOVERY_KEY = `SC_RECOVERY_SESSAO_${sessao.id}`
@@ -758,11 +759,21 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     return preco != null ? preco.toFixed(2) : x.toFixed(2)
   }
 
-  function calcPrecoVenda(valorStr, markupStr) {
+  function calcLiquido(valorStr, descontoStr) {
+    const v = parseFloat((valorStr ?? '').replace(',', '.'))
+    const d = parseFloat((descontoStr ?? '').replace(',', '.')) || 0
+    if (!v || isNaN(v)) return ''
+    const liq = v * (1 - d / 100)
+    return liq.toFixed(2)
+  }
+
+  function calcPrecoVenda(valorStr, markupStr, descontoStr) {
     const v = parseFloat((valorStr ?? '').replace(',', '.'))
     const m = parseFloat((markupStr ?? '').replace(',', '.'))
+    const d = parseFloat((descontoStr ?? '').replace(',', '.')) || 0
     if (!v || isNaN(v) || !m || isNaN(m)) return ''
-    return roundTo99(v * (1 + m))
+    const liquido = v * (1 - d / 100)
+    return roundTo99(liquido * (1 + m))
   }
 
   function applyBulkMarkup() {
@@ -771,14 +782,14 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     setItems(prev => prev.map(it => {
       const semMarkup = !it.markup_pct || it.markup_pct === '0'
       if (!semMarkup) return it
-      const preco_venda = calcPrecoVenda(it.valor, m)
+      const preco_venda = calcPrecoVenda(it.valor, m, it.desconto_pct)
       return { ...it, markup_pct: m, preco_venda }
     }))
     setBulkMarkup('')
   }
 
   function addItem() {
-    const { ref, tipo_produto, tipo_grade, classe, icms_pct, valor, markup_pct, preco_venda } = form
+    const { ref, tipo_produto, tipo_grade, classe, icms_pct, valor, desconto_pct, markup_pct, preco_venda } = form
     if (!ref.trim() || !tipo_produto.trim() || !tipo_grade || !valor.trim()) return
     const localId = `item_${Date.now()}_${Math.random()}`
     const novoItem = {
@@ -789,6 +800,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
       classe,
       icms_pct: icms_pct || '0',
       valor: valor || '',
+      desconto_pct: desconto_pct || '0',
       markup_pct: markup_pct || '0',
       preco_venda: preco_venda || '',
       cor: '',
@@ -798,6 +810,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     setItems(prev => [...prev, novoItem])
     setActiveId(localId)
     setLojaIdx(0)
+    // Mantém desconto e markup para o próximo item; limpa ref, valor, preco
     setForm(prev => ({ ...prev, ref: '', valor: '', preco_venda: '' }))
     setShowAddForm(false)
   }
@@ -997,7 +1010,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     try {
       const pedidoRows = []
       for (const item of items) {
-        const { ref, tipo_produto, tipo_grade, classe, icms_pct, valor, markup_pct, preco_venda, cor, detalhe, obs } = item
+        const { ref, tipo_produto, tipo_grade, classe, icms_pct, valor, desconto_pct, markup_pct, preco_venda, cor, detalhe, obs } = item
         const valorNum      = parseFloat((valor ?? '').replace(',', '.')) || 0
         const icmsNum       = parseFloat((icms_pct ?? '').replace(',', '.')) || 0
         const markupNum     = parseFloat((markup_pct ?? '').replace(',', '.')) || 0
@@ -1013,7 +1026,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
             visita_id: v.id,
             comprador_id: v.comprador_id,
             segmentacao_id: seg.id,
-            valor_unitario: valorNum, desconto_pct: 0,
+            valor_unitario: valorNum, desconto_pct: parseFloat((desconto_pct ?? "").replace(",", ".")) || 0,
             referencia: ref, icms_pct: icmsNum,
             markup_pct: markupNum, preco_venda: precoVendaNum,
             cor: cor || '', detalhe: detalhe || '', obs: obs || '',
@@ -1039,7 +1052,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
       if (!orgVisita) throw new Error('Visita do organizador não encontrada.')
       const pedidoRows = []
       for (const item of items) {
-        const { ref, tipo_produto, tipo_grade, classe, icms_pct, valor, markup_pct, preco_venda, cor, detalhe, obs } = item
+        const { ref, tipo_produto, tipo_grade, classe, icms_pct, valor, desconto_pct, markup_pct, preco_venda, cor, detalhe, obs } = item
         const valorNum      = parseFloat((valor ?? '').replace(',', '.')) || 0
         const icmsNum       = parseFloat((icms_pct ?? '').replace(',', '.')) || 0
         const markupNum     = parseFloat((markup_pct ?? '').replace(',', '.')) || 0
@@ -1053,7 +1066,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
         pedidoRows.push({
           comprador_id: orgVisita.comprador_id,
           segmentacao_id: seg.id,
-          valor_unitario: valorNum, desconto_pct: 0,
+          valor_unitario: valorNum, desconto_pct: parseFloat((desconto_pct ?? "").replace(",", ".")) || 0,
           referencia: ref, icms_pct: icmsNum,
           markup_pct: markupNum, preco_venda: precoVendaNum,
           cor: cor || '', detalhe: detalhe || '', obs: obs || '',
@@ -1100,7 +1113,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
           if (!itens.length) continue
           batch.push({
             visita_id: v.id, comprador_id: v.comprador_id, segmentacao_id: segId,
-            valor_unitario: valorNum, desconto_pct: 0,
+            valor_unitario: valorNum, desconto_pct: parseFloat((desconto_pct ?? "").replace(",", ".")) || 0,
             referencia: ref, icms_pct: icmsNum,
             markup_pct: markupNum, preco_venda: precoVendaNum,
             cor: cor || '', detalhe: detalhe || '',
@@ -1281,6 +1294,13 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
           </button>
         )}
         <button
+          className={`${styles.btnToggleCor} ${showIcms ? styles.btnToggleCorOn : ''}`}
+          onClick={() => setShowIcms(v => !v)}
+          title="Mostrar campo ICMS (para fornecedores importadores)"
+        >
+          {showIcms ? '✓ ICMS' : '+ ICMS'}
+        </button>
+        <button
           className={`${styles.btnSalvarSessao} ${salvoOk ? styles.btnSalvarSessaoOk : ''}`}
           onClick={handleSalvarSessao}
           disabled={salvandoSessao || !items.length}
@@ -1404,17 +1424,19 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
             <option value="UNI">UNI</option>
           </select>
         </div>
-        <div className={styles.field}>
-          <span className={styles.label}>ICMS %</span>
-          <input
-            type="text"
-            className={styles.addItemIcms}
-            placeholder="0"
-            value={form.icms_pct}
-            onChange={e => setForm(p => ({ ...p, icms_pct: e.target.value }))}
-            onKeyDown={e => { if (e.key === 'Enter') addItem() }}
-          />
-        </div>
+        {showIcms && (
+          <div className={styles.field}>
+            <span className={styles.label}>ICMS %</span>
+            <input
+              type="text"
+              className={styles.addItemIcms}
+              placeholder="0"
+              value={form.icms_pct}
+              onChange={e => setForm(p => ({ ...p, icms_pct: e.target.value }))}
+              onKeyDown={e => { if (e.key === 'Enter') addItem() }}
+            />
+          </div>
+        )}
         <div className={styles.field}>
           <span className={styles.label}>Valor unit. *</span>
           <input
@@ -1426,10 +1448,38 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
               const valor = e.target.value
               setForm(p => ({
                 ...p, valor,
-                preco_venda: calcPrecoVenda(valor, p.markup_pct),
+                preco_venda: calcPrecoVenda(valor, p.markup_pct, p.desconto_pct),
               }))
             }}
             onKeyDown={e => { if (e.key === 'Enter') addItem() }}
+          />
+        </div>
+        <div className={styles.field}>
+          <span className={styles.label}>Desc %</span>
+          <input
+            type="text"
+            className={styles.addItemIcms}
+            placeholder="0"
+            value={form.desconto_pct}
+            onChange={e => {
+              const desconto_pct = e.target.value
+              setForm(p => ({
+                ...p, desconto_pct,
+                preco_venda: calcPrecoVenda(p.valor, p.markup_pct, desconto_pct),
+              }))
+            }}
+            onKeyDown={e => { if (e.key === 'Enter') addItem() }}
+          />
+        </div>
+        <div className={styles.field}>
+          <span className={styles.label}>Líquido</span>
+          <input
+            type="text"
+            className={styles.addItemIcms}
+            readOnly
+            tabIndex={-1}
+            value={calcLiquido(form.valor, form.desconto_pct)}
+            style={{ color: 'var(--text-muted)', background: 'var(--bg-hover)', cursor: 'default' }}
           />
         </div>
         <div className={styles.field}>
@@ -1443,7 +1493,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
               const markup_pct = e.target.value
               setForm(p => ({
                 ...p, markup_pct,
-                preco_venda: calcPrecoVenda(p.valor, markup_pct),
+                preco_venda: calcPrecoVenda(p.valor, markup_pct, p.desconto_pct),
               }))
             }}
             onKeyDown={e => { if (e.key === 'Enter') addItem() }}
@@ -1770,7 +1820,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                             const valor = e.target.value
                             setEditForm(p => ({
                               ...p, valor,
-                              preco_venda: calcPrecoVenda(valor, p.markup_pct),
+                              preco_venda: calcPrecoVenda(valor, p.markup_pct, p.desconto_pct),
                             }))
                           }}
                           style={{ width: 70 }}
@@ -1784,7 +1834,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                             const markup_pct = e.target.value
                             setEditForm(p => ({
                               ...p, markup_pct,
-                              preco_venda: calcPrecoVenda(p.valor, markup_pct),
+                              preco_venda: calcPrecoVenda(p.valor, markup_pct, p.desconto_pct),
                             }))
                           }}
                           style={{ width: 55 }}
