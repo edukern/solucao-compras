@@ -183,6 +183,7 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
         frete,
         transportadora: frete === 'FOB' ? transportadora : '',
         obs,
+        desconto_pct:   0,
       }, lojas)
       const lojasPresentes = compradores.filter(c => lojas.includes(c.id))
       const fornSelecionado = forns.find(f => String(f.id) === fornId)
@@ -606,8 +607,11 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   const [qtds,          setQtds]          = useState(initialQtds)
   const [saving,        setSaving]        = useState(false)
   const [error,         setError]         = useState(null)
-  const [form,          setForm]          = useState({ ref: '', tipo_produto: '', tipo_grade: 'AD', classe: 'FEM', icms_pct: '', valor: '', desconto_pct: '', markup_pct: '', preco_venda: '' })
+  const [form,          setForm]          = useState({ ref: '', tipo_produto: '', tipo_grade: 'AD', classe: 'FEM', icms_pct: '', valor: '', markup_pct: '', preco_venda: '' })
   const [showIcms,      setShowIcms]      = useState(false)
+  const [sessaoDesconto, setSessaoDesconto] = useState(
+    () => String(sessao.desconto_pct ?? '0')
+  )
   const [projCache,     setProjCache]     = useState({})
   const [distribTargets,setDistribTargets]= useState({})
   const RECOVERY_KEY = `SC_RECOVERY_SESSAO_${sessao.id}`
@@ -759,21 +763,19 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     return preco != null ? preco.toFixed(2) : x.toFixed(2)
   }
 
-  function calcLiquido(valorStr, descontoStr) {
+  function calcLiquido(valorStr) {
     const v = parseFloat((valorStr ?? '').replace(',', '.'))
-    const d = parseFloat((descontoStr ?? '').replace(',', '.')) || 0
+    const d = parseFloat((sessaoDesconto ?? '').replace(',', '.')) || 0
     if (!v || isNaN(v)) return ''
-    const liq = v * (1 - d / 100)
-    return liq.toFixed(2)
+    return (v * (1 - d / 100)).toFixed(2)
   }
 
-  function calcPrecoVenda(valorStr, markupStr, descontoStr) {
+  function calcPrecoVenda(valorStr, markupStr) {
     const v = parseFloat((valorStr ?? '').replace(',', '.'))
     const m = parseFloat((markupStr ?? '').replace(',', '.'))
-    const d = parseFloat((descontoStr ?? '').replace(',', '.')) || 0
+    const d = parseFloat((sessaoDesconto ?? '').replace(',', '.')) || 0
     if (!v || isNaN(v) || !m || isNaN(m)) return ''
-    const liquido = v * (1 - d / 100)
-    return roundTo99(liquido * (1 + m))
+    return roundTo99(v * (1 - d / 100) * (1 + m))
   }
 
   function applyBulkMarkup() {
@@ -789,7 +791,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   }
 
   function addItem() {
-    const { ref, tipo_produto, tipo_grade, classe, icms_pct, valor, desconto_pct, markup_pct, preco_venda } = form
+    const { ref, tipo_produto, tipo_grade, classe, icms_pct, valor, markup_pct, preco_venda } = form
     if (!ref.trim() || !tipo_produto.trim() || !tipo_grade || !valor.trim()) return
     const localId = `item_${Date.now()}_${Math.random()}`
     const novoItem = {
@@ -800,7 +802,6 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
       classe,
       icms_pct: icms_pct || '0',
       valor: valor || '',
-      desconto_pct: desconto_pct || '0',
       markup_pct: markup_pct || '0',
       preco_venda: preco_venda || '',
       cor: '',
@@ -810,7 +811,6 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     setItems(prev => [...prev, novoItem])
     setActiveId(localId)
     setLojaIdx(0)
-    // Mantém desconto e markup para o próximo item; limpa ref, valor, preco
     setForm(prev => ({ ...prev, ref: '', valor: '', preco_venda: '' }))
     setShowAddForm(false)
   }
@@ -1026,7 +1026,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
             visita_id: v.id,
             comprador_id: v.comprador_id,
             segmentacao_id: seg.id,
-            valor_unitario: valorNum, desconto_pct: parseFloat((desconto_pct ?? "").replace(",", ".")) || 0,
+            valor_unitario: valorNum, desconto_pct: parseFloat((sessaoDesconto ?? "0").replace(",", ".")) || 0,
             referencia: ref, icms_pct: icmsNum,
             markup_pct: markupNum, preco_venda: precoVendaNum,
             cor: cor || '', detalhe: detalhe || '', obs: obs || '',
@@ -1066,7 +1066,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
         pedidoRows.push({
           comprador_id: orgVisita.comprador_id,
           segmentacao_id: seg.id,
-          valor_unitario: valorNum, desconto_pct: parseFloat((desconto_pct ?? "").replace(",", ".")) || 0,
+          valor_unitario: valorNum, desconto_pct: parseFloat((sessaoDesconto ?? "0").replace(",", ".")) || 0,
           referencia: ref, icms_pct: icmsNum,
           markup_pct: markupNum, preco_venda: precoVendaNum,
           cor: cor || '', detalhe: detalhe || '', obs: obs || '',
@@ -1113,7 +1113,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
           if (!itens.length) continue
           batch.push({
             visita_id: v.id, comprador_id: v.comprador_id, segmentacao_id: segId,
-            valor_unitario: valorNum, desconto_pct: parseFloat((desconto_pct ?? "").replace(",", ".")) || 0,
+            valor_unitario: valorNum, desconto_pct: parseFloat((sessaoDesconto ?? "0").replace(",", ".")) || 0,
             referencia: ref, icms_pct: icmsNum,
             markup_pct: markupNum, preco_venda: precoVendaNum,
             cor: cor || '', detalhe: detalhe || '',
@@ -1162,6 +1162,9 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
         {sessao.data_entrega && <><span className={styles.dot}>·</span><span>Entrega: {fmtDate(sessao.data_entrega)}</span></>}
         <span className={styles.dot}>·</span>
         <span>{visitas.length} loja(s)</span>
+        {parseFloat(sessaoDesconto) > 0 && (
+          <><span className={styles.dot}>·</span><span>Desc: {sessaoDesconto}%</span></>
+        )}
         <button
           className={styles.btnEditarSessaoInfo}
           onClick={() => {
@@ -1173,6 +1176,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
               frete:          sessao.frete          || '',
               transportadora: sessao.transportadora || '',
               obs:            sessao.obs            || '',
+              desconto_pct:   sessaoDesconto        || '0',
             })
             setEditandoSessao(true)
           }}
@@ -1229,6 +1233,13 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                     onChange={e => setEditSessaoForm(p => ({ ...p, transportadora: e.target.value }))} />
                 </label>
               )}
+              <label className={styles.editSessaoLabel}>
+                Desconto %
+                <input type="text" className={styles.editSessaoInput}
+                  placeholder="0"
+                  value={editSessaoForm.desconto_pct}
+                  onChange={e => setEditSessaoForm(p => ({ ...p, desconto_pct: e.target.value }))} />
+              </label>
               <label className={`${styles.editSessaoLabel} ${styles.editSessaoLabelFull}`}>
                 Obs
                 <input type="text" className={styles.editSessaoInput}
@@ -1246,6 +1257,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                 onClick={async () => {
                   setSalvandoSessaoInfo(true)
                   try {
+                    const novoDesconto = editSessaoForm.desconto_pct || '0'
                     await sessoesService.update(sessao.id, {
                       data_visita:    editSessaoForm.data_visita || null,
                       data_entrega:   editSessaoForm.data_entrega || null,
@@ -1254,9 +1266,10 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                       frete:          editSessaoForm.frete || null,
                       transportadora: editSessaoForm.frete === 'FOB' ? editSessaoForm.transportadora : null,
                       obs:            editSessaoForm.obs || null,
+                      desconto_pct:   parseFloat(novoDesconto.replace(',', '.')) || 0,
                     })
-                    // Atualiza o estado local da sessão
                     Object.assign(sessao, editSessaoForm)
+                    setSessaoDesconto(novoDesconto)
                     setEditandoSessao(false)
                   } catch (e) {
                     alert('Erro ao salvar: ' + e.message)
@@ -1448,38 +1461,10 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
               const valor = e.target.value
               setForm(p => ({
                 ...p, valor,
-                preco_venda: calcPrecoVenda(valor, p.markup_pct, p.desconto_pct),
+                preco_venda: calcPrecoVenda(valor, p.markup_pct),
               }))
             }}
             onKeyDown={e => { if (e.key === 'Enter') addItem() }}
-          />
-        </div>
-        <div className={styles.field}>
-          <span className={styles.label}>Desc %</span>
-          <input
-            type="text"
-            className={styles.addItemIcms}
-            placeholder="0"
-            value={form.desconto_pct}
-            onChange={e => {
-              const desconto_pct = e.target.value
-              setForm(p => ({
-                ...p, desconto_pct,
-                preco_venda: calcPrecoVenda(p.valor, p.markup_pct, desconto_pct),
-              }))
-            }}
-            onKeyDown={e => { if (e.key === 'Enter') addItem() }}
-          />
-        </div>
-        <div className={styles.field}>
-          <span className={styles.label}>Líquido</span>
-          <input
-            type="text"
-            className={styles.addItemIcms}
-            readOnly
-            tabIndex={-1}
-            value={calcLiquido(form.valor, form.desconto_pct)}
-            style={{ color: 'var(--text-muted)', background: 'var(--bg-hover)', cursor: 'default' }}
           />
         </div>
         <div className={styles.field}>
@@ -1493,7 +1478,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
               const markup_pct = e.target.value
               setForm(p => ({
                 ...p, markup_pct,
-                preco_venda: calcPrecoVenda(p.valor, markup_pct, p.desconto_pct),
+                preco_venda: calcPrecoVenda(p.valor, markup_pct),
               }))
             }}
             onKeyDown={e => { if (e.key === 'Enter') addItem() }}
