@@ -612,6 +612,9 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   const [sessaoDesconto, setSessaoDesconto] = useState(
     () => String(sessao.desconto_pct ?? '0')
   )
+  const [sessaoIcms, setSessaoIcms] = useState(
+    () => String(sessao.icms_pct ?? '0')
+  )
   const [projCache,     setProjCache]     = useState({})
   const [distribTargets,setDistribTargets]= useState({})
   const RECOVERY_KEY = `SC_RECOVERY_SESSAO_${sessao.id}`
@@ -800,7 +803,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
       tipo_produto: tipo_produto.trim().toUpperCase(),
       tipo_grade,
       classe,
-      icms_pct: icms_pct || '0',
+      icms_pct: icms_pct || sessaoIcms || '0',
       valor: valor || '',
       markup_pct: markup_pct || '0',
       preco_venda: preco_venda || '',
@@ -1165,6 +1168,9 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
         {parseFloat(sessaoDesconto) > 0 && (
           <><span className={styles.dot}>·</span><span>Desc: {sessaoDesconto}%</span></>
         )}
+        {parseFloat(sessaoIcms) > 0 && (
+          <><span className={styles.dot}>·</span><span>ICMS: {sessaoIcms}%</span></>
+        )}
         <button
           className={styles.btnEditarSessaoInfo}
           onClick={() => {
@@ -1177,6 +1183,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
               transportadora: sessao.transportadora || '',
               obs:            sessao.obs            || '',
               desconto_pct:   sessaoDesconto        || '0',
+              icms_pct:       sessaoIcms            || '0',
             })
             setEditandoSessao(true)
           }}
@@ -1240,6 +1247,13 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                   value={editSessaoForm.desconto_pct}
                   onChange={e => setEditSessaoForm(p => ({ ...p, desconto_pct: e.target.value }))} />
               </label>
+              <label className={styles.editSessaoLabel}>
+                ICMS %
+                <input type="text" className={styles.editSessaoInput}
+                  placeholder="0"
+                  value={editSessaoForm.icms_pct}
+                  onChange={e => setEditSessaoForm(p => ({ ...p, icms_pct: e.target.value }))} />
+              </label>
               <label className={`${styles.editSessaoLabel} ${styles.editSessaoLabelFull}`}>
                 Obs
                 <input type="text" className={styles.editSessaoInput}
@@ -1258,6 +1272,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                   setSalvandoSessaoInfo(true)
                   try {
                     const novoDesconto = editSessaoForm.desconto_pct || '0'
+                    const novoIcms = editSessaoForm.icms_pct || '0'
                     await sessoesService.update(sessao.id, {
                       data_visita:    editSessaoForm.data_visita || null,
                       data_entrega:   editSessaoForm.data_entrega || null,
@@ -1267,9 +1282,11 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                       transportadora: editSessaoForm.frete === 'FOB' ? editSessaoForm.transportadora : null,
                       obs:            editSessaoForm.obs || null,
                       desconto_pct:   parseFloat(novoDesconto.replace(',', '.')) || 0,
+                      icms_pct:       parseFloat(novoIcms.replace(',', '.')) || 0,
                     })
                     Object.assign(sessao, editSessaoForm)
                     setSessaoDesconto(novoDesconto)
+                    setSessaoIcms(novoIcms)
                     setEditandoSessao(false)
                   } catch (e) {
                     alert('Erro ao salvar: ' + e.message)
@@ -1308,8 +1325,16 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
         )}
         <button
           className={`${styles.btnToggleCor} ${showIcms ? styles.btnToggleCorOn : ''}`}
-          onClick={() => setShowIcms(v => !v)}
-          title="Mostrar campo ICMS (para fornecedores importadores)"
+          onClick={() => {
+            setShowIcms(v => {
+              const next = !v
+              if (next && !form.icms_pct && parseFloat(sessaoIcms) > 0) {
+                setForm(p => ({ ...p, icms_pct: sessaoIcms }))
+              }
+              return next
+            })
+          }}
+          title="Mostrar campo ICMS por item (para variações em relação ao ICMS da sessão)"
         >
           {showIcms ? '✓ ICMS' : '+ ICMS'}
         </button>
@@ -2433,6 +2458,118 @@ function gerarPDFSessao(sessao, visitas, pedidosPorVisita, lojaOverrides = {}) {
   win.print()
 }
 
+const FICHA_STYLES = `
+  body { font-family: Arial, sans-serif; font-size: 10px; color: #000; margin: 0; }
+  .ficha { padding: 12px 14px; page-break-after: always; }
+  .ficha:last-child { page-break-after: avoid; }
+  .fh { display:flex; gap:16px; border-bottom:2px solid #000; padding-bottom:8px; margin-bottom:8px; justify-content:space-between; }
+  .fh-store { flex:1; }
+  .fh-store-name { font-size:14px; font-weight:bold; margin-bottom:3px; }
+  .fh-store-line { font-size:9px; }
+  .fh-info { text-align:right; }
+  .fh-forn { font-size:12px; font-weight:bold; margin-bottom:3px; }
+  .fh-date { font-size:9px; }
+  .ft-table { width:100%; border-collapse:collapse; font-size:9px; table-layout:fixed; margin-top:6px; }
+  .ft-table th, .ft-table td { border:0.5px solid #bbb; padding:2px 3px; text-align:center; overflow:hidden; white-space:nowrap; }
+  .ft-table th { background:#e0e0e0; font-weight:bold; font-size:8px; padding:3px; }
+  .ft-table tbody tr { page-break-inside: avoid; break-inside: avoid; }
+  .ft-table tfoot td { font-weight:bold; background:#f0f0f0; border-top:1.5px solid #777; }
+  .fref { text-align:left; width:100px; font-size:9px; white-space:normal; overflow:visible; }
+  .fprod { text-align:left; width:90px; font-size:9px; white-space:normal; }
+  .ft { width:22px; background:#f5f5f5; color:#555; font-size:8px; }
+  .fq { width:24px; }
+  .fq0 { color:#ccc; }
+  .fqt { width:32px; font-weight:bold; }
+  .tl { text-align:right; font-size:9px; }
+  @media print { @page { margin:10mm; size:A4 portrait; } }`
+
+function gerarHTMLFichaLoja(sessao, vis, visPedidos, isLast = true) {
+  if (!visPedidos.length) return ''
+
+  const sizeOrder = [], sizeSet = new Set(), sizeHasQty = new Set()
+  for (const p of visPedidos) {
+    const gradeTams = GRADE_DEFINITIONS[p.tipo_grade ?? 'AD']?.tamanhos ?? []
+    const qtdMap = Object.fromEntries((p.itens ?? []).map(i => [i.tamanho, i.qtd]))
+    for (const tam of gradeTams) {
+      if (!sizeSet.has(tam)) { sizeSet.add(tam); sizeOrder.push(tam) }
+      if ((qtdMap[tam] ?? 0) > 0) sizeHasQty.add(tam)
+    }
+  }
+  const activeSizes = sizeOrder.filter(t => sizeHasQty.has(t))
+
+  const fornNome = sessao.fornecedor_nome ?? sessao.fornecedor?.nome ?? ''
+  const totalPecas = visPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0), 0)
+
+  const prodRows = visPedidos.map(p => {
+    const qtdMap = Object.fromEntries((p.itens ?? []).map(i => [i.tamanho, i.qtd]))
+    const totalQ = (p.itens ?? []).reduce((s, i) => s + i.qtd, 0)
+    const refLabel = [p.referencia, p.cor, p.detalhe].filter(Boolean).join(' ')
+    const prodLabel = [p.tipo_produto ?? '', p.classe ?? ''].filter(Boolean).join(' ')
+    const cells = activeSizes.map(tam => {
+      const q = qtdMap[tam] ?? 0
+      return `<td class="ft">${esc(tam)}</td><td class="${q === 0 ? 'fq fq0' : 'fq'}">${q || '—'}</td>`
+    })
+    return `<tr>
+      <td class="fref">${esc(refLabel)}</td>
+      <td class="fprod">${esc(prodLabel)}</td>
+      ${cells.join('')}
+      <td class="fqt">${totalQ || '—'}</td>
+    </tr>`
+  }).join('')
+
+  const headerPairs = activeSizes.map(() => '<th>T</th><th>Q</th>').join('')
+  const footerCols = 2 + activeSizes.length * 2
+
+  return `
+    <div class="ficha"${isLast ? ' style="page-break-after:avoid;"' : ''}>
+      <div class="fh">
+        <div class="fh-store">
+          <div class="fh-store-name">${esc(vis.comprador_nome)}</div>
+          ${vis.comprador_cnpj ? `<div class="fh-store-line">CNPJ: ${esc(vis.comprador_cnpj)}</div>` : ''}
+          ${vis.comprador_cidade ? `<div class="fh-store-line">${esc(vis.comprador_cidade)}</div>` : ''}
+        </div>
+        <div class="fh-info">
+          <div class="fh-forn">${esc(fornNome)}</div>
+          <div class="fh-date">Visita: ${fmtDate(sessao.data_visita)}</div>
+          ${sessao.data_entrega ? `<div class="fh-date">Entrega: ${fmtEntrega(sessao.data_entrega)}</div>` : ''}
+        </div>
+      </div>
+      <table class="ft-table">
+        <thead>
+          <tr>
+            <th class="fref">Referência</th>
+            <th class="fprod">Produto</th>
+            ${headerPairs}
+            <th class="fqt">Total</th>
+          </tr>
+        </thead>
+        <tbody>${prodRows}</tbody>
+        <tfoot>
+          <tr>
+            <td class="tl" colspan="${footerCols}">Total de peças</td>
+            <td class="fqt">${totalPecas}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>`
+}
+
+function gerarFichasLojas(sessao, visitas, pedidosPorVisita) {
+  const visitasComPedidos = visitas.filter(v => (pedidosPorVisita[v.id] ?? []).length > 0)
+  if (!visitasComPedidos.length) { alert('Nenhum pedido para gerar fichas.'); return }
+
+  const fichasHtml = visitasComPedidos.map((vis, idx) =>
+    gerarHTMLFichaLoja(sessao, vis, pedidosPorVisita[vis.id] ?? [], idx === visitasComPedidos.length - 1)
+  ).join('')
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Fichas — ${esc(sessao.fornecedor_nome ?? '')} — ${fmtDate(sessao.data_visita)}</title><style>${FICHA_STYLES}</style></head><body>${fichasHtml}</body></html>`
+  const blob = new Blob([html], { type: 'text/html' })
+  const url = URL.createObjectURL(blob)
+  const win = window.open(url, '_blank')
+  if (!win) { URL.revokeObjectURL(url); alert('Bloqueador de pop-ups ativo. Permita pop-ups para este site.'); return }
+  win.addEventListener('load', () => { win.print(); URL.revokeObjectURL(url) })
+}
+
 // DD-MM-AA a partir de YYYY-MM-DD
 const fmtDataPDF = iso => { const [y,m,d] = iso.split('-'); return `${d}-${m}-${y.slice(2)}` }
 
@@ -2790,6 +2927,15 @@ function FecharSessao({ sessao, visitas, segs, pedidos: pedidosProp, onNovaSessa
     setSalvandoPDF(null)
   }
 
+  function handleFichasLojas() {
+    const pedMap = {}
+    for (const p of pedidos) {
+      if (!pedMap[p.visita_id]) pedMap[p.visita_id] = []
+      pedMap[p.visita_id].push(p)
+    }
+    gerarFichasLojas(sessao, visitas, pedMap)
+  }
+
   return (
     <div className={styles.phase}>
       {showPDFModal && (
@@ -2961,11 +3107,14 @@ function FecharSessao({ sessao, visitas, segs, pedidos: pedidosProp, onNovaSessa
               ? '✓ Todos os PDFs salvos'
               : salvandoPDF !== null
                 ? 'Salvando…'
-                : `↓ Salvar todos os PDFs (${visitasComPedidos.length - salvos.size})`}
+                : `↓ PDFs Fornecedor (${visitasComPedidos.length - salvos.size})`}
           </button>
         )}
         <button className={styles.btnPrimary} onClick={handleGerarPDFs}>
-          Imprimir todos ({visitasComPedidos.length})
+          Imprimir Fornecedor ({visitasComPedidos.length})
+        </button>
+        <button className={styles.btnSecondary} onClick={handleFichasLojas} disabled={visitasComPedidos.length === 0}>
+          Fichas das Lojas ({visitasComPedidos.length})
         </button>
       </div>
 
