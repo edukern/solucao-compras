@@ -4170,9 +4170,9 @@ export default function Compras() {
       const toStr = n => (n != null && n !== '') ? String(n).replace('.', ',') : ''
 
       // Build items as union of all refs across all visitas (keyed by referencia to deduplicate)
-      // Sort by created_at so references appear in the order they were originally added
+      // Sort by id (auto-increment) so references appear in the order they were originally added
       const allPedidos = visitasComPedidos.flatMap(v => v.pedidos ?? [])
-      allPedidos.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+      allPedidos.sort((a, b) => a.id - b.id)
 
       const itemMap = new Map()
       for (const ped of allPedidos) {
