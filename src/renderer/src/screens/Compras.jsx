@@ -2355,7 +2355,7 @@ function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
       <td class="cqt">${totalQ || '—'}</td>
       <td class="cpr">${fmtV(p.valor_unitario ?? 0)}</td>
       <td class="ctot">${totalV > 0 ? fmtV(totalV) : '—'}</td>
-      <td class="crl">${fmtV(p.valor_unitario ?? 0)}</td>
+      <td class="crl">${fmtV((p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100))}</td>
       ${temVenda ? `<td class="cvnd">${(p.preco_venda ?? 0) > 0 ? fmtV(p.preco_venda) : '—'}</td>` : ''}
       ${temICMS ? `<td class="cic">${(p.icms_pct ?? 0) > 0 ? p.icms_pct + '%' : '—'}</td>` : ''}
     </tr>`
@@ -2402,6 +2402,7 @@ function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
   // ── footer totals: colspan dinâmico baseado em colunas ativas ───────────
   // ref + produto + (T+Q)*activeSizes + quant + preco = total label cols, depois ctot, depois crl + cvnd? + cic?
   const totalDesconto = totalBruto - totalLiquido
+  const descontoPct = totalBruto > 0 ? Math.round((totalDesconto / totalBruto) * 100) : 0
   const footerLabelCols = 2 + activeSizes.length * 2 + 2
   const footerRightCols = 1 + (temVenda ? 1 : 0) + (temICMS ? 1 : 0)
 
@@ -2412,7 +2413,7 @@ function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
       <td colspan="${footerRightCols}"></td>
     </tr>
     ${temDesconto ? `<tr>
-      <td class="tl" colspan="${footerLabelCols}">Desconto</td>
+      <td class="tl" colspan="${footerLabelCols}">Desconto ${descontoPct}%</td>
       <td class="tv" style="color:#b00;">- ${fmtV(totalDesconto)}</td>
       <td colspan="${footerRightCols}"></td>
     </tr>` : ''}
@@ -2714,7 +2715,7 @@ async function salvarPDFVisita(sessao, vis, visPedidos, sessaoOverride = {}) {
           totalQ || '—',
           fmtV(p.valor_unitario ?? 0),
           totalV > 0 ? fmtV(totalV) : '—',
-          fmtV(p.valor_unitario ?? 0),
+          fmtV((p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100)),
           ...(temVenda ? [(p.preco_venda ?? 0) > 0 ? fmtV(p.preco_venda) : '—'] : []),
           ...(temICMS ? [(p.icms_pct ?? 0) > 0 ? `${p.icms_pct}%` : '—'] : []),
         ]
@@ -2723,17 +2724,7 @@ async function salvarPDFVisita(sessao, vis, visPedidos, sessaoOverride = {}) {
       const totalBruto   = grupoPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0) * (p.valor_unitario ?? 0), 0)
       const totalLiquido = grupoPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0) * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100), 0)
       const totalPecas   = grupoPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0), 0)
-      const temDescontoPCT = grupoPedidos.some(p => (p.desconto_pct ?? 0) > 0)
-      const totalDesconto  = totalBruto - totalLiquido
-      const nCols = 2 + activeSizes.length + 4 + (temVenda ? 1 : 0) + (temICMS ? 1 : 0)
-      const iTotal = 2 + activeSizes.length      // índice da col Qtd
-      const footerRows = [
-        Array(nCols).fill('').map((_, i) => i === 0 ? 'Total Bruto'   : i === iTotal + 2 ? fmtV(totalBruto)   : ''),
-        ...(temDescontoPCT ? [Array(nCols).fill('').map((_, i) => i === 0 ? 'Desconto' : i === iTotal + 2 ? `- ${fmtV(totalDesconto)}` : '')] : []),
-        Array(nCols).fill('').map((_, i) => i === 0 ? 'Total Líquido' : i === iTotal + 2 ? fmtV(totalLiquido) : i === nCols - 1 ? `${totalPecas} pç` : ''),
-      ]
-      body.push(...footerRows)
-      const footerStartRow = body.length - footerRows.length
+      const iTotal = 2 + activeSizes.length
 
       autoTable(doc, {
         startY,
@@ -2756,20 +2747,13 @@ async function salvarPDFVisita(sessao, vis, visPedidos, sessaoOverride = {}) {
           ...(temVenda ? { [iTotal + 4]: { cellWidth: W_VEND, halign: 'right', textColor: [26, 122, 58] } } : {}),
           ...(temICMS ? { [iTotal + (temVenda ? 5 : 4)]: { cellWidth: W_ICMS } } : {}),
         },
-        didParseCell(data) {
-          if (data.row.index >= footerStartRow) {
-            data.cell.styles.fillColor = [240, 240, 240]
-            data.cell.styles.fontStyle = 'bold'
-            if (data.row.index === body.length - 1 && data.column.index === iTotal + 2) {
-              data.cell.styles.fontSize = 9
-            }
-          }
-        },
       })
+      return { totalBruto, totalLiquido, totalPecas }
     }
 
     const multiGrade = gradeOrder.length > 1
     let nextY = tableStart
+    let totalBrutoGeral = 0, totalLiquidoGeral = 0, totalPecasGeral = 0
     for (const tg of gradeOrder) {
       if (multiGrade) {
         doc.setFontSize(7).setFont('helvetica', 'bold').setTextColor(80, 80, 80)
@@ -2777,9 +2761,42 @@ async function salvarPDFVisita(sessao, vis, visPedidos, sessaoOverride = {}) {
         doc.setTextColor(0)
         nextY += 5
       }
-      renderGrupo(gradeGroups[tg], nextY)
+      const totals = renderGrupo(gradeGroups[tg], nextY)
+      totalBrutoGeral += totals.totalBruto
+      totalLiquidoGeral += totals.totalLiquido
+      totalPecasGeral += totals.totalPecas
       nextY = doc.lastAutoTable.finalY + (multiGrade ? 4 : 0)
     }
+
+    // Rodapé consolidado com totais de todas as grades
+    const temDescontoGeral = totalBrutoGeral - totalLiquidoGeral > 0.001
+    const totalDescontoGeral = totalBrutoGeral - totalLiquidoGeral
+    const descontoPctGeral = totalBrutoGeral > 0 ? Math.round((totalDescontoGeral / totalBrutoGeral) * 100) : 0
+    const footerSummary = [
+      ['Total Bruto', fmtV(totalBrutoGeral)],
+      ...(temDescontoGeral ? [[`Desconto ${descontoPctGeral}%`, `- ${fmtV(totalDescontoGeral)}`]] : []),
+      [`Total Líquido — ${totalPecasGeral} peças`, fmtV(totalLiquidoGeral)],
+    ]
+    autoTable(doc, {
+      startY: nextY + 2,
+      margin: { left: ML + PW - 90, right: MR },
+      body: footerSummary,
+      theme: 'plain',
+      styles: { fontSize: 8, cellPadding: 1.5 },
+      columnStyles: {
+        0: { cellWidth: 55, halign: 'right' },
+        1: { cellWidth: 35, halign: 'right', fontStyle: 'bold' },
+      },
+      didParseCell(data) {
+        if (temDescontoGeral && data.row.index === 1) {
+          data.cell.styles.textColor = [176, 0, 0]
+        }
+        if (data.row.index === footerSummary.length - 1) {
+          data.cell.styles.fontStyle = 'bold'
+          if (data.column.index === 1) data.cell.styles.fontSize = 9
+        }
+      },
+    })
 
     // Obs
     if (sessaoFinal.obs) {
