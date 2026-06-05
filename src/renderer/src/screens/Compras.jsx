@@ -4141,25 +4141,27 @@ export default function Compras() {
       const toStr = n => (n != null && n !== '') ? String(n).replace('.', ',') : ''
 
       // Build items as union of all refs across all visitas (keyed by referencia to deduplicate)
+      // Sort by created_at so references appear in the order they were originally added
+      const allPedidos = visitasComPedidos.flatMap(v => v.pedidos ?? [])
+      allPedidos.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+
       const itemMap = new Map()
-      for (const visita of visitasComPedidos) {
-        for (const ped of visita.pedidos ?? []) {
-          if (!itemMap.has(ped.referencia)) {
-            itemMap.set(ped.referencia, {
-              localId: ped.referencia,
-              ref: ped.referencia,
-              tipo_produto: ped.segmentacao?.tipo_produto ?? '',
-              tipo_grade: ped.segmentacao?.tipo_grade ?? 'AD',
-              classe: ped.segmentacao?.classe ?? 'FEM',
-              icms_pct: toStr(ped.icms_pct),
-              valor: toStr(ped.valor_unitario),
-              markup_pct: toStr(ped.markup_pct),
-              preco_venda: toStr(ped.preco_venda),
-              cor: ped.cor ?? '',
-              detalhe: ped.detalhe ?? '',
-              obs: ped.obs ?? '',
-            })
-          }
+      for (const ped of allPedidos) {
+        if (!itemMap.has(ped.referencia)) {
+          itemMap.set(ped.referencia, {
+            localId: ped.referencia,
+            ref: ped.referencia,
+            tipo_produto: ped.segmentacao?.tipo_produto ?? '',
+            tipo_grade: ped.segmentacao?.tipo_grade ?? 'AD',
+            classe: ped.segmentacao?.classe ?? 'FEM',
+            icms_pct: toStr(ped.icms_pct),
+            valor: toStr(ped.valor_unitario),
+            markup_pct: toStr(ped.markup_pct),
+            preco_venda: toStr(ped.preco_venda),
+            cor: ped.cor ?? '',
+            detalhe: ped.detalhe ?? '',
+            obs: ped.obs ?? '',
+          })
         }
       }
       const items = [...itemMap.values()]
