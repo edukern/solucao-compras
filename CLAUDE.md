@@ -4,8 +4,8 @@
 React 18 + Vite + Supabase. SPA puro — **NÃO É Electron, não tem versão desktop**.
 Deploy: Cloudflare Pages (bolt-compras.pages.dev). O código do app fica em `src/renderer/src/`.
 O repositório contém arquivos de configuração do electron-vite mas são resquícios — ignorar.
-Hook git: prevent-destructive-commands.py bloqueia `git add`/`git commit` — usuário roda git manualmente.
-**Ao fornecer comandos git para o usuário, sempre incluir `cd "C:\Users\eduke\Solução Compras"` na primeira linha.**
+**Deploy obrigatório:** após qualquer mudança de código, fazer commit e push imediatamente. Nunca reportar algo como "feito" sem ter deployado.
+Git path: `/c/Users/eduke/Solu\xE3o\ Compras` (use este formato no bash para escapar o ã).
 
 > Para rodar localmente: precisa de `.env` com as credenciais do Supabase. Sem isso o app não renderiza (tela preta).
 
