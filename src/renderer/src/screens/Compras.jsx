@@ -2260,6 +2260,7 @@ const PDF_STYLES = `
   .pt .ctot { width:66px; font-weight:bold; }
   .pt .cic { width:24px; font-size:8px; }
   .pt .crl { width:46px; }
+  .pt .cvnd { width:46px; color:#1a7a3a; font-weight:bold; }
   .pt .cref { text-align:left; width:100px; font-size:9px; white-space:normal; overflow:visible; }
   .pt tbody tr { page-break-inside: avoid; break-inside: avoid; }
   .pt tfoot { page-break-inside: avoid; break-inside: avoid; }
@@ -2311,7 +2312,8 @@ function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
   }, 0)
   const totalPecas = visPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0), 0)
   const temDesconto = visPedidos.some(p => (p.desconto_pct ?? 0) > 0)
-  const temICMS = sessao.icms_credito_pct != null && sessao.icms_credito_pct !== ''
+  const temICMS = pedidosOrdenados.some(p => (p.icms_pct ?? 0) > 0) || (sessao.icms_credito_pct != null && sessao.icms_credito_pct !== '')
+  const temVenda = pedidosOrdenados.some(p => (p.preco_venda ?? 0) > 0)
 
   const pedidosOrdenados = visPedidos
 
@@ -2354,7 +2356,8 @@ function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
       <td class="cpr">${fmtV(p.valor_unitario ?? 0)}</td>
       <td class="ctot">${totalV > 0 ? fmtV(totalV) : '—'}</td>
       <td class="crl">${fmtV(p.valor_unitario ?? 0)}</td>
-      ${temICMS ? `<td class="cic">${sessao.icms_credito_pct}</td>` : ''}
+      ${temVenda ? `<td class="cvnd">${(p.preco_venda ?? 0) > 0 ? fmtV(p.preco_venda) : '—'}</td>` : ''}
+      ${temICMS ? `<td class="cic">${(p.icms_pct ?? 0) > 0 ? p.icms_pct + '%' : '—'}</td>` : ''}
     </tr>`
   }).join('')
 
@@ -2397,9 +2400,10 @@ function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
     </div>`
 
   // ── footer totals: colspan dinâmico baseado em colunas ativas ───────────
-  // ref + produto + (T+Q)*activeSizes + quant + preco = total label cols, depois ctot, depois crl + (icms?)
+  // ref + produto + (T+Q)*activeSizes + quant + preco = total label cols, depois ctot, depois crl + cvnd? + cic?
+  const totalDesconto = totalBruto - totalLiquido
   const footerLabelCols = 2 + activeSizes.length * 2 + 2
-  const footerRightCols = 1 + (temICMS ? 1 : 0)
+  const footerRightCols = 1 + (temVenda ? 1 : 0) + (temICMS ? 1 : 0)
 
   const footerRows = `
     <tr>
@@ -2407,6 +2411,11 @@ function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
       <td class="tv">${fmtV(totalBruto)}</td>
       <td colspan="${footerRightCols}"></td>
     </tr>
+    ${temDesconto ? `<tr>
+      <td class="tl" colspan="${footerLabelCols}">Desconto</td>
+      <td class="tv" style="color:#b00;">- ${fmtV(totalDesconto)}</td>
+      <td colspan="${footerRightCols}"></td>
+    </tr>` : ''}
     <tr>
       <td class="tl" colspan="${footerLabelCols}">Total Liquido</td>
       <td class="tv tv-big">${fmtV(totalLiquido)}</td>
@@ -2429,6 +2438,7 @@ function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
             <th class="cpr">R$ un.</th>
             <th class="ctot">Total</th>
             <th class="crl">R$ Liq</th>
+            ${temVenda ? '<th class="cvnd">R$ Venda</th>' : ''}
             ${temICMS ? '<th class="cic">ICMS%</th>' : ''}
           </tr>
         </thead>
@@ -2588,7 +2598,8 @@ async function salvarPDFVisita(sessao, vis, visPedidos, sessaoOverride = {}) {
     // A4 portrait: 210 x 297 mm, margins 8mm each side → usable 194mm width
     const ML = 8, MR = 8, MT = 8
     const PW = 210 - ML - MR  // 194mm usable width
-    const temICMS = sessaoFinal.icms_credito_pct != null && sessaoFinal.icms_credito_pct !== ''
+    const temICMS = visPedidos.some(p => (p.icms_pct ?? 0) > 0) || (sessaoFinal.icms_credito_pct != null && sessaoFinal.icms_credito_pct !== '')
+    const temVenda = visPedidos.some(p => (p.preco_venda ?? 0) > 0)
 
     // ── HEADER ────────────────────────────────────────────────────────────
     let y = MT
@@ -2651,8 +2662,8 @@ async function salvarPDFVisita(sessao, vis, visPedidos, sessaoOverride = {}) {
 
     // ── TABLE — agrupado por tipo_grade, uma coluna por tamanho ──────────
     const W_REF  = 24, W_PROD = 22, W_SZ = 11
-    const W_QTOT = 10, W_PREC = 16, W_TOT = 18, W_RLIQ = 16, W_ICMS = 10
-    const fixedCols = W_REF + W_PROD + W_QTOT + W_PREC + W_TOT + W_RLIQ + (temICMS ? W_ICMS : 0)
+    const W_QTOT = 10, W_PREC = 16, W_TOT = 18, W_RLIQ = 16, W_VEND = 16, W_ICMS = 10
+    const fixedCols = W_REF + W_PROD + W_QTOT + W_PREC + W_TOT + W_RLIQ + (temVenda ? W_VEND : 0) + (temICMS ? W_ICMS : 0)
     const availForSizes = PW - fixedCols
 
     // Agrupar pedidos por tipo_grade preservando a ordem de entrada
@@ -2685,6 +2696,7 @@ async function salvarPDFVisita(sessao, vis, visPedidos, sessaoOverride = {}) {
         'Referência', 'Produto',
         ...activeSizes,
         'Qtd', 'R$ un.', 'Total', 'R$ Liq',
+        ...(temVenda ? ['R$ Venda'] : []),
         ...(temICMS ? ['ICMS%'] : []),
       ]]
 
@@ -2703,20 +2715,25 @@ async function salvarPDFVisita(sessao, vis, visPedidos, sessaoOverride = {}) {
           fmtV(p.valor_unitario ?? 0),
           totalV > 0 ? fmtV(totalV) : '—',
           fmtV(p.valor_unitario ?? 0),
-          ...(temICMS ? [String(sessaoFinal.icms_credito_pct)] : []),
+          ...(temVenda ? [(p.preco_venda ?? 0) > 0 ? fmtV(p.preco_venda) : '—'] : []),
+          ...(temICMS ? [(p.icms_pct ?? 0) > 0 ? `${p.icms_pct}%` : '—'] : []),
         ]
       })
 
       const totalBruto   = grupoPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0) * (p.valor_unitario ?? 0), 0)
       const totalLiquido = grupoPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0) * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100), 0)
       const totalPecas   = grupoPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0), 0)
-      const nCols = 2 + activeSizes.length + 4 + (temICMS ? 1 : 0)
+      const temDescontoPCT = grupoPedidos.some(p => (p.desconto_pct ?? 0) > 0)
+      const totalDesconto  = totalBruto - totalLiquido
+      const nCols = 2 + activeSizes.length + 4 + (temVenda ? 1 : 0) + (temICMS ? 1 : 0)
       const iTotal = 2 + activeSizes.length      // índice da col Qtd
-      body.push(
+      const footerRows = [
         Array(nCols).fill('').map((_, i) => i === 0 ? 'Total Bruto'   : i === iTotal + 2 ? fmtV(totalBruto)   : ''),
+        ...(temDescontoPCT ? [Array(nCols).fill('').map((_, i) => i === 0 ? 'Desconto' : i === iTotal + 2 ? `- ${fmtV(totalDesconto)}` : '')] : []),
         Array(nCols).fill('').map((_, i) => i === 0 ? 'Total Líquido' : i === iTotal + 2 ? fmtV(totalLiquido) : i === nCols - 1 ? `${totalPecas} pç` : ''),
-      )
-      const footerStartRow = body.length - 2
+      ]
+      body.push(...footerRows)
+      const footerStartRow = body.length - footerRows.length
 
       autoTable(doc, {
         startY,
@@ -2736,13 +2753,14 @@ async function salvarPDFVisita(sessao, vis, visPedidos, sessaoOverride = {}) {
           [iTotal + 1]: { cellWidth: W_PREC, halign: 'right' },
           [iTotal + 2]: { cellWidth: W_TOT,  halign: 'right', fontStyle: 'bold' },
           [iTotal + 3]: { cellWidth: W_RLIQ, halign: 'right' },
-          ...(temICMS ? { [iTotal + 4]: { cellWidth: W_ICMS } } : {}),
+          ...(temVenda ? { [iTotal + 4]: { cellWidth: W_VEND, halign: 'right', textColor: [26, 122, 58] } } : {}),
+          ...(temICMS ? { [iTotal + (temVenda ? 5 : 4)]: { cellWidth: W_ICMS } } : {}),
         },
         didParseCell(data) {
           if (data.row.index >= footerStartRow) {
             data.cell.styles.fillColor = [240, 240, 240]
             data.cell.styles.fontStyle = 'bold'
-            if (data.row.index === footerStartRow + 1 && data.column.index === iTotal + 2) {
+            if (data.row.index === body.length - 1 && data.column.index === iTotal + 2) {
               data.cell.styles.fontSize = 9
             }
           }
@@ -2808,6 +2826,7 @@ function FecharSessao({ sessao, visitas, segs, pedidos: pedidosProp, onNovaSessa
     if (ovr.cond_pag)        out.cond_pag       = ovr.cond_pag
     if (ovr.frete)           out.frete          = ovr.frete
     if (ovr.transportadora)  out.transportadora = ovr.transportadora
+    if (ovr.obs)             out.obs            = ovr.obs
     return out
   }
 
@@ -3048,6 +3067,7 @@ function FecharSessao({ sessao, visitas, segs, pedidos: pedidosProp, onNovaSessa
               <div className={styles.lcFieldCell}>Cond. Pagamento</div>
               <div className={styles.lcFieldCell}>Frete</div>
               <div className={styles.lcFieldCell}>Transportadora</div>
+              <div className={styles.lcFieldCell} style={{ flex: 2 }}>OBS (por loja)</div>
             </div>
             {visitasComPedidos.map(vis => {
               const ovr = lojaOverrides[vis.id] ?? {}
@@ -3086,6 +3106,15 @@ function FecharSessao({ sessao, visitas, segs, pedidos: pedidosProp, onNovaSessa
                       value={ovr.transportadora ?? ''}
                       disabled={effectiveFrete !== 'FOB'}
                       onChange={e => setLojaField(vis.id, 'transportadora', e.target.value)}
+                    />
+                  </div>
+                  <div className={styles.lcFieldCell} style={{ flex: 2 }}>
+                    <input
+                      type="text"
+                      className={styles.lcInput}
+                      placeholder={sessao.obs || 'Obs. específica desta loja'}
+                      value={ovr.obs ?? ''}
+                      onChange={e => setLojaField(vis.id, 'obs', e.target.value)}
                     />
                   </div>
                 </div>
