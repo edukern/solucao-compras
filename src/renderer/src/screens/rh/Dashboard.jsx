@@ -26,9 +26,9 @@ export default function Dashboard({ navigate }) {
         <p style={{ color: '#666', fontSize: 14 }}>Carregando…</p>
       ) : (
         <div style={s.grid}>
-          <StatCard label="Vagas abertas"     value={stats.vagasAbertas}    color="#3b82f6" onClick={() => navigate('vagas')} />
-          <StatCard label="Total de vagas"    value={stats.totalVagas}      color="#8b5cf6" onClick={() => navigate('vagas')} />
-          <StatCard label="Candidatos"        value={stats.totalCandidatos} color="#10b981" />
+          <StatCard label="Vagas abertas"     value={stats.vagasAbertas}    color="#111" onClick={() => navigate('vagas')} />
+          <StatCard label="Total de vagas"    value={stats.totalVagas}      color="#111" onClick={() => navigate('vagas')} />
+          <StatCard label="Candidatos"        value={stats.totalCandidatos} color="#111" />
         </div>
       )}
 
