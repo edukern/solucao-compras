@@ -50,7 +50,7 @@ function Sidebar({ current, navigate, logout, session }) {
   const items = [
     { key: 'dashboard', label: 'Dashboard' },
     { key: 'vagas',     label: 'Vagas' },
-    { key: 'check',     label: 'Check em Lote' },
+    { key: 'check',     label: 'Checar SPC' },
   ]
 
   return (
@@ -58,7 +58,7 @@ function Sidebar({ current, navigate, logout, session }) {
       <div style={sb.brand}>
         <div style={sb.logo}>RH</div>
         <div>
-          <div style={sb.brandName}>RH — Backes</div>
+          <div style={sb.brandName}>Bolt RH</div>
           <div style={sb.userName}>{session.nome}</div>
         </div>
       </div>
