@@ -26,6 +26,14 @@ export default function VagaDetalhe({ navigate, vagaId, vagaTitulo }) {
   const [addForm, setAddForm]           = useState({ nome: '', cpf: '', email: '', telefone: '' })
   const [adding, setAdding]             = useState(false)
   const [addErro, setAddErro]           = useState('')
+  const [copiado, setCopiado]           = useState(false)
+
+  const linkCandidatura = `${window.location.origin}/candidatura/${vagaId}`
+
+  function copiarLink() {
+    navigator.clipboard.writeText(linkCandidatura)
+      .then(() => { setCopiado(true); setTimeout(() => setCopiado(false), 2000) })
+  }
 
   function load() {
     setLoading(true)
@@ -104,6 +112,9 @@ export default function VagaDetalhe({ navigate, vagaId, vagaTitulo }) {
       <div style={s.topBar}>
         <button onClick={() => navigate('vagas')} style={s.back}>← Vagas</button>
         <h1 style={s.heading}>{vagaTitulo}</h1>
+        <button onClick={copiarLink} style={s.back} title={linkCandidatura}>
+          {copiado ? '✓ Link copiado!' : '🔗 Link de candidatura'}
+        </button>
         <button onClick={() => setShowAdd(v => !v)} style={s.btnPrimary}>
           {showAdd ? 'Cancelar' : '+ Candidato'}
         </button>
