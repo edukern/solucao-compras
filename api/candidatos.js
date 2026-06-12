@@ -70,7 +70,7 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'PATCH') {
-    const { id, nome, cpf: cpfRaw, email, telefone } = req.body || {}
+    const { id, nome, cpf: cpfRaw, email, telefone, cidade } = req.body || {}
     if (!id) return res.status(400).json({ error: 'id obrigatório.' })
     try {
       const body = {}
@@ -82,6 +82,7 @@ module.exports = async function handler(req, res) {
       }
       if (email    !== undefined) body.email    = email
       if (telefone !== undefined) body.telefone = telefone
+      if (cidade   !== undefined) body.cidade   = cidade
       const { data } = await client.patch(`candidatos?id=eq.${id}&empresa_id=eq.${empresa_id}`, body)
       return res.json(decCandidato(data[0]))
     } catch (err) {

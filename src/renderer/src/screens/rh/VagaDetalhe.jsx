@@ -157,7 +157,7 @@ export default function VagaDetalhe({ navigate, vagaId, vagaTitulo }) {
                   const prev = FLOW[idx - 1]
                   return (
                     <div key={c.id} style={s.cardItem}>
-                      <div onClick={() => navigate('candidato', { candidatoId: cand.id })} style={s.cardName}>
+                      <div onClick={() => navigate('candidato', { candidatoId: cand.id, vagaId, vagaTitulo })} style={s.cardName}>
                         {cand.nome || '(sem nome)'}
                       </div>
                       {cand.email && <div style={s.cardSub}>{cand.email}</div>}

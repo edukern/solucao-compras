@@ -15,7 +15,7 @@ module.exports = async function handler(req, res) {
         if (!data[0]) return res.status(404).json({ error: 'Vaga não encontrada.' })
         return res.json(data[0])
       }
-      const { data } = await client.get(`vagas?empresa_id=eq.${empresa_id}&order=criado_em.desc&select=*`)
+      const { data } = await client.get(`vagas?empresa_id=eq.${empresa_id}&order=criado_em.desc&select=*,candidaturas(count)`)
       return res.json(data)
     } catch (err) {
       console.error('[vagas] GET:', err.message, err.response?.data)

@@ -5,6 +5,7 @@ import Vagas          from './rh/Vagas'
 import VagaDetalhe    from './rh/VagaDetalhe'
 import CandidatoDetalhe from './rh/CandidatoDetalhe'
 import Check          from './rh/Check'
+import Candidatos     from './rh/Candidatos'
 
 export default function RhApp() {
   const [session, setSession] = useState(undefined) // undefined=loading, null=sem auth, obj=autenticado
@@ -39,7 +40,8 @@ export default function RhApp() {
         {page === 'dashboard'    && <Dashboard      {...nav} />}
         {page === 'vagas'        && <Vagas          {...nav} />}
         {page === 'vaga-detalhe' && <VagaDetalhe    {...nav} vagaId={params.vagaId} vagaTitulo={params.vagaTitulo} />}
-        {page === 'candidato'    && <CandidatoDetalhe {...nav} candidatoId={params.candidatoId} />}
+        {page === 'candidato'    && <CandidatoDetalhe {...nav} candidatoId={params.candidatoId} vagaId={params.vagaId} vagaTitulo={params.vagaTitulo} />}
+        {page === 'candidatos'   && <Candidatos      {...nav} />}
         {page === 'check'        && <Check          {...nav} />}
       </main>
     </div>
@@ -48,9 +50,10 @@ export default function RhApp() {
 
 function Sidebar({ current, navigate, logout, session }) {
   const items = [
-    { key: 'dashboard', label: 'Dashboard' },
-    { key: 'vagas',     label: 'Vagas' },
-    { key: 'check',     label: 'Checar SPC' },
+    { key: 'dashboard',   label: 'Dashboard' },
+    { key: 'vagas',       label: 'Vagas' },
+    { key: 'candidatos',  label: 'Candidatos' },
+    { key: 'check',       label: 'Checar SPC' },
   ]
 
   return (
