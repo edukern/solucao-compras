@@ -56,9 +56,9 @@ function Sidebar({ current, navigate, logout, session }) {
   return (
     <nav style={sb.nav}>
       <div style={sb.brand}>
-        <div style={sb.logo}>RH</div>
+        <span style={sb.bolt}>⚡</span>
         <div>
-          <div style={sb.brandName}>Bolt RH</div>
+          <div style={sb.brandName}><span style={sb.boltText}>Bolt</span> RH</div>
           <div style={sb.userName}>{session.nome}</div>
         </div>
       </div>
@@ -79,9 +79,10 @@ function Sidebar({ current, navigate, logout, session }) {
 
 const sb = {
   nav:        { width: 220, background: '#1e293b', display: 'flex', flexDirection: 'column', flexShrink: 0 },
-  brand:      { display: 'flex', alignItems: 'center', gap: 12, padding: '20px 16px', borderBottom: '1px solid #334155' },
-  logo:       { width: 36, height: 36, borderRadius: 8, background: '#3b82f6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, flexShrink: 0 },
-  brandName:  { fontSize: 14, fontWeight: 600, color: '#fff' },
+  brand:      { display: 'flex', alignItems: 'center', gap: 10, padding: '20px 16px', borderBottom: '1px solid #334155' },
+  bolt:       { fontSize: 22, lineHeight: 1, flexShrink: 0 },
+  brandName:  { fontSize: 14, fontWeight: 600, color: '#94a3b8' },
+  boltText:   { color: '#f59e0b', fontWeight: 700 },
   userName:   { fontSize: 12, color: '#94a3b8', marginTop: 2 },
   menu:       { flex: 1, padding: '12px 8px' },
   item:       { display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 14, fontWeight: 400, background: 'transparent', color: '#94a3b8', marginBottom: 2 },

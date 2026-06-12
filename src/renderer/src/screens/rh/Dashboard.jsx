@@ -36,7 +36,7 @@ export default function Dashboard({ navigate }) {
         <h2 style={s.sub}>Acesso rápido</h2>
         <div style={s.links}>
           <QuickLink label="Gerenciar vagas"    onClick={() => navigate('vagas')} />
-          <QuickLink label="Check em lote"      onClick={() => navigate('check')} />
+          <QuickLink label="Checar SPC →"        onClick={() => navigate('check')} />
         </div>
       </div>
     </div>
