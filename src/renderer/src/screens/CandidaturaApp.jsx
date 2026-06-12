@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 const STEPS = ['Contato', 'Perfil', 'Formação', 'Motivação']
 
@@ -21,6 +21,7 @@ export default function CandidaturaApp() {
   const [form, setForm]           = useState(INIT)
   const [erro, setErro]           = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const erroRef = useRef(null)
   const [piLink, setPiLink]       = useState(null)
   const [success, setSuccess]     = useState(false)
 
@@ -74,15 +75,21 @@ export default function CandidaturaApp() {
     return null
   }
 
+  function showErro(e) {
+    setErro(e)
+    setTimeout(() => erroRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50)
+  }
+
   function next() {
-    const e = validate(); if (e) { setErro(e); return }
+    const e = validate(); if (e) { showErro(e); return }
     setErro(''); setStep(s => s + 1)
+    setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 50)
   }
 
   function back() { setErro(''); setStep(s => s - 1) }
 
   async function submit() {
-    const e = validate(); if (e) { setErro(e); return }
+    const e = validate(); if (e) { showErro(e); return }
     setSubmitting(true); setErro('')
 
     let curriculo_base64 = null, curriculo_nome = null, curriculo_mime = null
@@ -126,11 +133,11 @@ export default function CandidaturaApp() {
         }),
       })
       const data = await res.json()
-      if (!res.ok) { setErro(data.error || `Erro ${res.status}`); setSubmitting(false); return }
+      if (!res.ok) { showErro(data.error || `Erro ${res.status}`); setSubmitting(false); return }
       setPiLink(data.pi_link)
       setSuccess(true)
     } catch {
-      setErro('Falha de conexão. Verifique sua internet e tente novamente.')
+      showErro('Falha de conexão. Verifique sua internet e tente novamente.')
       setSubmitting(false)
     }
   }
@@ -170,7 +177,11 @@ export default function CandidaturaApp() {
         {step === 3 && <Step3 form={form} set={set} />}
         {step === 4 && <Step4 form={form} set={set} />}
 
-        {erro && <p style={s.error}>{erro}</p>}
+        {erro && (
+          <div ref={erroRef} style={s.errorBox}>
+            ⚠ {erro}
+          </div>
+        )}
 
         <div style={s.actions}>
           {step > 1 && <button onClick={back} style={s.btnSec}>← Voltar</button>}
@@ -218,7 +229,7 @@ function Step2({ form, set }) {
   return (
     <div style={s.fields}>
       <Field label="Data de nascimento *">
-        <input style={s.input} type="date" value={form.data_nascimento} onChange={e => set('data_nascimento', e.target.value)} />
+        <DatePicker value={form.data_nascimento} onChange={v => set('data_nascimento', v)} />
       </Field>
       <Field label="Estado civil *">
         <Select value={form.estado_civil} onChange={v => set('estado_civil', v)}
@@ -233,16 +244,16 @@ function Step2({ form, set }) {
           <input style={{ ...s.input, width: 80 }} type="number" min={1} max={20} value={form.filhos_qtd} onChange={e => set('filhos_qtd', e.target.value)} />
         </Field>
       )}
-      <Field label="Facebook (opcional)">
+      <Field label="Facebook (opcional)" hint="Para conseguir te chamar caso não atenda o telefone">
         <input style={s.input} value={form.facebook} onChange={e => set('facebook', e.target.value)} placeholder="Nome ou link do perfil" />
       </Field>
-      <Field label="Instagram (opcional)">
+      <Field label="Instagram (opcional)" hint="Para conseguir te chamar caso não atenda o telefone">
         <input style={s.input} value={form.instagram} onChange={e => set('instagram', e.target.value)} placeholder="@usuario" />
       </Field>
       <Field label="Endereço residencial (opcional)">
         <input style={s.input} value={form.endereco} onChange={e => set('endereco', e.target.value)} placeholder="Rua, número, bairro" />
       </Field>
-      <Field label="Como se deslocaria ao trabalho? *">
+      <Field label="Como você vem trabalhar? *">
         <Select value={form.deslocamento} onChange={v => set('deslocamento', v)}
           options={['', 'A pé', 'Bicicleta', 'Moto própria', 'Carro próprio', 'Transporte público', 'Carona']}
           placeholder="Selecione" />
@@ -307,9 +318,9 @@ function Step4({ form, set }) {
         {form.curriculo && <span style={{ fontSize: 12, color: '#16a34a' }}>✓ {form.curriculo.name}</span>}
       </Field>
       <label style={s.checkRow}>
-        <input type="checkbox" checked={form.aceite_lgpd} onChange={e => set('aceite_lgpd', e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+        <input type="checkbox" checked={form.aceite_lgpd} onChange={e => set('aceite_lgpd', e.target.checked)} style={{ width: 18, height: 18, cursor: 'pointer', flexShrink: 0 }} />
         <span style={{ fontSize: 13, color: '#444', lineHeight: 1.5 }}>
-          Autorizo o armazenamento dos meus dados para fins do processo seletivo, conforme a LGPD. Posso solicitar exclusão a qualquer momento.
+          Autorizo a Ponto E a guardar meus dados para este processo seletivo. Posso pedir pra apagar quando quiser.
         </span>
       </label>
     </div>
@@ -356,12 +367,13 @@ function Shell({ children }) {
   )
 }
 
-function Field({ label, children }) {
+function Field({ label, hint, children }) {
   return (
-    <label style={s.fieldWrap}>
+    <div style={s.fieldWrap}>
       <span style={s.label}>{label}</span>
+      {hint && <span style={s.hint}>{hint}</span>}
       {children}
-    </label>
+    </div>
   )
 }
 
@@ -376,14 +388,67 @@ function Select({ value, onChange, options, placeholder }) {
 
 function RadioGroup({ value, onChange, options }) {
   return (
-    <div style={{ display: 'flex', gap: 16, marginTop: 4 }}>
+    <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
       {options.map(o => (
-        <label key={o} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: 'pointer', textTransform: 'capitalize' }}>
-          <input type="radio" name={o} checked={value === o} onChange={() => onChange(o)}
-            style={{ width: 16, height: 16, cursor: 'pointer' }} />
+        <button
+          key={o}
+          type="button"
+          onClick={() => onChange(o)}
+          style={{
+            flex: 1,
+            padding: '12px 0',
+            borderRadius: 8,
+            border: `2px solid ${value === o ? '#111' : '#ddd'}`,
+            background: value === o ? '#111' : '#fff',
+            color: value === o ? '#fff' : '#555',
+            fontSize: 14,
+            fontWeight: value === o ? 600 : 400,
+            cursor: 'pointer',
+            textTransform: 'capitalize',
+            transition: 'all 0.15s',
+          }}
+        >
           {o}
-        </label>
+        </button>
       ))}
+    </div>
+  )
+}
+
+function DatePicker({ value, onChange }) {
+  const parts  = value ? value.split('-') : ['', '', '']
+  const year   = parts[0] || ''
+  const month  = parts[1] || ''
+  const day    = parts[2] || ''
+
+  const MONTHS = [
+    ['01','Janeiro'],['02','Fevereiro'],['03','Março'],['04','Abril'],
+    ['05','Maio'],['06','Junho'],['07','Julho'],['08','Agosto'],
+    ['09','Setembro'],['10','Outubro'],['11','Novembro'],['12','Dezembro'],
+  ]
+  const days  = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'))
+  const cur   = new Date().getFullYear()
+  const years = Array.from({ length: 60 }, (_, i) => String(cur - 14 - i))
+
+  function update(y, m, d) {
+    onChange(y && m && d ? `${y}-${m}-${d}` : '')
+  }
+
+  const sel = { ...s.input, padding: '11px 8px' }
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 90px', gap: 8 }}>
+      <select style={sel} value={day}   onChange={e => update(year, month, e.target.value)}>
+        <option value="">Dia</option>
+        {days.map(d => <option key={d} value={d}>{d}</option>)}
+      </select>
+      <select style={sel} value={month} onChange={e => update(year, e.target.value, day)}>
+        <option value="">Mês</option>
+        {MONTHS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      </select>
+      <select style={sel} value={year}  onChange={e => update(e.target.value, month, day)}>
+        <option value="">Ano</option>
+        {years.map(y => <option key={y} value={y}>{y}</option>)}
+      </select>
     </div>
   )
 }
@@ -416,7 +481,8 @@ const s = {
   label:        { fontSize: 13, fontWeight: 600, color: '#444' },
   input:        { padding: '11px 12px', borderRadius: 8, border: '1px solid #ddd', fontSize: 14, outline: 'none', width: '100%', boxSizing: 'border-box', fontFamily: 'inherit', transition: 'border-color 0.15s' },
   checkRow:     { display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', marginTop: 4 },
-  error:        { margin: '8px 0 0', color: '#dc2626', fontSize: 13 },
+  errorBox:     { margin: '12px 0 0', padding: '12px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, color: '#dc2626', fontSize: 13, fontWeight: 500, lineHeight: 1.4 },
+  hint:         { fontSize: 11, color: '#888', marginTop: -2, marginBottom: 2 },
   actions:      { display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' },
   btnPri:       { padding: '12px 24px', borderRadius: 8, border: 'none', background: '#111', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', textDecoration: 'none', display: 'inline-block' },
   btnSec:       { padding: '12px 20px', borderRadius: 8, border: '1px solid #ddd', background: '#fff', color: '#444', fontSize: 14, cursor: 'pointer' },
