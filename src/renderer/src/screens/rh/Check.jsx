@@ -54,7 +54,7 @@ export default function Check() {
 
   return (
     <div>
-      <h1 style={s.heading}>Check em Lote</h1>
+      <h1 style={s.heading}>Checar SPC</h1>
       <p style={s.sub}>Cole os CPFs (um por linha ou separados por vírgula/ponto-e-vírgula). Máximo 20.</p>
 
       <div style={s.card}>
@@ -129,13 +129,13 @@ function formatCPF(cpf) {
 const s = {
   heading:   { margin: '0 0 4px', fontSize: 24, fontWeight: 700, color: '#111' },
   sub:       { margin: '0 0 24px', fontSize: 14, color: '#666' },
-  card:      { background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 16 },
-  textarea:  { width: '100%', padding: '12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 14, fontFamily: 'monospace', resize: 'vertical', outline: 'none', boxSizing: 'border-box' },
+  card:      { background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 4px 24px rgba(0,0,0,.08)', marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 16 },
+  textarea:  { width: '100%', padding: '12px', borderRadius: 8, border: '1px solid #ddd', fontSize: 14, fontFamily: 'monospace', resize: 'vertical', outline: 'none', boxSizing: 'border-box' },
   error:     { margin: 0, color: '#dc2626', fontSize: 13 },
-  btnPrimary:{ padding: '10px 20px', borderRadius: 8, border: 'none', background: '#1e293b', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' },
-  btnSm:     { padding: '6px 14px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#374151' },
-  resultCard:{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
+  btnPrimary:{ padding: '10px 20px', borderRadius: 8, border: 'none', background: '#111', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' },
+  btnSm:     { padding: '6px 14px', borderRadius: 6, border: '1px solid #ddd', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#444' },
+  resultCard:{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 4px 24px rgba(0,0,0,.08)' },
   table:     { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
-  th:        { padding: '8px 12px', textAlign: 'left', background: '#f8fafc', fontWeight: 600, color: '#374151', borderBottom: '2px solid #e5e7eb', whiteSpace: 'nowrap' },
+  th:        { padding: '8px 12px', textAlign: 'left', background: '#f8fafc', fontWeight: 600, color: '#444', borderBottom: '2px solid #ddd', whiteSpace: 'nowrap' },
   td:        { padding: '8px 12px', borderBottom: '1px solid #f3f4f6', color: '#111', whiteSpace: 'nowrap' },
 }

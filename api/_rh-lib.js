@@ -1,6 +1,16 @@
 const crypto = require('crypto')
 const axios  = require('axios')
 
+// Rate limiter in-memory: 5 tentativas / 10 min por IP
+const _rl = new Map()
+function checkRateLimit(ip) {
+  const now = Date.now(), window = 10 * 60 * 1000, max = 5
+  const times = (_rl.get(ip) || []).filter(t => now - t < window)
+  if (times.length >= max) return false
+  _rl.set(ip, [...times, now])
+  return true
+}
+
 const SECRET = process.env.RH_JWT_SECRET || 'dev-secret-set-RH_JWT_SECRET-in-prod'
 const SB_URL = process.env.SUPABASE_URL
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY
@@ -81,4 +91,4 @@ async function auditLog(req, session, acao, { alvo_id, alvo_hash } = {}) {
   }).catch(e => console.error('[audit] write error:', e.message))
 }
 
-module.exports = { signToken, verifyToken, parseCookies, setCookieHeader, authenticate, sb, auditLog }
+module.exports = { signToken, verifyToken, parseCookies, setCookieHeader, authenticate, sb, auditLog, checkRateLimit }

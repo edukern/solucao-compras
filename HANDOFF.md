@@ -1,25 +1,43 @@
-﻿# HANDOFF — Solução Compras
-
-## Proximos passos
-
-1. **Verificar PDF em producao** — abrir uma sessao existente e gerar PDF para confirmar que as colunas R$ Venda, ICMS por produto e linha Desconto aparecem. Build Cloudflare deve ter sido acionado pelo commit f33fe0f.
-
-2. **Validar OBS por loja** — no painel "Personalizar por loja" (Phase 3), testar campo OBS com texto diferente por loja e confirmar que aparece no rodape do PDF de cada loja separadamente.
-
-3. **Backlog** — nao ha proximos passos tecnicos definidos. Aguardar novos pedidos do usuario.
+# HANDOFF — Solução Compras
+Data: 2026-06-12
 
 ---
 
-## Decisoes tecnicas relevantes
+## Estado atual
 
-- **PDF tem dois fluxos independentes**: gerarHTMLOrdem (print no browser) e salvarPDFVisita (jsPDF). Ambos foram atualizados com as mesmas colunas.
-- **temVenda / temICMS sao flags dinamicas**: colunas so aparecem se algum produto da sessao tiver preco_venda > 0 ou icms_pct > 0.
-- **OBS por loja** usa lojaOverrides existente — ovr.obs substitui sessao.obs no PDF daquela loja. Lojas sem override usam OBS global.
-- **Hook git**: prevent-destructive-commands.py editado nas duas copias do plugin developer-kit. Permite git add de arquivos especificos, bloqueia staging em massa.
+Bug de login do Bolt RH resolvido. Estética alinhada ao Bolt Compras.
+Design system iniciado em `src/renderer/src/design/tokens.js`.
+
+---
+
+## Credenciais do módulo RH
+
+- **URL produção:** https://bolt-compras.pages.dev/rh
+- **Login admin:** gptlojaspontoe@gmail.com / Backes2024!
+- **Supabase projeto:** bhxpkysueyoblizkvomb
+- **Env vars Vercel:** SUPABASE_URL, SUPABASE_SERVICE_KEY, RH_JWT_SECRET, RH_ENCRYPTION_KEY, RH_HMAC_KEY — todas configuradas
+
+---
+
+## Arquitetura de deploy
+
+- **Frontend (Bolt Compras + Bolt RH):** Cloudflare Pages → `bolt-compras.pages.dev`
+- **API serverless:** Vercel → `solucao-compras-demo.vercel.app/api/*`
+- **Proxy:** `functions/api/[[path]].js` no CF Pages encaminha `/api/*` para a Vercel
+
+---
+
+## Pendências técnicas
+
+1. **Rate limiting** — implementado em-memória (`_rh-lib.js`). Para produção com múltiplos usuários, migrar para Upstash Redis + `rate-limiter-flexible` (persistente entre instâncias).
+2. **Migração progressiva dos tokens de design** — `src/renderer/src/design/tokens.js` criado. Aplicar nos componentes conforme forem tocados.
 
 ---
 
 ## Arquivos relevantes
 
-- src/renderer/src/screens/Compras.jsx — gerarHTMLOrdem (~l2298), salvarPDFVisita (~l2576), buildVisitaOverride (~l2804), lojaConfigTable UI (~l3044)
-- C:/Users/eduke/.claude/plugins/cache/developer-kit/developer-kit/3.0.0/hooks/prevent-destructive-commands.py — hook editado
+- `api/auth-rh.js` — login/logout/verificar sessão (rate limit incluído)
+- `api/_rh-lib.js` — helpers: sb(), signToken(), authenticate(), checkRateLimit()
+- `src/renderer/src/screens/RhApp.jsx` — layout + sidebar Bolt RH
+- `src/renderer/src/design/tokens.js` — design system tokens
+- `functions/api/[[path]].js` — proxy CF Pages → Vercel

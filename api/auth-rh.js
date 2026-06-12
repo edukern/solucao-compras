@@ -1,5 +1,5 @@
 const bcrypt = require('bcryptjs')
-const { signToken, setCookieHeader, authenticate, sb } = require('./_rh-lib')
+const { signToken, setCookieHeader, authenticate, sb, checkRateLimit } = require('./_rh-lib')
 
 module.exports = async function handler(req, res) {
   // GET — verificar sessão
@@ -19,6 +19,11 @@ module.exports = async function handler(req, res) {
 
   // POST — login
   if (req.method === 'POST') {
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown'
+    if (!checkRateLimit(ip)) {
+      return res.status(429).json({ error: 'Muitas tentativas. Aguarde 10 minutos.' })
+    }
+
     const { email, senha } = req.body || {}
     if (!email || !senha) return res.status(400).json({ error: 'Email e senha obrigatórios.' })
 
@@ -27,9 +32,10 @@ module.exports = async function handler(req, res) {
       const { data } = await sb().get(
         `usuarios?email=eq.${encodeURIComponent(emailNorm)}&select=id,nome,email,senha_hash,empresa_id&limit=1`
       )
-      const user = data[0]
+      const row = data[0]
+      const { senha_hash, ...user } = row || {}
 
-      if (!user || !(await bcrypt.compare(senha, user.senha_hash))) {
+      if (!row || !(await bcrypt.compare(senha, senha_hash))) {
         return res.status(401).json({ error: 'Email ou senha incorretos.' })
       }
 
