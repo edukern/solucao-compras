@@ -1,5 +1,8 @@
-const { authenticate, sb } = require('./_rh-lib')
+const { authenticate, sb, auditLog } = require('./_rh-lib')
+const { tryEncrypt, tryHmac } = require('./_rh-crypto')
 const { consultarBoaVista, consultarSPCBrasil, extrairBoaVista, extrairSPC } = require('./_rh-bureaus')
+
+const RETENCAO_DIAS = 90 // LGPD: dados expiram em 90 dias
 
 async function verificarCPF(cpf) {
   try {
@@ -28,27 +31,48 @@ module.exports = async function handler(req, res) {
   const cleanCpfs = cpfs.map(c => String(c).replace(/\D/g, '')).filter(c => c.length === 11)
   const resultados = await Promise.all(cleanCpfs.map(verificarCPF))
 
-  // Salvar no banco se candidato_ids fornecidos
+  const expira_em = new Date(Date.now() + RETENCAO_DIAS * 86_400_000).toISOString()
+  const client = sb()
+
+  // Salvar no banco (com CPF criptografado + minimização de dados)
   if (Array.isArray(candidato_ids) && candidato_ids.length) {
-    const client = sb()
     await Promise.all(
       resultados.map((r, i) => {
         const cid = candidato_ids[i]
         if (!cid || !r.ok) return null
+
+        // Audit log: registra quem consultou qual CPF (hash, não plain)
+        auditLog(req, session, 'background_check', {
+          alvo_id:   cid,
+          alvo_hash: tryHmac(r.cpf),
+        })
+
+        // LGPD: não armazenamos o JSON completo do bureau (minimização)
+        // Só salvamos o resumo necessário para a decisão de contratação
         return client.post('background_checks', {
           empresa_id:   session.empresa_id,
           candidato_id: cid,
-          cpf:          r.cpf,
+          cpf:          tryEncrypt(r.cpf),      // CPF cifrado
           status:       'ok',
           restricao:    r.spc?.restricao || false,
-          resultado_bv: r.bv,
-          resultado_spc: r.spc,
-          resumo_texto: `Score BV: ${r.bv?.score} (${r.bv?.scoreClassif}) | Score SPC 3m: ${r.spc?.score3m} (${r.spc?.score3mClasse}) | Débitos BV: ${r.bv?.totalDebitos} (R$ ${r.bv?.valorDebitos}) | SPC: ${r.spc?.totalSPC}`,
+          resumo_texto: [
+            `Score BV: ${r.bv?.score} (${r.bv?.scoreClassif})`,
+            `Score SPC 3m: ${r.spc?.score3m} (${r.spc?.score3mClasse})`,
+            `Débitos BV: ${r.bv?.totalDebitos} — R$ ${r.bv?.valorDebitos}`,
+            `Protestos BV: ${r.bv?.totalProtestos}`,
+            `SPC: ${r.spc?.totalSPC} ocorrência(s) — R$ ${r.spc?.valorSPC}`,
+          ].join(' | '),
+          // resultado_bv / resultado_spc: não armazenados (minimização de dados LGPD)
+          expira_em,    // retenção: expira em 90 dias
         }).catch(e => console.error('[batch] save error:', e.message))
       })
     )
+  } else {
+    // Batch avulso (sem vínculo com candidato): só audit log
+    cleanCpfs.forEach(cpf => auditLog(req, session, 'batch_check_avulso', { alvo_hash: tryHmac(cpf) }))
   }
 
+  // Resposta para o frontend — dados necessários para decisão, sem salvar
   const tabela = resultados.map(r => ({
     cpf:           r.cpf,
     nome:          r.ok ? (r.spc?.nome !== 'N/D' ? r.spc.nome : r.bv?.nome) : 'ERRO',

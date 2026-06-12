@@ -69,4 +69,16 @@ function sb() {
   })
 }
 
-module.exports = { signToken, verifyToken, parseCookies, setCookieHeader, authenticate, sb }
+// Grava evento no audit log (não bloqueia a resposta principal)
+async function auditLog(req, session, acao, { alvo_id, alvo_hash } = {}) {
+  if (!SB_URL || !SB_KEY) return
+  const ip         = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null
+  const user_agent = (req.headers['user-agent'] || '').slice(0, 200)
+  sb().post('rh_audit_logs', {
+    empresa_id: session?.empresa_id || null,
+    usuario_id: session?.id        || null,
+    acao, alvo_id, alvo_hash, ip, user_agent,
+  }).catch(e => console.error('[audit] write error:', e.message))
+}
+
+module.exports = { signToken, verifyToken, parseCookies, setCookieHeader, authenticate, sb, auditLog }
