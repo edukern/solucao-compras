@@ -11,6 +11,7 @@ import Historico from './screens/Historico'
 import Configuracoes from './screens/Configuracoes'
 import Login from './screens/Login'
 import SelecionarLoja from './screens/SelecionarLoja'
+import RhApp from './screens/RhApp'
 
 const SCREENS = {
   dashboard:     (nav) => <Dashboard onNavigate={nav} />,
@@ -67,6 +68,8 @@ function AppInner() {
 }
 
 export default function App() {
+  if (window.location.pathname.startsWith('/rh')) return <RhApp />
+
   return (
     <AuthProvider>
       <AppInner />
