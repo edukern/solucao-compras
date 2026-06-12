@@ -155,7 +155,7 @@ export default function VagaDetalhe({ navigate, vagaId, vagaTitulo }) {
                           <button onClick={() => moverEtapa(c.id, prev)} style={s.btnMove} title={`Voltar para ${ETAPA_LABELS[prev]}`}>←</button>
                         )}
                         {prox && (
-                          <button onClick={() => moverEtapa(c.id, prox)} style={{ ...s.btnMove, background: '#1e293b', color: '#fff' }} title={`Avançar para ${ETAPA_LABELS[prox]}`}>→</button>
+                          <button onClick={() => moverEtapa(c.id, prox)} style={{ ...s.btnMove, background: '#111', color: '#fff' }} title={`Avançar para ${ETAPA_LABELS[prox]}`}>→</button>
                         )}
                         {c.etapa !== 'reprovado' && (
                           <button onClick={() => moverEtapa(c.id, 'reprovado')} style={{ ...s.btnMove, color: '#dc2626' }} title="Reprovar">✕</button>
@@ -178,13 +178,13 @@ export default function VagaDetalhe({ navigate, vagaId, vagaTitulo }) {
 
 const s = {
   topBar:    { display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 },
-  back:      { padding: '6px 12px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#374151' },
+  back:      { padding: '6px 12px', borderRadius: 6, border: '1px solid #ddd', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#444' },
   heading:   { margin: 0, fontSize: 22, fontWeight: 700, color: '#111', flex: 1 },
-  btnPrimary:{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#1e293b', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' },
-  addCard:   { background: '#fff', borderRadius: 12, padding: 20, marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: 12 },
+  btnPrimary:{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#111', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' },
+  addCard:   { background: '#fff', borderRadius: 12, padding: 20, marginBottom: 20, boxShadow: '0 4px 24px rgba(0,0,0,.08)', display: 'flex', flexDirection: 'column', gap: 12 },
   row:       { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 },
-  label:     { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13, fontWeight: 500, color: '#374151' },
-  input:     { padding: '7px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none' },
+  label:     { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13, fontWeight: 600, color: '#444' },
+  input:     { padding: '7px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13, outline: 'none' },
   error:     { margin: 0, color: '#dc2626', fontSize: 13 },
   kanban:    { display: 'flex', gap: 12, overflowX: 'auto', alignItems: 'flex-start', paddingBottom: 16 },
   col:       { minWidth: 180, flex: '0 0 180px', background: '#fff', borderRadius: 10, padding: '12px 10px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
@@ -193,7 +193,7 @@ const s = {
   badge:     { minWidth: 22, height: 22, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#fff', padding: '0 6px' },
   empty:     { fontSize: 12, color: '#ccc', textAlign: 'center', padding: '8px 0' },
   cardItem:  { background: '#f8fafc', borderRadius: 8, padding: '10px', marginBottom: 8, cursor: 'default' },
-  cardName:  { fontSize: 13, fontWeight: 600, color: '#1e293b', cursor: 'pointer', marginBottom: 2 },
+  cardName:  { fontSize: 13, fontWeight: 600, color: '#111', cursor: 'pointer', marginBottom: 2 },
   cardSub:   { fontSize: 11, color: '#888', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   cardBtns:  { display: 'flex', gap: 4 },
   btnMove:   { padding: '3px 8px', borderRadius: 4, border: '1px solid #e5e7eb', background: '#fff', fontSize: 12, cursor: 'pointer' },

@@ -65,5 +65,5 @@ const s = {
   actions: { background: '#fff', borderRadius: 12, padding: '24px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
   sub:     { margin: '0 0 16px', fontSize: 16, fontWeight: 600, color: '#111' },
   links:   { display: 'flex', gap: 12, flexWrap: 'wrap' },
-  link:    { padding: '10px 20px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 14, fontWeight: 500, color: '#1e293b', cursor: 'pointer' },
+  link:    { padding: '10px 20px', borderRadius: 8, border: '1px solid #ddd', background: '#fff', fontSize: 14, fontWeight: 500, color: '#111', cursor: 'pointer' },
 }

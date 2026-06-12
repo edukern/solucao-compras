@@ -35,7 +35,7 @@ export default function RhApp() {
   return (
     <div style={{ display: 'flex', height: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       <Sidebar current={page} navigate={navigate} logout={logout} session={session} />
-      <main style={{ flex: 1, overflow: 'auto', background: '#f0f2f5', padding: '32px 36px' }}>
+      <main style={{ flex: 1, overflow: 'auto', background: '#f5f5f5', padding: '32px 36px' }}>
         {page === 'dashboard'    && <Dashboard      {...nav} />}
         {page === 'vagas'        && <Vagas          {...nav} />}
         {page === 'vaga-detalhe' && <VagaDetalhe    {...nav} vagaId={params.vagaId} vagaTitulo={params.vagaTitulo} />}
