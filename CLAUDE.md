@@ -45,3 +45,13 @@ constraint: pedidos(visita_id, referencia) UNIQUE
 - `referencia` = código do produto (string), não `ref` (palavra reservada JS)
 - `classificacao` é derivada de GRADE_DEFINITIONS[tipo_grade].classificacao — nunca armazenada diretamente
 - `localId` em items do Phase 2 = ped.referencia quando carregado via Retomar
+
+---
+
+## Memória local
+
+A memória deste projeto está em `.claude/memory/` na raiz do repo — git-tracked para portabilidade entre máquinas.
+
+Ao escrever memória, use sempre o caminho absoluto: `C:\Users\eduke\Solução Compras\.claude\memory\`
+
+O `MEMORY.md` nessa pasta é o índice. Nunca escreva conteúdo diretamente no `MEMORY.md`.
