@@ -6,7 +6,7 @@ Deploy: Cloudflare Pages (bolt-compras.pages.dev). O código do app fica em `src
 O repositório contém arquivos de configuração do electron-vite mas são resquícios — ignorar.
 **Deploy obrigatório:** após qualquer mudança de código, fazer commit e push antes de reportar como "feito". Nunca dizer que algo está resolvido sem ter deployado.
 - Sempre `git add <arquivos específicos>` — nunca `git add .` ou `git add -A`
-- Git path bash: `/c/Users/eduke/Solução\ Compras`
+- Git path bash: `/d/projetos/solucao-compras`
 
 > Para rodar localmente: precisa de `.env` com as credenciais do Supabase. Sem isso o app não renderiza (tela preta).
 
@@ -52,6 +52,6 @@ constraint: pedidos(visita_id, referencia) UNIQUE
 
 A memória deste projeto está em `.claude/memory/` na raiz do repo — git-tracked para portabilidade entre máquinas.
 
-Ao escrever memória, use sempre o caminho absoluto: `C:\Users\eduke\Solução Compras\.claude\memory\`
+Ao escrever memória, use sempre o caminho absoluto: `D:\projetos\solucao-compras\.claude\memory\`
 
 O `MEMORY.md` nessa pasta é o índice. Nunca escreva conteúdo diretamente no `MEMORY.md`.
