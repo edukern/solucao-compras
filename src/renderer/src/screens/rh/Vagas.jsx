@@ -74,7 +74,7 @@ export default function Vagas({ navigate }) {
     <div>
       <div style={s.header}>
         <h1 style={s.heading}>Vagas</h1>
-        <button onClick={() => setShowForm(v => !v)} style={s.btnPrimary}>
+        <button onClick={() => setShowForm(v => !v)} style={s.btnPrimary} data-tour="vagas-nova">
           {showForm ? 'Cancelar' : '+ Nova vaga'}
         </button>
       </div>
@@ -141,7 +141,7 @@ export default function Vagas({ navigate }) {
         <p style={{ color: '#888', fontSize: 14 }}>Nenhuma vaga cadastrada.</p>
       ) : (
         <div style={s.list}>
-          {vagas.map(v => {
+          {vagas.map((v, idx) => {
             const count = v.candidaturas?.[0]?.count ?? null
             return (
               <div key={v.id} style={s.card}>
@@ -163,6 +163,7 @@ export default function Vagas({ navigate }) {
                     onClick={e => { e.stopPropagation(); copiarLink(v.id) }}
                     style={s.btnSm}
                     title={`${window.location.origin}/candidatura/${v.id}`}
+                    data-tour={idx === 0 ? 'vaga-link' : undefined}
                   >
                     {copiadoId === v.id ? '✓ Copiado' : '🔗 Link'}
                   </button>

@@ -38,6 +38,7 @@ export default function Candidatos({ navigate }) {
           placeholder="Buscar por nome ou CPF…"
           style={s.searchInput}
           autoFocus
+          data-tour="candidatos-busca"
         />
       </div>
 
