@@ -2466,6 +2466,70 @@
 .btnHistAction:disabled { opacity: 0.4; cursor: not-allowed; }
 .btnHistEdit { color: var(--text-secondary); }
 .btnHistEdit:hover { color: var(--text-primary); background: var(--bg-hover); }
+.btnHistMarkup { color: var(--primary, #5a67d8); border-color: var(--primary, #5a67d8); }
+.btnHistMarkup:hover { background: var(--primary, #5a67d8); color: #fff; }
+
+/* ── Markup modal ──────────────────────────────────────────────────────────── */
+.markupOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 2rem 1rem;
+  overflow-y: auto;
+}
+.markupModal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  width: 100%;
+  max-width: 900px;
+  padding: 1.25rem 1.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.markupModalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+.markupIndices {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1rem;
+  background: var(--bg-secondary, #f7f7f9);
+  border-radius: 7px;
+  border: 1px solid var(--border);
+}
+.markupModalFooter {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+.btnMarkupCalc {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.15rem 0.4rem;
+  font-size: 0.82em;
+  cursor: pointer;
+  color: var(--text-secondary, #666);
+  transition: background 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+.btnMarkupCalc:hover {
+  background: var(--primary, #5a67d8);
+  color: #fff;
+  border-color: var(--primary, #5a67d8);
+}
 
 /* ── Back button ─────────────────────────────────────────────────────────── */
 .btnBack {

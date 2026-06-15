@@ -168,5 +168,31 @@ export const pedidos = {
       const { error: ie } = await supabase.from('pedido_itens').insert(allItems)
       if (ie) throw ie
     }
+  },
+
+  async atualizarMarkupSessao(sessao_id, precosMap, idx1Str, idx2Str) {
+    const idx1 = parseFloat(String(idx1Str ?? '').replace(',', '.'))
+    const idx2 = parseFloat(String(idx2Str ?? '').replace(',', '.'))
+    const { error: se } = await supabase.from('sessoes').update({
+      markup_index1: (!idx1Str || isNaN(idx1)) ? null : idx1,
+      markup_index2: (!idx2Str || isNaN(idx2)) ? null : idx2,
+    }).eq('id', sessao_id)
+    if (se) throw se
+
+    const { data: visitas, error: ve } = await supabase.from('visitas').select('id').eq('sessao_id', sessao_id)
+    if (ve) throw ve
+    const visitaIds = (visitas ?? []).map(v => v.id)
+    if (!visitaIds.length) return
+
+    for (const [referencia, precoStr] of Object.entries(precosMap)) {
+      const val = parseFloat(String(precoStr ?? '').replace(',', '.'))
+      if (!precoStr || isNaN(val) || val <= 0) continue
+      const { error } = await supabase
+        .from('pedidos')
+        .update({ preco_venda: val })
+        .in('visita_id', visitaIds)
+        .eq('referencia', referencia)
+      if (error) throw error
+    }
   }
 }

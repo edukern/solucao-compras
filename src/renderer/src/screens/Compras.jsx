@@ -607,8 +607,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   const [qtds,          setQtds]          = useState(initialQtds)
   const [saving,        setSaving]        = useState(false)
   const [error,         setError]         = useState(null)
-  const [form,          setForm]          = useState({ ref: '', tipo_produto: '', tipo_grade: 'AD', classe: 'FEM', icms_pct: '', valor: '', markup_pct: '', preco_venda: '', cor: '', detalhe: '' })
-  const [editingPrecoId, setEditingPrecoId] = useState(null)
+  const [form,          setForm]          = useState({ ref: '', tipo_produto: '', tipo_grade: 'AD', classe: 'FEM', icms_pct: '', valor: '', cor: '', detalhe: '' })
   const [showIcms,      setShowIcms]      = useState(false)
   const [sessaoDesconto, setSessaoDesconto] = useState(
     () => String(sessao.desconto_pct ?? '0')
@@ -643,7 +642,6 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   const [liberadoInfo,   setLiberadoInfo]   = useState(null) // { count } after liberar
   const [salvandoSessao, setSalvandoSessao] = useState(false)
   const [salvoOk,        setSalvoOk]        = useState(false)
-  const [bulkMarkup,     setBulkMarkup]     = useState('')
 
   const activeItem = items.find(it => it.localId === activeId) ?? null
 
@@ -774,36 +772,9 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     return (v * (1 - d / 100)).toFixed(2)
   }
 
-  function calcPrecoVenda(valorStr, markupStr) {
-    const v = parseFloat((valorStr ?? '').replace(',', '.'))
-    const m = parseFloat((markupStr ?? '').replace(',', '.'))
-    const d = parseFloat((sessaoDesconto ?? '').replace(',', '.')) || 0
-    if (!v || isNaN(v) || !m || isNaN(m)) return ''
-    return roundTo99(v * (1 - d / 100) * (1 + m))
-  }
-
-  function calcValorComMarkup(valorStr, markupStr) {
-    const v = parseFloat((valorStr ?? '').replace(',', '.'))
-    const m = parseFloat((markupStr ?? '').replace(',', '.'))
-    const d = parseFloat((sessaoDesconto ?? '').replace(',', '.')) || 0
-    if (!v || isNaN(v) || !m || isNaN(m)) return ''
-    return (v * (1 - d / 100) * (1 + m)).toFixed(2)
-  }
-
-  function applyBulkMarkup() {
-    const m = bulkMarkup.trim()
-    if (!m || isNaN(parseFloat(m.replace(',', '.')))) return
-    setItems(prev => prev.map(it => {
-      const semMarkup = !it.markup_pct || it.markup_pct === '0'
-      if (!semMarkup) return it
-      const preco_venda = calcPrecoVenda(it.valor, m, it.desconto_pct)
-      return { ...it, markup_pct: m, preco_venda }
-    }))
-    setBulkMarkup('')
-  }
 
   function addItem() {
-    const { ref, tipo_produto, tipo_grade, classe, icms_pct, valor, markup_pct, preco_venda, cor, detalhe } = form
+    const { ref, tipo_produto, tipo_grade, classe, icms_pct, valor, cor, detalhe } = form
     if (!ref.trim() || !tipo_produto.trim() || !tipo_grade || !valor.trim()) return
     const localId = `item_${Date.now()}_${Math.random()}`
     const novoItem = {
@@ -814,8 +785,8 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
       classe,
       icms_pct: icms_pct || sessaoIcms || '0',
       valor: valor || '',
-      markup_pct: markup_pct || '0',
-      preco_venda: preco_venda || '',
+      markup_pct: '0',
+      preco_venda: '',
       cor: cor || '',
       detalhe: detalhe || '',
       obs: '',
@@ -823,7 +794,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     setItems(prev => [...prev, novoItem])
     setActiveId(localId)
     setLojaIdx(0)
-    setForm(prev => ({ ...prev, ref: '', valor: '', preco_venda: '', cor: '', detalhe: '' }))
+    setForm(prev => ({ ...prev, ref: '', valor: '', cor: '', detalhe: '' }))
     setShowAddForm(false)
   }
 
@@ -1528,42 +1499,6 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
             onKeyDown={e => { if (e.key === 'Enter') addItem() }}
           />
         </div>
-        <div className={styles.field}>
-          <span className={styles.label}>Markup ×</span>
-          <input
-            type="text"
-            className={styles.addItemMarkup}
-            placeholder="0"
-            value={form.markup_pct}
-            onChange={e => {
-              const markup_pct = e.target.value
-              setForm(p => ({
-                ...p, markup_pct,
-                preco_venda: calcPrecoVenda(p.valor, markup_pct),
-              }))
-            }}
-            onKeyDown={e => { if (e.key === 'Enter') addItem() }}
-          />
-        </div>
-        {calcValorComMarkup(form.valor, form.markup_pct) && (
-          <div className={styles.field}>
-            <span className={styles.label}>Valor c/ mkp</span>
-            <span className={styles.addItemCalcDisplay}>
-              R$ {calcValorComMarkup(form.valor, form.markup_pct)}
-            </span>
-          </div>
-        )}
-        <div className={styles.field}>
-          <span className={styles.label}>Preço sugerido</span>
-          <input
-            type="text"
-            className={styles.addItemValor}
-            placeholder="0,00"
-            value={form.preco_venda}
-            onChange={e => setForm(p => ({ ...p, preco_venda: e.target.value }))}
-            onKeyDown={e => { if (e.key === 'Enter') addItem() }}
-          />
-        </div>
         <button
           className={styles.btnAdd}
           disabled={!form.ref.trim() || !form.tipo_produto.trim() || !form.tipo_grade || !form.valor.trim()}
@@ -1765,31 +1700,8 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
 
       {/* ── Por referência mode: Items table with inline grade expansion ── */}
       {fillMode === 'ref' && items.length > 0 && (() => {
-        const semMarkup = items.filter(it => !it.markup_pct || it.markup_pct === '0')
         return (
           <>
-            {semMarkup.length > 0 && (
-              <div className={styles.bulkMarkupBar}>
-                <span className={styles.bulkMarkupLabel}>
-                  {semMarkup.length} {semMarkup.length === 1 ? 'item sem markup' : 'itens sem markup'}
-                </span>
-                <input
-                  type="text"
-                  className={styles.bulkMarkupInput}
-                  placeholder="Mkp ×"
-                  value={bulkMarkup}
-                  onChange={e => setBulkMarkup(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') applyBulkMarkup() }}
-                />
-                <button
-                  className={styles.btnBulkMarkup}
-                  onClick={applyBulkMarkup}
-                  disabled={!bulkMarkup.trim()}
-                >
-                  Aplicar em todos sem markup
-                </button>
-              </div>
-            )}
             <table className={styles.itemsTable}>
           <thead>
             <tr>
@@ -1798,9 +1710,6 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
               <th>Produto · Grade · Classe</th>
               <th>ICMS</th>
               <th>Valor unit.</th>
-              <th>Mkp</th>
-              <th>Valor c/ mkp</th>
-              <th>Preço sugerido</th>
               <th>Peças</th>
               <th></th>
             </tr>
@@ -1900,35 +1809,6 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                           style={{ width: 70 }}
                         />
                       </td>
-                      <td>
-                        <input
-                          value={editForm.markup_pct ?? ''}
-                          placeholder="0"
-                          onChange={e => {
-                            const markup_pct = e.target.value
-                            setEditForm(p => ({
-                              ...p, markup_pct,
-                              preco_venda: calcPrecoVenda(p.valor, markup_pct, p.desconto_pct),
-                            }))
-                          }}
-                          style={{ width: 55 }}
-                        />
-                      </td>
-                      <td>
-                        <span style={{ color: 'var(--text-secondary, #888)', fontSize: '0.85em' }}>
-                          {calcValorComMarkup(editForm.valor, editForm.markup_pct)
-                            ? `R$ ${calcValorComMarkup(editForm.valor, editForm.markup_pct)}`
-                            : '—'}
-                        </span>
-                      </td>
-                      <td>
-                        <input
-                          value={editForm.preco_venda ?? ''}
-                          placeholder="0,00"
-                          onChange={e => setEditForm(p => ({ ...p, preco_venda: e.target.value }))}
-                          style={{ width: 70 }}
-                        />
-                      </td>
                       <td></td>
                       <td>
                         <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
@@ -1996,32 +1876,6 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                       <td>{it.tipo_produto} · {it.tipo_grade} · {it.classe}</td>
                       <td>{it.icms_pct || '0'}%</td>
                       <td>{it.valor ? `R$ ${it.valor}` : <span className={styles.itemDot}>—</span>}</td>
-                      <td className={styles.itemMarkupCell}>{it.markup_pct && it.markup_pct !== '0' ? `+${it.markup_pct}` : <span className={styles.itemDot}>—</span>}</td>
-                      <td className={styles.itemValorMarkupCell} style={{ color: 'var(--text-secondary, #888)', fontSize: '0.85em' }}>
-                        {calcValorComMarkup(it.valor, it.markup_pct)
-                          ? `R$ ${calcValorComMarkup(it.valor, it.markup_pct)}`
-                          : <span className={styles.itemDot}>—</span>}
-                      </td>
-                      <td
-                        className={styles.itemPrecoVendaCell}
-                        onClick={e => { e.stopPropagation(); setEditingPrecoId(it.localId) }}
-                        title="Clique para editar preço sugerido"
-                        style={{ cursor: 'pointer' }}
-                      >
-                        {editingPrecoId === it.localId ? (
-                          <input
-                            autoFocus
-                            value={it.preco_venda || ''}
-                            style={{ width: 70 }}
-                            onChange={e => setItems(prev => prev.map(x => x.localId === it.localId ? { ...x, preco_venda: e.target.value } : x))}
-                            onBlur={() => setEditingPrecoId(null)}
-                            onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingPrecoId(null) }}
-                            onClick={e => e.stopPropagation()}
-                          />
-                        ) : (
-                          it.preco_venda ? `R$ ${it.preco_venda}` : <span className={styles.itemDot}>—</span>
-                        )}
-                      </td>
                       <td><strong>{total > 0 ? total : <span className={styles.itemDot}>—</span>}</strong></td>
                       <td>
                         <div style={{ display: 'flex', gap: '0.1rem', alignItems: 'center' }}>
@@ -2909,6 +2763,202 @@ async function salvarPDFVisita(sessao, vis, visPedidos, sessaoOverride = {}) {
   }
 }
 
+// ─── Markup Phase ────────────────────────────────────────────────────────────
+
+function MarkupSessao({ sessao, onClose }) {
+  const [index1,     setIndex1]     = useState(sessao.markup_index1 ? String(sessao.markup_index1) : '')
+  const [index2,     setIndex2]     = useState(sessao.markup_index2 ? String(sessao.markup_index2) : '')
+  const [items,      setItems]      = useState([])
+  const [precos,     setPrecos]     = useState({})
+  const [loading,    setLoading]    = useState(true)
+  const [saving,     setSaving]     = useState(false)
+  const [editingRef, setEditingRef] = useState(null)
+
+  useEffect(() => {
+    pedidosService.itensPorFornecedor(sessao.id).then(visitasData => {
+      const seen = new Map()
+      for (const vis of visitasData ?? []) {
+        for (const ped of vis.pedidos ?? []) {
+          if (!seen.has(ped.referencia)) {
+            seen.set(ped.referencia, {
+              referencia:     ped.referencia,
+              tipo_produto:   ped.tipo_produto ?? ped.segmentacao?.tipo_produto ?? '',
+              classe:         ped.classe ?? ped.segmentacao?.classe ?? '',
+              valor_unitario: ped.valor_unitario ?? 0,
+              icms_pct:       ped.icms_pct ?? 0,
+              desconto_pct:   ped.desconto_pct ?? 0,
+              preco_venda:    ped.preco_venda ?? '',
+              cor:            ped.cor ?? '',
+              detalhe:        ped.detalhe ?? '',
+            })
+          }
+        }
+      }
+      const list = [...seen.values()]
+      setItems(list)
+      setPrecos(Object.fromEntries(list.map(it => [it.referencia, it.preco_venda ? String(it.preco_venda) : ''])))
+      setLoading(false)
+    })
+  }, [sessao.id])
+
+  function calcBase(item) {
+    const v = item.valor_unitario
+    const d = parseFloat(String(item.desconto_pct ?? sessao.desconto_pct ?? 0).replace(',', '.')) || 0
+    const icms = parseFloat(String(item.icms_pct ?? 0).replace(',', '.')) || 0
+    const afterDesc = v * (1 - d / 100)
+    return icms > 0 ? afterDesc * (1 - icms / 100) : afterDesc
+  }
+
+  function calcIdx(item, idxStr) {
+    const m = parseFloat(String(idxStr ?? '').replace(',', '.'))
+    if (!idxStr || isNaN(m) || m <= 0) return ''
+    return (calcBase(item) * (1 + m)).toFixed(2)
+  }
+
+  function r99(val) {
+    const n = parseFloat(val)
+    if (!val || isNaN(n) || n <= 0) return val
+    return (Math.floor(n) + 0.99).toFixed(2)
+  }
+
+  function applyIdxAll(idxStr) {
+    setPrecos(prev => {
+      const next = { ...prev }
+      for (const it of items) {
+        const c = calcIdx(it, idxStr)
+        if (c) next[it.referencia] = r99(c)
+      }
+      return next
+    })
+  }
+
+  async function handleSalvar() {
+    setSaving(true)
+    try {
+      await pedidosService.atualizarMarkupSessao(sessao.id, precos, index1, index2)
+      onClose()
+    } catch (e) {
+      alert(`Erro ao salvar: ${e.message}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const hasIdx2 = index2.trim() !== ''
+  const temIcms = items.some(it => (it.icms_pct ?? 0) > 0)
+
+  return (
+    <div className={styles.markupOverlay}>
+      <div className={styles.markupModal}>
+        <div className={styles.markupModalHeader}>
+          <div>
+            <strong>{sessao.fornecedor?.nome || '—'}</strong>
+            {sessao.data_visita && <span style={{ color: 'var(--text-muted)', marginLeft: 8, fontSize: '0.9em' }}>{fmtDate(sessao.data_visita)}</span>}
+          </div>
+          <button className={styles.btnBack} onClick={onClose}>✕ Fechar</button>
+        </div>
+
+        <div className={styles.markupIndices}>
+          <div className={styles.field}>
+            <span className={styles.label}>Índice 1</span>
+            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+              <input type="text" className={styles.addItemMarkup} placeholder="ex: 1.5" value={index1} onChange={e => setIndex1(e.target.value)} />
+              <button className={styles.btnSecondary} onClick={() => applyIdxAll(index1)} disabled={!index1.trim()}>Aplicar em todos</button>
+            </div>
+          </div>
+          <div className={styles.field}>
+            <span className={styles.label}>Índice 2 <span style={{ fontWeight: 'normal', textTransform: 'none' }}>(opcional)</span></span>
+            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+              <input type="text" className={styles.addItemMarkup} placeholder="ex: 1.8" value={index2} onChange={e => setIndex2(e.target.value)} />
+              {hasIdx2 && <button className={styles.btnSecondary} onClick={() => applyIdxAll(index2)} disabled={!index2.trim()}>Aplicar em todos</button>}
+            </div>
+          </div>
+        </div>
+
+        {loading && <p className={styles.muted}>Carregando itens…</p>}
+        {!loading && items.length === 0 && <p className={styles.muted}>Nenhum item encontrado nesta sessão.</p>}
+        {!loading && items.length > 0 && (
+          <>
+            <div style={{ overflowX: 'auto' }}>
+              <table className={styles.itemsTable}>
+                <thead>
+                  <tr>
+                    <th>Ref</th>
+                    <th>Produto</th>
+                    <th>Valor unit.</th>
+                    {temIcms && <th>ICMS</th>}
+                    <th>Base c/ desc{temIcms ? '/icms' : ''}</th>
+                    <th>× Idx1{index1 ? ` (${index1})` : ''}</th>
+                    {hasIdx2 && <th>× Idx2 ({index2})</th>}
+                    <th>Preço sugerido</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map(it => {
+                    const base   = calcBase(it)
+                    const c1     = calcIdx(it, index1)
+                    const c2     = hasIdx2 ? calcIdx(it, index2) : ''
+                    const isEdit = editingRef === it.referencia
+                    const label  = [it.referencia, it.cor, it.detalhe].filter(Boolean).join(' · ')
+                    return (
+                      <tr key={it.referencia}>
+                        <td>{label}</td>
+                        <td>{[it.tipo_produto, it.classe].filter(Boolean).join(' · ')}</td>
+                        <td>R$ {fmtV(it.valor_unitario)}</td>
+                        {temIcms && <td>{it.icms_pct > 0 ? `${it.icms_pct}%` : '—'}</td>}
+                        <td style={{ color: 'var(--text-muted)', fontSize: '0.85em' }}>R$ {base.toFixed(2)}</td>
+                        <td>
+                          {c1 ? (
+                            <button className={styles.btnMarkupCalc} onClick={() => setPrecos(p => ({ ...p, [it.referencia]: r99(c1) }))} title={`→ R$ ${r99(c1)}`}>
+                              R$ {c1}
+                            </button>
+                          ) : '—'}
+                        </td>
+                        {hasIdx2 && (
+                          <td>
+                            {c2 ? (
+                              <button className={styles.btnMarkupCalc} onClick={() => setPrecos(p => ({ ...p, [it.referencia]: r99(c2) }))} title={`→ R$ ${r99(c2)}`}>
+                                R$ {c2}
+                              </button>
+                            ) : '—'}
+                          </td>
+                        )}
+                        <td onClick={e => { e.stopPropagation(); setEditingRef(it.referencia) }} style={{ cursor: 'pointer', minWidth: 90 }}>
+                          {isEdit ? (
+                            <input
+                              autoFocus
+                              value={precos[it.referencia] ?? ''}
+                              style={{ width: 80 }}
+                              onChange={e => setPrecos(p => ({ ...p, [it.referencia]: e.target.value }))}
+                              onBlur={() => setEditingRef(null)}
+                              onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingRef(null) }}
+                              onClick={e => e.stopPropagation()}
+                            />
+                          ) : (
+                            precos[it.referencia]
+                              ? <strong>R$ {precos[it.referencia]}</strong>
+                              : <span className={styles.itemDot}>— clicar para editar</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className={styles.markupModalFooter}>
+              <button className={styles.btnPrimary} onClick={handleSalvar} disabled={saving}>
+                {saving ? 'Salvando…' : 'Salvar preços sugeridos'}
+              </button>
+              <button className={styles.btnSecondary} onClick={onClose}>Cancelar</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Phase 3: Close Session + PDFs ───────────────────────────────────────
 
 function FecharSessao({ sessao, visitas, segs, pedidos: pedidosProp, onNovaSessao }) {
@@ -3314,7 +3364,7 @@ function FecharSessao({ sessao, visitas, segs, pedidos: pedidosProp, onNovaSessa
 
 // ─── Historico ────────────────────────────────────────────────────────────
 
-function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetomarSessao = null, retomarLoading = null, refreshKey = 0 }) {
+function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetomarSessao = null, retomarLoading = null, refreshKey = 0, onMarkup = null }) {
   const { comprador } = useAuth()
   const [sessoesList,      setSessoesList]      = useState([])
   const [loading,          setLoading]          = useState(true)
@@ -3550,6 +3600,15 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetom
                   title={onRetomarSessao ? 'Retomar edição de itens desta sessão' : 'Editar dados da sessão'}
                 >
                   {onRetomarSessao && retomarLoading === ses.id ? '…' : 'Editar'}
+                </button>
+              )}
+              {comprador?.is_editor && onMarkup && (
+                <button
+                  className={`${styles.btnHistAction} ${styles.btnHistMarkup}`}
+                  onClick={() => onMarkup(ses)}
+                  title="Definir markup e preços sugeridos para esta sessão"
+                >
+                  Markup
                 </button>
               )}
               <button
@@ -3956,12 +4015,14 @@ function PreencherMinhaLoja({ sessaoId, visitaId, compradorNome, colEstacao, onB
 // ─── Phase 4: View-only ────────────────────────────────────────────────────
 
 function VisualizarSessao({ sessaoId, onBack }) {
+  const { comprador } = useAuth()
   const [sessao,     setSessao]     = useState(null)
   const [visitaData, setVisitaData] = useState([]) // [{id, comprador_nome, pedidos:[...]}]
   const [loading,    setLoading]    = useState(true)
   const [lastFetch,  setLastFetch]  = useState(null)
   const [refreshing, setRefreshing] = useState(false)
   const [error,      setError]      = useState(null)
+  const [showMarkup, setShowMarkup] = useState(false)
 
   async function fetchData(isRefresh = false) {
     if (isRefresh) setRefreshing(true)
@@ -4003,6 +4064,15 @@ function VisualizarSessao({ sessaoId, onBack }) {
       <div className={styles.viewOnlyHeader}>
         <button className={styles.btnBack} onClick={onBack}>← Voltar</button>
         <div className={styles.viewOnlyRefreshArea}>
+          {comprador?.is_editor && sessao && (
+            <button
+              className={`${styles.btnHistAction} ${styles.btnHistMarkup}`}
+              onClick={() => setShowMarkup(true)}
+              title="Definir markup e preços sugeridos para esta sessão"
+            >
+              Markup
+            </button>
+          )}
           {lastFetch && (
             <span className={styles.viewOnlyTimestamp}>
               Atualizado {lastFetch.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -4018,6 +4088,10 @@ function VisualizarSessao({ sessaoId, onBack }) {
           </button>
         </div>
       </div>
+
+      {showMarkup && sessao && (
+        <MarkupSessao sessao={sessao} onClose={() => setShowMarkup(false)} />
+      )}
 
       {loading && <p className={styles.muted}>Carregando sessão…</p>}
       {error && <div className={styles.errorBanner}>{error}</div>}
@@ -4133,6 +4207,7 @@ export default function Compras() {
   const [retomarLoading,  setRetomarLoading]  = useState(null)
   const [sessaoCorDetalhe, setSessaoCorDetalhe] = useState(false)
   const [isOnline,        setIsOnline]        = useState(navigator.onLine)
+  const [markupSessao,    setMarkupSessao]    = useState(null) // sessão aberta no modal de markup
 
   useEffect(() => {
     const onOnline  = () => setIsOnline(true)
@@ -4443,7 +4518,13 @@ export default function Compras() {
           onPreencherLoja={handlePreencherLoja}
           onRetomarSessao={handleRetomarSessao}
           retomarLoading={retomarLoading}
+          onMarkup={ses => setMarkupSessao(ses)}
         />
+      )}
+
+      {/* Markup modal — global, can open from Histórico */}
+      {markupSessao && (
+        <MarkupSessao sessao={markupSessao} onClose={() => setMarkupSessao(null)} />
       )}
 
       {/* Phase 1: Nova sessão form */}
