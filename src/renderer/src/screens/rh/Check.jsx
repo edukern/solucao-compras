@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 export default function Check() {
   const [texto, setTexto]       = useState('')
-  const [status, setStatus]     = useState('idle') // idle | loading | done | error
+  const [status, setStatus]     = useState('idle')
   const [resultados, setResultados] = useState([])
   const [copiado, setCopiado]   = useState(false)
   const [erro, setErro]         = useState('')
@@ -16,7 +16,7 @@ export default function Check() {
   async function executar() {
     const cpfs = parseCPFs(texto)
     if (cpfs.length === 0) { setErro('Nenhum CPF válido encontrado (11 dígitos).'); return }
-    if (cpfs.length > 20)  { setErro('Máximo 20 CPFs por batch.'); return }
+    if (cpfs.length > 20)  { setErro('Máximo 20 CPFs por vez.'); return }
     setStatus('loading'); setErro(''); setResultados([])
 
     const res = await fetch('/api/consultar-rh-batch', {
@@ -36,89 +36,130 @@ export default function Check() {
   }
 
   function copiarTabela() {
-    const header = 'CPF\tNome\tRestrição\tScore BV\tClassif BV\tScore SPC 3m\tClasse SPC\tDébitos BV\tValor Débitos\tProtes tos BV\tSPC Ocorrências\tValor SPC\tSituação CPF\tErro'
-    const linhas = resultados.map(r => [
-      r.cpf, r.nome,
-      r.restricao ? 'SIM' : 'Não',
-      r.scoreBV, r.scoreClassifBV,
-      r.score3m, r.score3mClasse,
-      r.totalDebitos, r.valorDebitos,
-      r.totalProtestos,
-      r.totalSPC, r.valorSPC,
-      r.situacaoCPF,
-      r.erro || '',
-    ].join('\t'))
+    const header = 'CPF\tNome\tSituação\tO que consta'
+    const linhas = resultados.map(r => {
+      const ocorrencias = buildOcorrencias(r)
+      return [
+        formatCPF(r.cpf),
+        r.nome,
+        r.erro ? 'Erro na consulta' : ocorrencias.length === 0 ? 'Sem ocorrências' : 'Tem ocorrências',
+        ocorrencias.join(' | ') || '—',
+      ].join('\t')
+    })
     navigator.clipboard.writeText([header, ...linhas].join('\n'))
       .then(() => { setCopiado(true); setTimeout(() => setCopiado(false), 2000) })
   }
 
   return (
     <div>
-      <h1 style={s.heading}>Checar SPC</h1>
-      <p style={s.sub}>Cole os CPFs (um por linha ou separados por vírgula/ponto-e-vírgula). Máximo 20.</p>
+      <h1 style={s.heading}>Checar CPF</h1>
+      <p style={s.sub}>Cole os CPFs dos candidatos (um por linha ou separados por vírgula). Máximo 20.</p>
 
       <div style={s.card}>
         <textarea
           value={texto}
           onChange={e => setTexto(e.target.value)}
           style={s.textarea}
-          placeholder={'000.000.000-00\n111.111.111-11\n222.222.222-22'}
-          rows={6}
+          placeholder={'000.000.000-00\n111.111.111-11'}
+          rows={5}
         />
         {erro && <p style={s.error}>{erro}</p>}
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={executar} disabled={status === 'loading'} style={{ ...s.btnPrimary, opacity: status === 'loading' ? 0.6 : 1 }}>
-            {status === 'loading' ? `Consultando ${parseCPFs(texto).length} CPFs…` : 'Executar checks'}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button
+            onClick={executar}
+            disabled={status === 'loading'}
+            style={{ ...s.btnPrimary, opacity: status === 'loading' ? 0.6 : 1 }}
+          >
+            {status === 'loading' ? `Consultando ${parseCPFs(texto).length} CPF(s)…` : 'Consultar'}
           </button>
-          {status === 'loading' && <span style={{ fontSize: 13, color: '#888', alignSelf: 'center' }}>Isso pode levar alguns segundos…</span>}
+          {status === 'loading' && (
+            <span style={{ fontSize: 13, color: '#888' }}>Isso pode levar alguns segundos…</span>
+          )}
         </div>
       </div>
 
       {resultados.length > 0 && (
         <div style={s.resultCard}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Resultados — {resultados.length} CPF(s)</h2>
-            <button onClick={copiarTabela} style={s.btnSm}>{copiado ? '✓ Copiado!' : 'Copiar como planilha'}</button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
+              {resultados.length} CPF(s) consultado(s)
+            </h2>
+            <button onClick={copiarTabela} style={s.btnSm}>
+              {copiado ? '✓ Copiado!' : 'Copiar como planilha'}
+            </button>
           </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={s.table}>
-              <thead>
-                <tr>
-                  {['CPF','Nome','Restrição','Score BV','Classif.','SPC 3m','Classe SPC','Déb. BV','SPC Oc.','Situação CPF'].map(h => (
-                    <th key={h} style={s.th}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {resultados.map((r, i) => {
-                  const restricao = r.restricao || r.temDebito || r.temProtesto || r.totalSPC > 0
-                  const rowBg = r.erro ? '#fff9f9' : restricao ? '#fef9f0' : '#fff'
-                  return (
-                    <tr key={i} style={{ background: rowBg }}>
-                      <td style={s.td}>{formatCPF(r.cpf)}</td>
-                      <td style={s.td}>{r.nome}</td>
-                      <td style={{ ...s.td, color: restricao ? '#dc2626' : '#16a34a', fontWeight: 600 }}>
-                        {r.erro ? '—' : restricao ? '⚠ Sim' : '✓ Não'}
-                      </td>
-                      <td style={s.td}>{r.scoreBV}</td>
-                      <td style={s.td}>{r.scoreClassifBV}</td>
-                      <td style={s.td}>{r.score3m}</td>
-                      <td style={s.td}>{r.score3mClasse}</td>
-                      <td style={{ ...s.td, color: r.temDebito ? '#dc2626' : 'inherit' }}>
-                        {r.totalDebitos} — R$ {r.valorDebitos}
-                      </td>
-                      <td style={{ ...s.td, color: r.totalSPC > 0 ? '#dc2626' : 'inherit' }}>{r.totalSPC}</td>
-                      <td style={s.td}>{r.situacaoCPF}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {resultados.map((r, i) => {
+              const ocorrencias = buildOcorrencias(r)
+              const temOcorrencia = ocorrencias.length > 0
+              const hasErro = !!r.erro
+
+              return (
+                <div key={i} style={{
+                  ...s.resultRow,
+                  borderLeft: `4px solid ${hasErro ? '#d1d5db' : temOcorrencia ? '#f59e0b' : '#22c55e'}`,
+                  background: hasErro ? '#f9fafb' : temOcorrencia ? '#fffbeb' : '#f0fdf4',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+                    <div>
+                      <p style={s.nome}>{r.nome || '(nome não encontrado)'}</p>
+                      <p style={s.cpfText}>{formatCPF(r.cpf)}</p>
+                    </div>
+                    <div style={{
+                      ...s.badge,
+                      background: hasErro ? '#f3f4f6' : temOcorrencia ? '#fef3c7' : '#dcfce7',
+                      color: hasErro ? '#6b7280' : temOcorrencia ? '#92400e' : '#166534',
+                    }}>
+                      {hasErro ? '— Erro na consulta' : temOcorrencia ? '⚠ Tem ocorrências' : '✓ Nada consta'}
+                    </div>
+                  </div>
+
+                  {temOcorrencia && (
+                    <div style={s.ocorrencias}>
+                      <p style={s.ocorrenciasLabel}>O que consta:</p>
+                      <ul style={s.lista}>
+                        {ocorrencias.map((o, j) => (
+                          <li key={j} style={s.listaItem}>{o}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {hasErro && (
+                    <p style={{ margin: '8px 0 0', fontSize: 13, color: '#6b7280' }}>
+                      Não foi possível consultar este CPF: {r.erro}
+                    </p>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
     </div>
   )
+}
+
+function buildOcorrencias(r) {
+  const lista = []
+
+  if (r.restricao) {
+    lista.push('Restrição ativa no SPC/Serasa')
+  }
+  if (r.temDebito && r.totalDebitos > 0) {
+    const val = r.valorDebitos ? ` · R$ ${Number(r.valorDebitos).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''
+    lista.push(`${r.totalDebitos} débito(s) registrado(s)${val}`)
+  }
+  if (r.temProtesto && r.totalProtestos > 0) {
+    lista.push(`${r.totalProtestos} protesto(s) em cartório`)
+  }
+  if (r.totalSPC > 0) {
+    const val = r.valorSPC ? ` · R$ ${Number(r.valorSPC).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''
+    lista.push(`${r.totalSPC} ocorrência(s) no SPC${val}`)
+  }
+
+  return lista
 }
 
 function formatCPF(cpf) {
@@ -127,15 +168,20 @@ function formatCPF(cpf) {
 }
 
 const s = {
-  heading:   { margin: '0 0 4px', fontSize: 24, fontWeight: 700, color: '#111' },
-  sub:       { margin: '0 0 24px', fontSize: 14, color: '#666' },
-  card:      { background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 4px 24px rgba(0,0,0,.08)', marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 16 },
-  textarea:  { width: '100%', padding: '12px', borderRadius: 8, border: '1px solid #ddd', fontSize: 14, fontFamily: 'monospace', resize: 'vertical', outline: 'none', boxSizing: 'border-box' },
-  error:     { margin: 0, color: '#dc2626', fontSize: 13 },
-  btnPrimary:{ padding: '10px 20px', borderRadius: 8, border: 'none', background: '#111', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' },
-  btnSm:     { padding: '6px 14px', borderRadius: 6, border: '1px solid #ddd', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#444' },
-  resultCard:{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 4px 24px rgba(0,0,0,.08)' },
-  table:     { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
-  th:        { padding: '8px 12px', textAlign: 'left', background: '#f8fafc', fontWeight: 600, color: '#444', borderBottom: '2px solid #ddd', whiteSpace: 'nowrap' },
-  td:        { padding: '8px 12px', borderBottom: '1px solid #f3f4f6', color: '#111', whiteSpace: 'nowrap' },
+  heading:        { margin: '0 0 4px', fontSize: 24, fontWeight: 700, color: '#111' },
+  sub:            { margin: '0 0 24px', fontSize: 14, color: '#666' },
+  card:           { background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,.08)', marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 14 },
+  textarea:       { width: '100%', padding: '12px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 14, fontFamily: 'monospace', resize: 'vertical', outline: 'none', boxSizing: 'border-box' },
+  error:          { margin: 0, color: '#dc2626', fontSize: 13 },
+  btnPrimary:     { padding: '10px 22px', borderRadius: 8, border: 'none', background: '#111', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' },
+  btnSm:          { padding: '6px 14px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#444' },
+  resultCard:     { background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,.08)' },
+  resultRow:      { borderRadius: 10, padding: '16px 20px', borderLeft: '4px solid #e5e7eb' },
+  nome:           { margin: 0, fontSize: 15, fontWeight: 600, color: '#111' },
+  cpfText:        { margin: '2px 0 0', fontSize: 13, color: '#6b7280' },
+  badge:          { padding: '5px 12px', borderRadius: 20, fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 },
+  ocorrencias:    { marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(0,0,0,.06)' },
+  ocorrenciasLabel: { margin: '0 0 6px', fontSize: 12, fontWeight: 600, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  lista:          { margin: 0, paddingLeft: 16 },
+  listaItem:      { fontSize: 14, color: '#374151', marginBottom: 3 },
 }
