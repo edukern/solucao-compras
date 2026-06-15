@@ -607,7 +607,8 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   const [qtds,          setQtds]          = useState(initialQtds)
   const [saving,        setSaving]        = useState(false)
   const [error,         setError]         = useState(null)
-  const [form,          setForm]          = useState({ ref: '', tipo_produto: '', tipo_grade: 'AD', classe: 'FEM', icms_pct: '', valor: '', markup_pct: '', preco_venda: '' })
+  const [form,          setForm]          = useState({ ref: '', tipo_produto: '', tipo_grade: 'AD', classe: 'FEM', icms_pct: '', valor: '', markup_pct: '', preco_venda: '', cor: '', detalhe: '' })
+  const [editingPrecoId, setEditingPrecoId] = useState(null)
   const [showIcms,      setShowIcms]      = useState(false)
   const [sessaoDesconto, setSessaoDesconto] = useState(
     () => String(sessao.desconto_pct ?? '0')
@@ -781,6 +782,14 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     return roundTo99(v * (1 - d / 100) * (1 + m))
   }
 
+  function calcValorComMarkup(valorStr, markupStr) {
+    const v = parseFloat((valorStr ?? '').replace(',', '.'))
+    const m = parseFloat((markupStr ?? '').replace(',', '.'))
+    const d = parseFloat((sessaoDesconto ?? '').replace(',', '.')) || 0
+    if (!v || isNaN(v) || !m || isNaN(m)) return ''
+    return (v * (1 - d / 100) * (1 + m)).toFixed(2)
+  }
+
   function applyBulkMarkup() {
     const m = bulkMarkup.trim()
     if (!m || isNaN(parseFloat(m.replace(',', '.')))) return
@@ -794,7 +803,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   }
 
   function addItem() {
-    const { ref, tipo_produto, tipo_grade, classe, icms_pct, valor, markup_pct, preco_venda } = form
+    const { ref, tipo_produto, tipo_grade, classe, icms_pct, valor, markup_pct, preco_venda, cor, detalhe } = form
     if (!ref.trim() || !tipo_produto.trim() || !tipo_grade || !valor.trim()) return
     const localId = `item_${Date.now()}_${Math.random()}`
     const novoItem = {
@@ -807,14 +816,14 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
       valor: valor || '',
       markup_pct: markup_pct || '0',
       preco_venda: preco_venda || '',
-      cor: '',
-      detalhe: '',
+      cor: cor || '',
+      detalhe: detalhe || '',
       obs: '',
     }
     setItems(prev => [...prev, novoItem])
     setActiveId(localId)
     setLojaIdx(0)
-    setForm(prev => ({ ...prev, ref: '', valor: '', preco_venda: '' }))
+    setForm(prev => ({ ...prev, ref: '', valor: '', preco_venda: '', cor: '', detalhe: '' }))
     setShowAddForm(false)
   }
 
@@ -853,6 +862,8 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
       valor:        item.valor,
       markup_pct:   item.markup_pct ?? '0',
       preco_venda:  item.preco_venda ?? '',
+      cor:          item.cor ?? '',
+      detalhe:      item.detalhe ?? '',
       obs:          item.obs ?? '',
     })
   }
@@ -868,6 +879,8 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
       valor:        item.valor,
       markup_pct:   item.markup_pct ?? '0',
       preco_venda:  item.preco_venda ?? '',
+      cor:          item.cor ?? '',
+      detalhe:      item.detalhe ?? '',
       obs:          item.obs ?? '',
     })
     setActiveId(null)
@@ -1430,6 +1443,27 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
             onKeyDown={e => { if (e.key === 'Enter') addItem() }}
           />
         </div>
+        {showCorDetalhe && (
+          <div className={styles.field}>
+            <span className={styles.label}>Cor/Detalhe</span>
+            <input
+              type="text"
+              className={styles.addItemCor}
+              placeholder="cor"
+              value={form.cor}
+              onChange={e => setForm(p => ({ ...p, cor: e.target.value }))}
+              onKeyDown={e => { if (e.key === 'Enter') addItem() }}
+            />
+            <input
+              type="text"
+              className={styles.addItemCor}
+              placeholder="detalhe"
+              value={form.detalhe}
+              onChange={e => setForm(p => ({ ...p, detalhe: e.target.value }))}
+              onKeyDown={e => { if (e.key === 'Enter') addItem() }}
+            />
+          </div>
+        )}
         <div className={styles.field}>
           <span className={styles.label}>Produto</span>
           <input
@@ -1509,8 +1543,16 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
             onKeyDown={e => { if (e.key === 'Enter') addItem() }}
           />
         </div>
+        {calcValorComMarkup(form.valor, form.markup_pct) && (
+          <div className={styles.field}>
+            <span className={styles.label}>Valor c/ mkp</span>
+            <span className={styles.addItemCalcDisplay}>
+              R$ {calcValorComMarkup(form.valor, form.markup_pct)}
+            </span>
+          </div>
+        )}
         <div className={styles.field}>
-          <span className={styles.label}>Preço venda</span>
+          <span className={styles.label}>Preço sugerido</span>
           <input
             type="text"
             className={styles.addItemValor}
@@ -1750,11 +1792,13 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
           <thead>
             <tr>
               <th>Ref</th>
+              {showCorDetalhe && <th>Cor/Detalhe</th>}
               <th>Produto · Grade · Classe</th>
               <th>ICMS</th>
               <th>Valor unit.</th>
               <th>Mkp</th>
-              <th>Preço venda</th>
+              <th>Valor c/ mkp</th>
+              <th>Preço sugerido</th>
               <th>Peças</th>
               <th></th>
             </tr>
@@ -1789,6 +1833,24 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                           style={{ width: 70 }}
                         />
                       </td>
+                      {showCorDetalhe && (
+                        <td>
+                          <div style={{ display: 'flex', gap: '0.25rem' }}>
+                            <input
+                              value={editForm.cor ?? ''}
+                              placeholder="cor"
+                              onChange={e => setEditForm(p => ({ ...p, cor: e.target.value }))}
+                              style={{ width: 55 }}
+                            />
+                            <input
+                              value={editForm.detalhe ?? ''}
+                              placeholder="detalhe"
+                              onChange={e => setEditForm(p => ({ ...p, detalhe: e.target.value }))}
+                              style={{ width: 65 }}
+                            />
+                          </div>
+                        </td>
+                      )}
                       <td>
                         <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
                           <input
@@ -1851,6 +1913,13 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                         />
                       </td>
                       <td>
+                        <span style={{ color: 'var(--text-secondary, #888)', fontSize: '0.85em' }}>
+                          {calcValorComMarkup(editForm.valor, editForm.markup_pct)
+                            ? `R$ ${calcValorComMarkup(editForm.valor, editForm.markup_pct)}`
+                            : '—'}
+                        </span>
+                      </td>
+                      <td>
                         <input
                           value={editForm.preco_venda ?? ''}
                           placeholder="0,00"
@@ -1883,17 +1952,16 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                     >
                       <td>
                         {it.ref || <span className={styles.itemDot}>—</span>}
-                        {(it.cor || it.detalhe) && (
+                        {!showCorDetalhe && (it.cor || it.detalhe) && (
                           <span className={styles.itemRefDetail}>
                             {[it.cor, it.detalhe].filter(Boolean).join(' · ')}
                           </span>
                         )}
                       </td>
-                      <td>
-                        {it.tipo_produto} · {it.tipo_grade} · {it.classe}
-                        {showCorDetalhe && (
-                          editingCorId === it.localId ? (
-                            <span className={styles.inlineCorEdit} onClick={e => e.stopPropagation()}>
+                      {showCorDetalhe && (
+                        <td onClick={e => e.stopPropagation()}>
+                          {editingCorId === it.localId ? (
+                            <span className={styles.inlineCorEdit}>
                               <input
                                 className={styles.inlineCorInput}
                                 placeholder="cor"
@@ -1913,20 +1981,45 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                           ) : (
                             <span
                               className={`${styles.inlineCorDisplay} ${dupeHighlight === it.localId ? styles.inlineCorDisplayAlert : ''}`}
-                              onClick={e => { e.stopPropagation(); setEditingCorId(it.localId) }}
+                              onClick={() => setEditingCorId(it.localId)}
                               title="Clique para editar cor e detalhe"
                             >
                               {it.cor || it.detalhe
                                 ? [it.cor, it.detalhe].filter(Boolean).join(' · ')
                                 : '— cor / detalhe'}
                             </span>
-                          )
-                        )}
-                      </td>
+                          )}
+                        </td>
+                      )}
+                      <td>{it.tipo_produto} · {it.tipo_grade} · {it.classe}</td>
                       <td>{it.icms_pct || '0'}%</td>
                       <td>{it.valor ? `R$ ${it.valor}` : <span className={styles.itemDot}>—</span>}</td>
                       <td className={styles.itemMarkupCell}>{it.markup_pct && it.markup_pct !== '0' ? `+${it.markup_pct}` : <span className={styles.itemDot}>—</span>}</td>
-                      <td className={styles.itemPrecoVendaCell}>{it.preco_venda ? `R$ ${it.preco_venda}` : <span className={styles.itemDot}>—</span>}</td>
+                      <td className={styles.itemValorMarkupCell} style={{ color: 'var(--text-secondary, #888)', fontSize: '0.85em' }}>
+                        {calcValorComMarkup(it.valor, it.markup_pct)
+                          ? `R$ ${calcValorComMarkup(it.valor, it.markup_pct)}`
+                          : <span className={styles.itemDot}>—</span>}
+                      </td>
+                      <td
+                        className={styles.itemPrecoVendaCell}
+                        onClick={e => { e.stopPropagation(); setEditingPrecoId(it.localId) }}
+                        title="Clique para editar preço sugerido"
+                        style={{ cursor: 'pointer' }}
+                      >
+                        {editingPrecoId === it.localId ? (
+                          <input
+                            autoFocus
+                            value={it.preco_venda || ''}
+                            style={{ width: 70 }}
+                            onChange={e => setItems(prev => prev.map(x => x.localId === it.localId ? { ...x, preco_venda: e.target.value } : x))}
+                            onBlur={() => setEditingPrecoId(null)}
+                            onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingPrecoId(null) }}
+                            onClick={e => e.stopPropagation()}
+                          />
+                        ) : (
+                          it.preco_venda ? `R$ ${it.preco_venda}` : <span className={styles.itemDot}>—</span>
+                        )}
+                      </td>
                       <td><strong>{total > 0 ? total : <span className={styles.itemDot}>—</span>}</strong></td>
                       <td>
                         <div style={{ display: 'flex', gap: '0.1rem', alignItems: 'center' }}>
