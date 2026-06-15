@@ -1446,22 +1446,24 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
         {showCorDetalhe && (
           <div className={styles.field}>
             <span className={styles.label}>Cor/Detalhe</span>
-            <input
-              type="text"
-              className={styles.addItemCor}
-              placeholder="cor"
-              value={form.cor}
-              onChange={e => setForm(p => ({ ...p, cor: e.target.value }))}
-              onKeyDown={e => { if (e.key === 'Enter') addItem() }}
-            />
-            <input
-              type="text"
-              className={styles.addItemCor}
-              placeholder="detalhe"
-              value={form.detalhe}
-              onChange={e => setForm(p => ({ ...p, detalhe: e.target.value }))}
-              onKeyDown={e => { if (e.key === 'Enter') addItem() }}
-            />
+            <div style={{ display: 'flex', gap: '0.25rem' }}>
+              <input
+                type="text"
+                className={styles.addItemCor}
+                placeholder="cor"
+                value={form.cor}
+                onChange={e => setForm(p => ({ ...p, cor: e.target.value }))}
+                onKeyDown={e => { if (e.key === 'Enter') addItem() }}
+              />
+              <input
+                type="text"
+                className={styles.addItemCor}
+                placeholder="detalhe"
+                value={form.detalhe}
+                onChange={e => setForm(p => ({ ...p, detalhe: e.target.value }))}
+                onKeyDown={e => { if (e.key === 'Enter') addItem() }}
+              />
+            </div>
           </div>
         )}
         <div className={styles.field}>

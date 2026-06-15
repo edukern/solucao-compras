@@ -453,8 +453,8 @@ function AbaCompradores() {
   const [savingEdit, setSavingEdit] = useState(false)
   const [erro, setErro] = useState(null)
   const [editId, setEditId] = useState(null)
-  const [editForm, setEditForm] = useState({ nome: '', cnpj: '', cidade: '' })
-  const [novoForm, setNovoForm] = useState({ nome: '', cnpj: '', cidade: '' })
+  const [editForm, setEditForm] = useState({ nome: '', cnpj: '', cidade: '', fantasia: '', ie: '', email: '', telefone: '', endereco: '' })
+  const [novoForm, setNovoForm] = useState({ nome: '', cnpj: '', cidade: '', fantasia: '', ie: '', email: '', telefone: '', endereco: '' })
 
   async function carregar() {
     setLoading(true)
@@ -475,7 +475,7 @@ function AbaCompradores() {
     setSavingNovo(true)
     try {
       await compradoresService.create(novoForm)
-      setNovoForm({ nome: '', cnpj: '', cidade: '' })
+      setNovoForm({ nome: '', cnpj: '', cidade: '', fantasia: '', ie: '', email: '', telefone: '', endereco: '' })
       await carregar()
     } catch (e) {
       setErro(`Erro ao adicionar comprador: ${e.message}`)
@@ -486,12 +486,12 @@ function AbaCompradores() {
 
   function handleStartEdit(c) {
     setEditId(c.id)
-    setEditForm({ nome: c.nome, cnpj: c.cnpj || '', cidade: c.cidade || '' })
+    setEditForm({ nome: c.nome, cnpj: c.cnpj || '', cidade: c.cidade || '', fantasia: c.fantasia || '', ie: c.ie || '', email: c.email || '', telefone: c.telefone || '', endereco: c.endereco || '' })
   }
 
   function handleCancelEdit() {
     setEditId(null)
-    setEditForm({ nome: '', cnpj: '', cidade: '' })
+    setEditForm({ nome: '', cnpj: '', cidade: '', fantasia: '', ie: '', email: '', telefone: '', endereco: '' })
   }
 
   async function handleSaveEdit(id) {
@@ -536,31 +536,35 @@ function AbaCompradores() {
                     <div className={styles.formRow}>
                       <div className={styles.field}>
                         <label className={styles.label}>Nome</label>
-                        <input
-                          className={styles.input}
-                          type="text"
-                          value={editForm.nome}
-                          onChange={e => setEditForm(prev => ({ ...prev, nome: e.target.value }))}
-                          required
-                        />
+                        <input className={styles.input} type="text" value={editForm.nome} onChange={e => setEditForm(prev => ({ ...prev, nome: e.target.value }))} required />
+                      </div>
+                      <div className={styles.field}>
+                        <label className={styles.label}>Nome Fantasia</label>
+                        <input className={styles.input} type="text" value={editForm.fantasia} onChange={e => setEditForm(prev => ({ ...prev, fantasia: e.target.value }))} />
                       </div>
                       <div className={styles.field}>
                         <label className={styles.label}>CNPJ</label>
-                        <input
-                          className={styles.input}
-                          type="text"
-                          value={editForm.cnpj}
-                          onChange={e => setEditForm(prev => ({ ...prev, cnpj: e.target.value }))}
-                        />
+                        <input className={styles.input} type="text" value={editForm.cnpj} onChange={e => setEditForm(prev => ({ ...prev, cnpj: e.target.value }))} />
+                      </div>
+                      <div className={styles.field}>
+                        <label className={styles.label}>Inscrição Estadual</label>
+                        <input className={styles.input} type="text" value={editForm.ie} onChange={e => setEditForm(prev => ({ ...prev, ie: e.target.value }))} />
                       </div>
                       <div className={styles.field}>
                         <label className={styles.label}>Cidade</label>
-                        <input
-                          className={styles.input}
-                          type="text"
-                          value={editForm.cidade}
-                          onChange={e => setEditForm(prev => ({ ...prev, cidade: e.target.value }))}
-                        />
+                        <input className={styles.input} type="text" value={editForm.cidade} onChange={e => setEditForm(prev => ({ ...prev, cidade: e.target.value }))} />
+                      </div>
+                      <div className={styles.field}>
+                        <label className={styles.label}>Telefone</label>
+                        <input className={styles.input} type="text" value={editForm.telefone} onChange={e => setEditForm(prev => ({ ...prev, telefone: e.target.value }))} />
+                      </div>
+                      <div className={styles.field}>
+                        <label className={styles.label}>E-mail</label>
+                        <input className={styles.input} type="email" value={editForm.email} onChange={e => setEditForm(prev => ({ ...prev, email: e.target.value }))} />
+                      </div>
+                      <div className={styles.field}>
+                        <label className={styles.label}>Endereço</label>
+                        <input className={styles.input} type="text" value={editForm.endereco} onChange={e => setEditForm(prev => ({ ...prev, endereco: e.target.value }))} />
                       </div>
                     </div>
                     <div className={styles.inlineActions}>
@@ -575,9 +579,9 @@ function AbaCompradores() {
                 ) : (
                   <>
                     <div className={styles.listItemLabel}>
-                      <span className={styles.listItemName}>{c.nome}</span>
+                      <span className={styles.listItemName}>{c.nome}{c.fantasia ? ` · ${c.fantasia}` : ''}</span>
                       <span className={styles.listItemSub}>
-                        {[c.cnpj, c.cidade].filter(Boolean).join(' · ')}
+                        {[c.cnpj, c.ie ? `IE: ${c.ie}` : null, c.cidade, c.telefone, c.email].filter(Boolean).join(' · ')}
                       </span>
                     </div>
                     <div className={styles.listItemActions}>
@@ -609,34 +613,35 @@ function AbaCompradores() {
         <div className={styles.formRow}>
           <div className={styles.field}>
             <label className={styles.label}>Nome</label>
-            <input
-              className={styles.input}
-              type="text"
-              value={novoForm.nome}
-              onChange={e => setNovoForm(prev => ({ ...prev, nome: e.target.value }))}
-              placeholder="Nome do comprador"
-              required
-            />
+            <input className={styles.input} type="text" value={novoForm.nome} onChange={e => setNovoForm(prev => ({ ...prev, nome: e.target.value }))} placeholder="Razão social" required />
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label}>Nome Fantasia</label>
+            <input className={styles.input} type="text" value={novoForm.fantasia} onChange={e => setNovoForm(prev => ({ ...prev, fantasia: e.target.value }))} placeholder="Fantasia" />
           </div>
           <div className={styles.field}>
             <label className={styles.label}>CNPJ</label>
-            <input
-              className={styles.input}
-              type="text"
-              value={novoForm.cnpj}
-              onChange={e => setNovoForm(prev => ({ ...prev, cnpj: e.target.value }))}
-              placeholder="00.000.000/0000-00"
-            />
+            <input className={styles.input} type="text" value={novoForm.cnpj} onChange={e => setNovoForm(prev => ({ ...prev, cnpj: e.target.value }))} placeholder="00.000.000/0000-00" />
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label}>Inscrição Estadual</label>
+            <input className={styles.input} type="text" value={novoForm.ie} onChange={e => setNovoForm(prev => ({ ...prev, ie: e.target.value }))} placeholder="IE" />
           </div>
           <div className={styles.field}>
             <label className={styles.label}>Cidade</label>
-            <input
-              className={styles.input}
-              type="text"
-              value={novoForm.cidade}
-              onChange={e => setNovoForm(prev => ({ ...prev, cidade: e.target.value }))}
-              placeholder="Cidade"
-            />
+            <input className={styles.input} type="text" value={novoForm.cidade} onChange={e => setNovoForm(prev => ({ ...prev, cidade: e.target.value }))} placeholder="Cidade" />
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label}>Telefone</label>
+            <input className={styles.input} type="text" value={novoForm.telefone} onChange={e => setNovoForm(prev => ({ ...prev, telefone: e.target.value }))} placeholder="(00) 00000-0000" />
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label}>E-mail</label>
+            <input className={styles.input} type="email" value={novoForm.email} onChange={e => setNovoForm(prev => ({ ...prev, email: e.target.value }))} placeholder="email@loja.com" />
+          </div>
+          <div className={styles.field}>
+            <label className={styles.label}>Endereço</label>
+            <input className={styles.input} type="text" value={novoForm.endereco} onChange={e => setNovoForm(prev => ({ ...prev, endereco: e.target.value }))} placeholder="Rua, número, bairro" />
           </div>
         </div>
         <button className={styles.btnPrimary} type="submit" disabled={savingNovo}>
