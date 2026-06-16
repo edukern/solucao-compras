@@ -1491,10 +1491,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
             value={form.valor}
             onChange={e => {
               const valor = e.target.value
-              setForm(p => ({
-                ...p, valor,
-                preco_venda: calcPrecoVenda(valor, p.markup_pct),
-              }))
+              setForm(p => ({ ...p, valor }))
             }}
             onKeyDown={e => { if (e.key === 'Enter') addItem() }}
           />
@@ -1801,10 +1798,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                           placeholder="0,00"
                           onChange={e => {
                             const valor = e.target.value
-                            setEditForm(p => ({
-                              ...p, valor,
-                              preco_venda: calcPrecoVenda(valor, p.markup_pct, p.desconto_pct),
-                            }))
+                            setEditForm(p => ({ ...p, valor }))
                           }}
                           style={{ width: 70 }}
                         />
