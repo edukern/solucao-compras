@@ -1574,23 +1574,25 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
               const showGg = gradeGroupExpand[tipo_grade]?.showMaiores
               return (
                 <Fragment key={tipo_grade}>
-                  <div className={styles.gradeGroupHeader}>
-                    <span className={styles.gradeGroupLabel}>{tipo_grade}</span>
-                    {usesRangeG && oMg > 0 && (
-                      <button
-                        className={`${styles.btnShowExtreme} ${showMg ? styles.btnShowExtremeActive : ''}`}
-                        onClick={() => setGradeGroupExpand(prev => ({ ...prev, [tipo_grade]: { ...prev[tipo_grade], showMenores: !showMg } }))}
-                        title={`${showMg ? 'Ocultar' : 'Mostrar'} tamanhos menores (${allTamsG[0]}–${allTamsG[oMg - 1]})`}
-                      >{showMg ? '−' : '+'}{allTamsG[0]}–{allTamsG[oMg - 1]}</button>
-                    )}
-                    {usesRangeG && oGg > 0 && (
-                      <button
-                        className={`${styles.btnShowExtreme} ${showGg ? styles.btnShowExtremeActive : ''}`}
-                        onClick={() => setGradeGroupExpand(prev => ({ ...prev, [tipo_grade]: { ...prev[tipo_grade], showMaiores: !showGg } }))}
-                        title={`${showGg ? 'Ocultar' : 'Mostrar'} tamanhos maiores (${allTamsG[allTamsG.length - oGg]}–${allTamsG[allTamsG.length - 1]})`}
-                      >{showGg ? '−' : '+'}{allTamsG[allTamsG.length - oGg]}–{allTamsG[allTamsG.length - 1]}</button>
-                    )}
-                  </div>
+                  {usesRangeG && (
+                    <div className={styles.gradeGroupHeader}>
+                      <span className={styles.gradeGroupLabel}>{tipo_grade}</span>
+                      {oMg > 0 && (
+                        <button
+                          className={`${styles.btnShowExtreme} ${showMg ? styles.btnShowExtremeActive : ''}`}
+                          onClick={() => setGradeGroupExpand(prev => ({ ...prev, [tipo_grade]: { ...prev[tipo_grade], showMenores: !showMg } }))}
+                          title={`${showMg ? 'Ocultar' : 'Mostrar'} tamanhos menores (${allTamsG[0]}–${allTamsG[oMg - 1]})`}
+                        >{showMg ? '−' : '+'}{allTamsG[0]}–{allTamsG[oMg - 1]}</button>
+                      )}
+                      {oGg > 0 && (
+                        <button
+                          className={`${styles.btnShowExtreme} ${showGg ? styles.btnShowExtremeActive : ''}`}
+                          onClick={() => setGradeGroupExpand(prev => ({ ...prev, [tipo_grade]: { ...prev[tipo_grade], showMaiores: !showGg } }))}
+                          title={`${showGg ? 'Ocultar' : 'Mostrar'} tamanhos maiores (${allTamsG[allTamsG.length - oGg]}–${allTamsG[allTamsG.length - 1]})`}
+                        >{showGg ? '−' : '+'}{allTamsG[allTamsG.length - oGg]}–{allTamsG[allTamsG.length - 1]}</button>
+                      )}
+                    </div>
+                  )}
                   {groupItems.map(it => {
                     const v = visitas[lojaIdx]
                     if (!v) return null
@@ -1611,7 +1613,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                               <span className={styles.itemRefDetail}>{[it.cor, it.detalhe].filter(Boolean).join(' · ')}</span>
                             )}
                           </span>
-                          <span className={styles.porLojaItemMeta}>{it.tipo_produto} · {it.classe}</span>
+                          <span className={styles.porLojaItemMeta}>{it.tipo_produto} · {it.tipo_grade} · {it.classe}</span>
                           {it.valor && <span className={styles.porLojaItemValor}>R$ {it.valor}</span>}
                           <span className={styles.porLojaItemTotalBadge}>{total > 0 ? `${total} pç` : '—'}</span>
                           {total > 0 && (
@@ -1768,25 +1770,27 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
               const showGGR = gradeGroupExpand[tipo_grade]?.showMaiores
               return (
                 <Fragment key={tipo_grade}>
-                  <tr className={styles.gradeGroupHeaderRow}>
-                    <td colSpan={showCorDetalhe ? 8 : 7} className={styles.gradeGroupHeaderCell}>
-                      <span className={styles.gradeGroupLabel}>{tipo_grade}</span>
-                      {usesRangeGR && oMGR > 0 && (
-                        <button
-                          className={`${styles.btnShowExtreme} ${showMGR ? styles.btnShowExtremeActive : ''}`}
-                          onClick={() => setGradeGroupExpand(prev => ({ ...prev, [tipo_grade]: { ...prev[tipo_grade], showMenores: !showMGR } }))}
-                          title={`${showMGR ? 'Ocultar' : 'Mostrar'} tamanhos menores (${allTamsGR[0]}–${allTamsGR[oMGR - 1]})`}
-                        >{showMGR ? '−' : '+'}{allTamsGR[0]}–{allTamsGR[oMGR - 1]}</button>
-                      )}
-                      {usesRangeGR && oGGR > 0 && (
-                        <button
-                          className={`${styles.btnShowExtreme} ${showGGR ? styles.btnShowExtremeActive : ''}`}
-                          onClick={() => setGradeGroupExpand(prev => ({ ...prev, [tipo_grade]: { ...prev[tipo_grade], showMaiores: !showGGR } }))}
-                          title={`${showGGR ? 'Ocultar' : 'Mostrar'} tamanhos maiores (${allTamsGR[allTamsGR.length - oGGR]}–${allTamsGR[allTamsGR.length - 1]})`}
-                        >{showGGR ? '−' : '+'}{allTamsGR[allTamsGR.length - oGGR]}–{allTamsGR[allTamsGR.length - 1]}</button>
-                      )}
-                    </td>
-                  </tr>
+                  {usesRangeGR && (
+                    <tr className={styles.gradeGroupHeaderRow}>
+                      <td colSpan={showCorDetalhe ? 8 : 7} className={styles.gradeGroupHeaderCell}>
+                        <span className={styles.gradeGroupLabel}>{tipo_grade}</span>
+                        {oMGR > 0 && (
+                          <button
+                            className={`${styles.btnShowExtreme} ${showMGR ? styles.btnShowExtremeActive : ''}`}
+                            onClick={() => setGradeGroupExpand(prev => ({ ...prev, [tipo_grade]: { ...prev[tipo_grade], showMenores: !showMGR } }))}
+                            title={`${showMGR ? 'Ocultar' : 'Mostrar'} tamanhos menores (${allTamsGR[0]}–${allTamsGR[oMGR - 1]})`}
+                          >{showMGR ? '−' : '+'}{allTamsGR[0]}–{allTamsGR[oMGR - 1]}</button>
+                        )}
+                        {oGGR > 0 && (
+                          <button
+                            className={`${styles.btnShowExtreme} ${showGGR ? styles.btnShowExtremeActive : ''}`}
+                            onClick={() => setGradeGroupExpand(prev => ({ ...prev, [tipo_grade]: { ...prev[tipo_grade], showMaiores: !showGGR } }))}
+                            title={`${showGGR ? 'Ocultar' : 'Mostrar'} tamanhos maiores (${allTamsGR[allTamsGR.length - oGGR]}–${allTamsGR[allTamsGR.length - 1]})`}
+                          >{showGGR ? '−' : '+'}{allTamsGR[allTamsGR.length - oGGR]}–{allTamsGR[allTamsGR.length - 1]}</button>
+                        )}
+                      </td>
+                    </tr>
+                  )}
                   {groupItems.map(it => {
               const isActive = it.localId === activeId
               const tams = tamanhosDeTipoGrade(it.tipo_grade)
