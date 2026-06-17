@@ -631,6 +631,8 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   const [editSessaoForm,    setEditSessaoForm]    = useState(null)
   const [salvandoSessaoInfo, setSalvandoSessaoInfo] = useState(false)
   const [fillMode, setFillMode] = useState('ref') // 'ref' | 'loja'
+  const [workMode, setWorkMode] = useState(initialItems.length > 0 ? 'fill' : 'add') // 'add' | 'fill'
+  const [showOverflowMenu, setShowOverflowMenu] = useState(false)
   function toggleCorDetalhe() { setShowCorDetalhe(prev => !prev) }
   const addFormFirstRef = useRef(null)
   const [editingId,      setEditingId]      = useState(null)
@@ -645,6 +647,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   const [salvoOk,        setSalvoOk]        = useState(false)
 
   const activeItem = items.find(it => it.localId === activeId) ?? null
+  const displayItems = workMode === 'add' ? [...items].reverse() : items
 
   // ── Supabase Realtime Presence: detecta outros dispositivos na mesma sessão ──
   useEffect(() => {
@@ -807,10 +810,8 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
       obs: '',
     }
     setItems(prev => [...prev, novoItem])
-    setActiveId(localId)
-    setLojaIdx(0)
     setForm(prev => ({ ...prev, ref: '', valor: '', cor: '', detalhe: '' }))
-    setShowAddForm(false)
+    requestAnimationFrame(() => addFormFirstRef.current?.focus())
   }
 
   function removeItem(localId, e) {
@@ -1300,75 +1301,77 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
         </div>
       )}
 
-      <div className={styles.phaseTitleRow}>
-        <h2 className={styles.phaseTitle}>Fase 2 — Registrar Pedidos</h2>
-        <div className={styles.fillModeToggle}>
+      <div className={styles.phase2TopBar}>
+        <span className={styles.phase2TopBarTitle}>Registrar pedidos</span>
+        <div className={styles.workModeToggle}>
           <button
-            className={`${styles.fillModeBtn} ${fillMode === 'ref' ? styles.fillModeBtnActive : ''}`}
-            onClick={() => setFillMode('ref')}
-            title="Preencher por referência (todas as lojas de um produto)"
-          >Por referência</button>
+            className={`${styles.workModeBtn} ${workMode === 'add' ? styles.workModeBtnActive : ''}`}
+            onClick={() => setWorkMode('add')}
+          >Adicionar refs</button>
           <button
-            className={`${styles.fillModeBtn} ${fillMode === 'loja' ? styles.fillModeBtnActive : ''}`}
-            onClick={() => setFillMode('loja')}
-            title="Preencher por loja (todos os produtos de uma loja)"
-          >Por loja</button>
+            className={`${styles.workModeBtn} ${workMode === 'fill' ? styles.workModeBtnActive : ''}`}
+            onClick={() => { setWorkMode('fill'); setActiveId(null) }}
+          >Preencher grades</button>
         </div>
+        <div style={{ position: 'relative' }}>
+          <button
+            className={styles.btnOverflowMenu}
+            onClick={() => setShowOverflowMenu(v => !v)}
+            title="Mais opções"
+          >⋯</button>
+          {showOverflowMenu && (
+            <div className={styles.overflowMenuPanel}>
+              <button
+                className={styles.overflowMenuItem}
+                onClick={() => { handleSalvarSessao(); setShowOverflowMenu(false) }}
+                disabled={salvandoSessao || !items.length}
+              >
+                {salvandoSessao ? 'Salvando…' : salvoOk ? '✓ Salvo' : '💾 Salvar sessão'}
+              </button>
+              <button
+                className={styles.overflowMenuItem}
+                onClick={() => { handleFechar(); setShowOverflowMenu(false) }}
+                disabled={saving || !items.length}
+              >
+                {saving ? 'Salvando…' : '📄 Gerar PDFs'}
+              </button>
+              <div className={styles.overflowMenuSep} />
+              <button
+                className={`${styles.overflowMenuItem} ${styles.overflowMenuItemDanger}`}
+                onClick={() => { setConfirmCancelar(true); setShowOverflowMenu(false) }}
+              >
+                Cancelar sessão
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className={styles.phase2ChipsRow}>
+        <button
+          className={`${styles.chipToggle} ${fillMode === 'ref' ? styles.chipToggleActive : ''}`}
+          onClick={() => setFillMode('ref')}
+          title="Preencher por referência (todas as lojas de um produto)"
+        >Por referência</button>
+        <button
+          className={`${styles.chipToggle} ${fillMode === 'loja' ? styles.chipToggleActive : ''}`}
+          onClick={() => setFillMode('loja')}
+          title="Preencher por loja (todos os produtos de uma loja)"
+        >Por loja</button>
         {fillMode === 'ref' && (
           <button
-            className={`${styles.btnToggleCor} ${showCorDetalhe ? styles.btnToggleCorOn : ''}`}
+            className={`${styles.chipToggle} ${showCorDetalhe ? styles.chipToggleActive : ''}`}
             onClick={toggleCorDetalhe}
-            title="Editar cor e detalhe diretamente em cada item (sem expandir)"
-          >
-            {showCorDetalhe ? '✓ Cor/Detalhe' : '+ Cor/Detalhe'}
-          </button>
+          >{showCorDetalhe ? '✓ Cor/Detalhe' : '+ Cor/Detalhe'}</button>
         )}
         <button
-          className={`${styles.btnToggleCor} ${showIcms ? styles.btnToggleCorOn : ''}`}
-          onClick={() => {
-            setShowIcms(v => {
-              const next = !v
-              if (next && !form.icms_pct && parseFloat(sessaoIcms) > 0) {
-                setForm(p => ({ ...p, icms_pct: sessaoIcms }))
-              }
-              return next
-            })
-          }}
-          title="Mostrar campo ICMS por item (para variações em relação ao ICMS da sessão)"
-        >
-          {showIcms ? '✓ ICMS' : '+ ICMS'}
-        </button>
-        <button
-          className={`${styles.btnSalvarSessao} ${salvoOk ? styles.btnSalvarSessaoOk : ''}`}
-          onClick={handleSalvarSessao}
-          disabled={salvandoSessao || !items.length}
-          title="Salva os itens no banco para não perder o trabalho (sem liberar para outras lojas)"
-        >
-          {salvandoSessao ? 'Salvando…' : salvoOk ? '✓ Salvo' : '💾 Salvar sessão'}
-        </button>
-        <button
-          className={styles.btnGerarPdfs}
-          onClick={handleFechar}
-          disabled={saving || !items.length}
-          title="Salva os pedidos e abre a tela de geração de PDFs"
-        >
-          {saving ? 'Salvando…' : '📄 Gerar PDFs'}
-        </button>
-        <button
-          className={styles.btnLiberar}
-          onClick={handleLiberar}
-          disabled={liberando || !items.length}
-          title="Salva os itens como template para todas as lojas preencherem simultaneamente"
-        >
-          {liberando ? 'Liberando…' : '⇢ Liberar para preenchimento'}
-        </button>
-        <button
-          className={styles.btnCancelarSessao}
-          onClick={() => setConfirmCancelar(true)}
-          title="Apagar esta sessão permanentemente"
-        >
-          Cancelar sessão
-        </button>
+          className={`${styles.chipToggle} ${showIcms ? styles.chipToggleActive : ''}`}
+          onClick={() => setShowIcms(v => {
+            const next = !v
+            if (next && !form.icms_pct && parseFloat(sessaoIcms) > 0) setForm(p => ({ ...p, icms_pct: sessaoIcms }))
+            return next
+          })}
+        >{showIcms ? '✓ ICMS' : '+ ICMS'}</button>
       </div>
 
       {/* Modal de confirmação de cancelamento */}
@@ -1416,7 +1419,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
         {TIPOS_PRODUTO.map(t => <option key={t} value={t} />)}
       </datalist>
 
-      {(showAddForm || items.length === 0) && (
+      {(workMode === 'add' || items.length === 0) && (
       <div className={styles.addItemForm}>
         <div className={styles.field}>
           <span className={styles.label}>Ref *</span>
@@ -1761,7 +1764,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
           <tbody>
             {(() => {
               const seenGrades = new Set()
-              return items.map(it => {
+              return displayItems.map(it => {
               const isActive = it.localId === activeId
               const isCalcado = it.tipo_grade?.startsWith('C-')
               const showGradeHeader = isCalcado && !seenGrades.has(it.tipo_grade)
@@ -2226,22 +2229,30 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
 
       {error && <div className={styles.errorBanner}>{error}</div>}
 
-      <div className={styles.phaseActions}>
-        {!showAddForm && (
-          <button
-            className={styles.btnSecondary}
-            onClick={() => setShowAddForm(true)}
-          >
-            + Novo item
-          </button>
+      <div className={styles.phase2Footer}>
+        {workMode === 'add' ? (
+          items.length > 0 && (
+            <button
+              className={styles.btnGoToFill}
+              onClick={() => { setWorkMode('fill'); setActiveId(null) }}
+            >
+              Pronto — ir para preenchimento →
+            </button>
+          )
+        ) : (
+          <>
+            <span className={styles.phase2FooterMeta}>
+              {items.filter(it => totalQtdItem(it.localId) > 0).length} de {items.length} {items.length === 1 ? 'item preenchido' : 'itens preenchidos'}
+            </span>
+            <button
+              className={styles.btnLiberar}
+              onClick={handleLiberar}
+              disabled={liberando || !items.length}
+            >
+              {liberando ? 'Liberando…' : '⇢ Liberar para as lojas'}
+            </button>
+          </>
         )}
-        <button
-          className={styles.btnSecondary}
-          disabled={saving || items.every(it => totalQtdItem(it.localId) === 0)}
-          onClick={handleFechar}
-        >
-          {saving ? 'Salvando…' : 'Fechar sessão e gerar PDFs →'}
-        </button>
       </div>
     </div>
   )
@@ -3450,6 +3461,7 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetom
   const [savingEditSessao,    setSavingEditSessao]    = useState(false)
   const [confirmDeleteSessao, setConfirmDeleteSessao] = useState(null)
   const [statsMap,            setStatsMap]            = useState({}) // { [sessao_id]: { pcs, valor, lojas } }
+  const [openGearId,          setOpenGearId]          = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -3641,69 +3653,59 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetom
             </button>
 
             <div className={styles.histSessaoActions}>
-              {(() => {
-                const minhaVisita = comprador
-                  ? (ses.visitas ?? []).find(v => v.comprador_id === comprador.id)
-                  : null
-                return minhaVisita && onPreencherLoja ? (
-                  <button
-                    className={`${styles.btnHistAction} ${styles.btnHistPreencher}`}
-                    onClick={() => onPreencherLoja(ses.id, minhaVisita.visita_id, comprador.nome)}
-                    title="Preencher os pedidos da minha loja nesta sessão"
-                  >
-                    Preencher
-                  </button>
-                ) : null
-              })()}
-              {onVisualizar && (
-                <button
-                  className={styles.btnHistAction}
-                  onClick={() => onVisualizar(ses.id)}
-                  title="Ver pedidos desta sessão (somente leitura)"
-                >
-                  Visualizar
-                </button>
-              )}
-              {comprador?.is_editor && (
-                <button
-                  className={`${styles.btnHistAction} ${styles.btnHistEdit}`}
-                  onClick={() => onRetomarSessao ? onRetomarSessao(ses) : handleStartEditSessao(ses)}
-                  disabled={onRetomarSessao ? retomarLoading === ses.id : editSessaoId !== null}
-                  title={onRetomarSessao ? 'Retomar edição de itens desta sessão' : 'Editar dados da sessão'}
-                >
-                  {onRetomarSessao && retomarLoading === ses.id ? '…' : 'Editar'}
-                </button>
-              )}
-              {comprador?.is_editor && onMarkup && (
-                <button
-                  className={`${styles.btnHistAction} ${styles.btnHistMarkup}`}
-                  onClick={() => onMarkup(ses)}
-                  title="Definir markup e preços sugeridos para esta sessão"
-                >
-                  Markup
-                </button>
-              )}
               <button
-                className={styles.btnReimprimir}
-                onClick={() => handleReimprimir(ses)}
-                disabled={reimprimindo === ses.id}
-                title="Reimprimir PDFs desta sessão"
-              >
-                {reimprimindo === ses.id ? '…' : '🖨'}
-              </button>
-              {comprador?.is_editor && (
-                <button
-                  className={styles.btnReimprimir}
-                  style={{ color: 'var(--red)' }}
-                  onClick={() => setConfirmDeleteSessao(ses.id)}
-                  disabled={editSessaoId !== null}
-                  title="Excluir sessão"
-                >
-                  🗑
-                </button>
-              )}
+                className={`${styles.histGearBtn} ${openGearId === ses.id ? 'open' : ''}`}
+                onClick={() => setOpenGearId(openGearId === ses.id ? null : ses.id)}
+                title="Ações desta sessão"
+              >⚙</button>
             </div>
           </div>
+
+          {openGearId === ses.id && (() => {
+            const minhaVisita = comprador
+              ? (ses.visitas ?? []).find(v => v.comprador_id === comprador.id)
+              : null
+            return (
+              <div className={styles.histGearPanel}>
+                {minhaVisita && onPreencherLoja && (
+                  <button
+                    className={`${styles.btnHistAction} ${styles.btnHistPreencher}`}
+                    onClick={() => { onPreencherLoja(ses.id, minhaVisita.visita_id, comprador.nome); setOpenGearId(null) }}
+                  >Preencher</button>
+                )}
+                {onVisualizar && (
+                  <button
+                    className={styles.btnHistAction}
+                    onClick={() => { onVisualizar(ses.id); setOpenGearId(null) }}
+                  >Visualizar</button>
+                )}
+                {comprador?.is_editor && (
+                  <button
+                    className={`${styles.btnHistAction} ${styles.btnHistEdit}`}
+                    onClick={() => { onRetomarSessao ? onRetomarSessao(ses) : handleStartEditSessao(ses); setOpenGearId(null) }}
+                    disabled={onRetomarSessao ? retomarLoading === ses.id : editSessaoId !== null}
+                  >{onRetomarSessao && retomarLoading === ses.id ? '…' : 'Retomar'}</button>
+                )}
+                {comprador?.is_editor && onMarkup && (
+                  <button
+                    className={`${styles.btnHistAction} ${styles.btnHistMarkup}`}
+                    onClick={() => { onMarkup(ses); setOpenGearId(null) }}
+                  >Markup</button>
+                )}
+                <button
+                  className={styles.btnHistAction}
+                  onClick={() => handleReimprimir(ses)}
+                  disabled={reimprimindo === ses.id}
+                >{reimprimindo === ses.id ? '…' : '🖨 Reimprimir'}</button>
+                {comprador?.is_editor && (
+                  <button
+                    className={styles.histGearPanelDanger}
+                    onClick={() => { setConfirmDeleteSessao(ses.id); setOpenGearId(null) }}
+                  >Excluir sessão</button>
+                )}
+              </div>
+            )
+          })()}
 
           {editSessaoId === ses.id && (
             <div className={styles.histEditForm}>

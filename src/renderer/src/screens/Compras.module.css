@@ -2981,3 +2981,201 @@
   border-color: var(--border);
 }
 .btnHistPreencher:hover { background: var(--border); }
+
+/* ── Phase 2 top bar ───────────────────────────────────────────────────────── */
+.phase2TopBar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
+}
+.phase2TopBarTitle {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex: 1;
+}
+
+/* ── Work-mode toggle (Adicionar / Preencher) ──────────────────────────────── */
+.workModeToggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.workModeBtn {
+  padding: 0.28rem 0.85rem;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.workModeBtn:last-child { border-right: none; }
+.workModeBtnActive {
+  background: var(--text-primary);
+  color: var(--bg-card);
+  font-weight: 600;
+}
+
+/* ── Overflow menu ─────────────────────────────────────────────────────────── */
+.btnOverflowMenu {
+  padding: 0.28rem 0.6rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  line-height: 1;
+  font-family: inherit;
+  transition: border-color 0.15s, color 0.15s;
+}
+.btnOverflowMenu:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+.overflowMenuPanel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.25rem 0;
+  min-width: 170px;
+  z-index: 50;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+.overflowMenuItem {
+  display: block;
+  width: 100%;
+  padding: 0.45rem 0.85rem;
+  background: transparent;
+  border: none;
+  text-align: left;
+  font-size: 0.82rem;
+  font-family: inherit;
+  color: var(--text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s;
+}
+.overflowMenuItem:hover:not(:disabled) { background: var(--bg-hover); }
+.overflowMenuItem:disabled { opacity: 0.45; cursor: not-allowed; }
+.overflowMenuItemDanger { color: var(--red); }
+.overflowMenuSep {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.25rem 0;
+}
+
+/* ── Chips row ─────────────────────────────────────────────────────────────── */
+.phase2ChipsRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.chipToggle {
+  padding: 0.18rem 0.65rem;
+  border: 1px dashed var(--border);
+  border-radius: 20px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.chipToggle:hover { border-color: var(--accent); color: var(--accent); border-style: solid; }
+.chipToggleActive {
+  border-style: solid;
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.08);
+}
+
+/* ── Phase 2 footer ────────────────────────────────────────────────────────── */
+.phase2Footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0 0;
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+.phase2FooterMeta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.btnGoToFill {
+  margin-left: auto;
+  padding: 0.45rem 1.1rem;
+  background: var(--text-primary);
+  color: var(--bg-card);
+  border: none;
+  border-radius: 7px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btnGoToFill:hover { opacity: 0.85; }
+
+/* ── Gear button (Phase 0) ─────────────────────────────────────────────────── */
+.histGearBtn {
+  padding: 0.28rem 0.55rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  cursor: pointer;
+  line-height: 1;
+  font-family: inherit;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s;
+}
+.histGearBtn:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+.histGearBtn.open { border-color: var(--accent); color: var(--accent); background: rgba(var(--accent-rgb), 0.07); }
+
+/* ── Gear panel (Phase 0) ──────────────────────────────────────────────────── */
+.histGearPanel {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem 0.5rem 1rem;
+  background: var(--bg-hover);
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.histGearPanelLabel {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-right: 0.25rem;
+}
+.histGearPanelDanger {
+  margin-left: auto;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid var(--red);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--red);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s;
+}
+.histGearPanelDanger:hover { background: rgba(var(--red-rgb, 220,38,38), 0.08); }
