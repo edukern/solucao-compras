@@ -18,7 +18,7 @@ export const GRADE_DEFINITIONS = {
   SOLT:    { classificacao: 'SOLT',  tamanhos: ['U'] },
   LAR:     { classificacao: 'LAR',   tamanhos: ['U'] },
   GERAL:   { classificacao: 'GERAL', tamanhos: ['U'] },
-  'C-BB':  { classificacao: 'C-BB',  ocultoMenores: 3, ocultoMaiores: 5, tamanhos: ['14','15','16','17','18','19','20','21','22','23','24','25','26','27'] },
+  'C-BB':  { classificacao: 'C-BB',  ocultoMenores: 3, ocultoMaiores: 3, tamanhos: ['14','15','16','17','18','19','20','21','22','23','24','25','26','27'] },
   'C-INF': { classificacao: 'C-INF', ocultoMenores: 4, ocultoMaiores: 5, tamanhos: ['20','21','22','23','24','25','26','27','28','29','30','31','32'] },
   'C-JUV': { classificacao: 'C-JUV', ocultoMenores: 2, ocultoMaiores: 2, tamanhos: ['25','26','27','28','29','30','31','32','33','34','35','36'] },
   'C-AD-M':{ classificacao: 'C-AD-M', ocultoMenores: 4, ocultoMaiores: 1, tamanhos: ['34','35','36','37','38','39','40','41','42','43','44','45'] },
