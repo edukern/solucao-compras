@@ -4005,7 +4005,7 @@ function PreencherMinhaLoja({ sessaoId, visitaId, compradorNome, colEstacao, onB
         </div>
       )}
 
-      {pedidos.map(ped => {
+      {pedidos.map((ped, pedIdx) => {
         const tipoGrade = ped.segmentacao?.tipo_grade || ped.tipo_grade || ''
         const tams = tamanhosDeTipoGrade(tipoGrade)
         const total = tams.reduce((s, t) => s + (parseInt(qtds[ped.id]?.[t]) || 0), 0)
@@ -4029,7 +4029,7 @@ function PreencherMinhaLoja({ sessaoId, visitaId, compradorNome, colEstacao, onB
               <span className={styles.porLojaItemTotalBadge}>{total > 0 ? `${total} pç` : '—'}</span>
             </div>
             <div className={styles.porLojaGradeRow}>
-              {visibleTams5.map(tam => (
+              {visibleTams5.map((tam, tamIdx) => (
                 <div key={tam} className={styles.porLojaGradeTam}>
                   <div className={styles.porLojaGradeTamLabel}>{tam}</div>
                   <input
@@ -4038,14 +4038,43 @@ function PreencherMinhaLoja({ sessaoId, visitaId, compradorNome, colEstacao, onB
                     value={getQtd(ped.id, tam)}
                     onChange={e => setQtd(ped.id, tam, e.target.value)}
                     onKeyDown={e => {
-                      if (e.key !== 'Enter' && !(e.key === 'Tab' && !e.shiftKey)) return
-                      e.preventDefault()
-                      const all = Array.from(document.querySelectorAll('[data-colab-input]'))
-                      const idx = all.indexOf(e.target)
-                      if (idx >= 0 && idx < all.length - 1) all[idx + 1].focus()
+                      const r = pedIdx, c = tamIdx
+                      const sel = attr => document.querySelector(`[data-colab-input][data-row="${attr[0]}"][data-col="${attr[1]}"]`)
+                      const nearestInRow = (row, fromCol) => {
+                        for (let dc = 0; dc <= fromCol; dc++) {
+                          const el = sel([row, fromCol - dc])
+                          if (el) return el
+                        }
+                        return null
+                      }
+                      if (e.key === 'ArrowRight') {
+                        e.preventDefault()
+                        sel([r, c + 1])?.focus()
+                      } else if (e.key === 'ArrowLeft') {
+                        e.preventDefault()
+                        if (c > 0) sel([r, c - 1])?.focus()
+                      } else if (e.key === 'ArrowDown') {
+                        e.preventDefault()
+                        nearestInRow(r + 1, c)?.focus()
+                      } else if (e.key === 'ArrowUp') {
+                        e.preventDefault()
+                        if (r > 0) nearestInRow(r - 1, c)?.focus()
+                      } else if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
+                        e.preventDefault()
+                        const all = Array.from(document.querySelectorAll('[data-colab-input]'))
+                        const idx = all.indexOf(e.target)
+                        if (idx >= 0 && idx < all.length - 1) all[idx + 1].focus()
+                      } else if (e.key === 'Tab' && e.shiftKey) {
+                        e.preventDefault()
+                        const all = Array.from(document.querySelectorAll('[data-colab-input]'))
+                        const idx = all.indexOf(e.target)
+                        if (idx > 0) all[idx - 1].focus()
+                      }
                     }}
                     placeholder="0"
                     data-colab-input="1"
+                    data-row={pedIdx}
+                    data-col={tamIdx}
                   />
                 </div>
               ))}
