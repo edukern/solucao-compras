@@ -1,0 +1,29 @@
+{
+  "controle": {
+    "host":     "localhost",
+    "port":     5432,
+    "database": "controle",
+    "user":     "postgres",
+    "password": "masterkey"
+  },
+  "supabase": {
+    "url":            "https://bhxpkysueyoblizkvomb.supabase.co",
+    "serviceRoleKey": "COLE_AQUI_A_SERVICE_ROLE_KEY_DO_SUPABASE"
+  },
+  "grupos": [
+    {
+      "_comentario": "Grupo Backes — Samuel compra para todas as lojas e CD. Ajustar comprador_id conforme o Supabase.",
+      "comprador_id":        1,
+      "codempresa_controle": [1, 11, 12, 13, 99],
+      "sincronizacoes": [
+        {
+          "_comentario": "Ajustar colecao_id (ID no Supabase) e codcolecao_controle (código no Macle)",
+          "colecao_id":          1,
+          "codcolecao_controle": 20000014,
+          "data_inicio":         "2025-01-01",
+          "data_fim":            "2025-12-31"
+        }
+      ]
+    }
+  ]
+}

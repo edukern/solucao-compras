@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LayoutDashboard, Target, ShoppingBag, TrendingUp, BarChart2, Settings, Sun, Moon } from 'lucide-react'
+import { LayoutDashboard, Target, ShoppingBag, TrendingUp, BarChart2, Settings, Sun, Moon, Table2 } from 'lucide-react'
 import { useCollection } from '../contexts/CollectionContext'
 import { useAuth } from '../contexts/AuthContext'
 import { colecoes as colecoesService } from '../services/colecoes'
@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { id: 'compras',       label: 'Compras',       Icon: ShoppingBag },
   { id: 'historico',     label: 'Histórico',     Icon: TrendingUp },
   { id: 'relatorios',    label: 'Relatórios',    Icon: BarChart2 },
+  { id: 'agregador',     label: 'Agregador',     Icon: Table2 },
   { id: 'configuracoes', label: 'Configurações', Icon: Settings },
 ]
 

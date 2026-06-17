@@ -9,6 +9,7 @@ import Compras from './screens/Compras'
 import Relatorios from './screens/Relatorios'
 import Historico from './screens/Historico'
 import Configuracoes from './screens/Configuracoes'
+import Agregador from './screens/Agregador'
 import Login from './screens/Login'
 import SelecionarLoja from './screens/SelecionarLoja'
 
@@ -18,6 +19,7 @@ const SCREENS = {
   compras:       () => <Compras />,
   historico:     () => <Historico />,
   relatorios:    () => <Relatorios />,
+  agregador:     () => <Agregador />,
   configuracoes: () => <Configuracoes />,
 }
 
