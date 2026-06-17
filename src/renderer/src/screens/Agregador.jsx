@@ -34,32 +34,68 @@ function grupoKey(tipoGrade) {
 function buildRowData(bySeg, historico) {
   const rows = []
 
-  for (const [segId, { seg, itens: pedidoItens }] of bySeg) {
-    if (!seg) continue
-    const tipoGrade = seg.tipo_grade
-    const tamanhos = GRADE_DEFINITIONS[tipoGrade]?.tamanhos ?? []
-    const histItens = historico.get(tipoGrade) ?? new Map()
-    const produto = `${seg.tipo_produto}${seg.classe ? ' ' + seg.classe : ''}`
+  if (bySeg.size > 0) {
+    for (const [segId, { seg, itens: pedidoItens }] of bySeg) {
+      if (!seg) continue
+      const tipoGrade = seg.tipo_grade
+      const tamanhos = GRADE_DEFINITIONS[tipoGrade]?.tamanhos ?? []
+      const histItens = historico.get(tipoGrade) ?? new Map()
+      const produto = `${seg.tipo_produto}${seg.classe ? ' ' + seg.classe : ''}`
+
+      const makeRow = (metrica, isFirst) => {
+        const row = {
+          _segId:     segId,
+          _produto:   isFirst ? produto : '',
+          _label:     produto,
+          _metrica:   metrica,
+          _tipoGrade: tipoGrade,
+          _isFirst:   isFirst,
+          _isEstoque: metrica === 'Estoque',
+          total:      0,
+        }
+        for (const tam of tamanhos) {
+          const field = `${tipoGrade}__${tam}`
+          let val = 0
+          if (metrica === 'Pedido')       val = pedidoItens.get(tam) ?? 0
+          else if (metrica === 'Compra')  val = histItens.get(tam)?.comprada ?? 0
+          else if (metrica === 'Venda')   val = histItens.get(tam)?.vendida  ?? 0
+          else if (metrica === 'Estoque') val = histItens.get(tam)?.estoque  ?? 0
+          row[field] = val
+          row.total += val
+        }
+        return row
+      }
+
+      rows.push(makeRow('Compra',  true))
+      rows.push(makeRow('Venda',   false))
+      rows.push(makeRow('Estoque', false))
+      rows.push(makeRow('Pedido',  false))
+    }
+    return rows
+  }
+
+  // Sem pedidos — mostrar histórico puro por tipo_grade
+  for (const [tipoGrade, tamMap] of historico) {
+    const tamanhos = GRADE_DEFINITIONS[tipoGrade]?.tamanhos ?? [...tamMap.keys()]
 
     const makeRow = (metrica, isFirst) => {
       const row = {
-        _segId:     segId,
-        _produto:   isFirst ? produto : '',
-        _label:     produto,
+        _segId:     tipoGrade,
+        _produto:   isFirst ? tipoGrade : '',
+        _label:     tipoGrade,
         _metrica:   metrica,
         _tipoGrade: tipoGrade,
         _isFirst:   isFirst,
         _isEstoque: metrica === 'Estoque',
         total:      0,
       }
-
       for (const tam of tamanhos) {
         const field = `${tipoGrade}__${tam}`
+        const entry = tamMap.get(tam)
         let val = 0
-        if (metrica === 'Pedido')   val = pedidoItens.get(tam) ?? 0
-        else if (metrica === 'Compra')  val = histItens.get(tam)?.comprada ?? 0
-        else if (metrica === 'Venda')   val = histItens.get(tam)?.vendida  ?? 0
-        else if (metrica === 'Estoque') val = histItens.get(tam)?.estoque  ?? 0
+        if (metrica === 'Compra')       val = entry?.comprada ?? 0
+        else if (metrica === 'Venda')   val = entry?.vendida  ?? 0
+        else if (metrica === 'Estoque') val = entry?.estoque  ?? 0
         row[field] = val
         row.total += val
       }
@@ -69,7 +105,6 @@ function buildRowData(bySeg, historico) {
     rows.push(makeRow('Compra',  true))
     rows.push(makeRow('Venda',   false))
     rows.push(makeRow('Estoque', false))
-    rows.push(makeRow('Pedido',  false))
   }
 
   return rows
@@ -370,8 +405,9 @@ export default function Agregador() {
   const tipoGradeSet = useMemo(() => {
     const s = new Set()
     for (const { seg } of bySeg.values()) if (seg?.tipo_grade) s.add(seg.tipo_grade)
+    for (const tipoGrade of historico.keys()) s.add(tipoGrade)
     return s
-  }, [bySeg])
+  }, [bySeg, historico])
 
   const rowData  = useMemo(() => buildRowData(bySeg, historico), [bySeg, historico])
   const colDefs  = useMemo(() => buildColDefs(tipoGradeSet), [tipoGradeSet])
@@ -455,7 +491,7 @@ export default function Agregador() {
         <div className={styles.gridWrap}>
           {rowData.length === 0 && !loading ? (
             <div className={styles.empty}>
-              Nenhum pedido encontrado para {selectedNome} nesta coleção.
+              Nenhum dado encontrado para {selectedNome} nesta coleção.
             </div>
           ) : (
             <AgGridReact
