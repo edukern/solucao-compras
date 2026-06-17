@@ -3451,11 +3451,7 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetom
   const { comprador } = useAuth()
   const [sessoesList,      setSessoesList]      = useState([])
   const [loading,          setLoading]          = useState(true)
-  const [expandedSessao,   setExpandedSessao]   = useState(null)
-  const [expandedVisita,   setExpandedVisita]   = useState(null)
-  const [pedidosPorVisita, setPedidosPorVisita] = useState({})
   const [reimprimindo,     setReimprimindo]     = useState(null)
-  const [confirmCancelar,     setConfirmCancelar]     = useState(null)
   const [editSessaoId,        setEditSessaoId]        = useState(null)
   const [editSessaoForm,      setEditSessaoForm]      = useState({})
   const [savingEditSessao,    setSavingEditSessao]    = useState(false)
@@ -3496,26 +3492,6 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetom
     })
     return () => { cancelled = true }
   }, [colId, refreshKey])
-
-  async function handleExpandVisita(visitaId) {
-    if (expandedVisita === visitaId) { setExpandedVisita(null); return }
-    setExpandedVisita(visitaId)
-    if (!pedidosPorVisita[visitaId]) {
-      const peds = await pedidosService.byVisita(visitaId)
-      setPedidosPorVisita(prev => ({ ...prev, [visitaId]: peds }))
-    }
-  }
-
-  async function executarCancelar() {
-    if (!confirmCancelar) return
-    const { pedidoId, visitaId } = confirmCancelar
-    setConfirmCancelar(null)
-    await pedidosService.cancelar(pedidoId)
-    setPedidosPorVisita(prev => ({
-      ...prev,
-      [visitaId]: (prev[visitaId] ?? []).filter(p => p.id !== pedidoId)
-    }))
-  }
 
   function handleStartEditSessao(ses) {
     setEditSessaoId(ses.id)
@@ -3563,7 +3539,6 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetom
       const allPeds = Object.fromEntries(
         visitasComPedidos.map(v => [v.id, v.pedidos ?? []])
       )
-      setPedidosPorVisita(allPeds)
       const visitasForPDF = ses.visitas.map(v => ({
         id:                 v.visita_id,
         comprador_nome:     v.comprador_nome,
@@ -3598,15 +3573,6 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetom
         </div>
       )}
 
-      {confirmCancelar && (
-        <ConfirmModal
-          message="Cancelar este pedido? Essa ação não pode ser desfeita."
-          confirmLabel="Cancelar pedido"
-          danger
-          onConfirm={executarCancelar}
-          onCancel={() => setConfirmCancelar(null)}
-        />
-      )}
       {confirmDeleteSessao && (
         <ConfirmModal
           message="Excluir esta sessão inteira? Todos os pedidos serão removidos. Essa ação não pode ser desfeita."
@@ -3630,7 +3596,7 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetom
           <div className={styles.histSessaoHeader}>
             <button
               className={styles.histSessaoToggle}
-              onClick={() => setExpandedSessao(expandedSessao === ses.id ? null : ses.id)}
+              onClick={() => setOpenGearId(openGearId === ses.id ? null : ses.id)}
             >
               <span className={styles.histSessaoMain}>
                 <strong className={styles.histFornNome}>{fornNome}</strong>
@@ -3649,7 +3615,6 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetom
                   <strong>R$ {stats.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
                 </span>
               )}
-              <span className={styles.histChevron}>{expandedSessao === ses.id ? '▲' : '▼'}</span>
             </button>
 
             <div className={styles.histSessaoActions}>
@@ -3767,67 +3732,6 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetom
             </div>
           )}
 
-          {expandedSessao === ses.id && (
-            <div className={styles.histSessaoBody}>
-              {(ses.visitas ?? []).length === 0 ? (
-                <p className={styles.muted}>Nenhuma loja nesta sessão.</p>
-              ) : (ses.visitas ?? []).map(vis => (
-                <div key={vis.visita_id} className={styles.histVisita}>
-                  <button
-                    className={styles.histVisitaHeader}
-                    onClick={() => handleExpandVisita(vis.visita_id)}
-                  >
-                    <span>{vis.comprador_nome}</span>
-                    <span className={styles.histChevron}>{expandedVisita === vis.visita_id ? '▲' : '▼'}</span>
-                  </button>
-
-                  {expandedVisita === vis.visita_id && (
-                    <div className={styles.histPedidos}>
-                      {!(pedidosPorVisita[vis.visita_id]) ? (
-                        <p className={styles.muted}>Carregando…</p>
-                      ) : pedidosPorVisita[vis.visita_id].length === 0 ? (
-                        <p className={styles.muted}>Nenhum pedido.</p>
-                      ) : (
-                        <table className={styles.histTable}>
-                          <thead>
-                            <tr>
-                              <th>Segmentação</th>
-                              <th>Peças</th>
-                              <th>Valor unit.</th>
-                              <th>Total</th>
-                              <th></th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {pedidosPorVisita[vis.visita_id].map(p => {
-                              const pecas = (p.itens ?? []).reduce((s, i) => s + i.qtd, 0)
-                              const total = pecas * p.valor_unitario * (1 - p.desconto_pct / 100)
-                              return (
-                                <tr key={p.id}>
-                                  <td>{p.classificacao} · {p.tipo_produto} · {p.classe}</td>
-                                  <td>{pecas}</td>
-                                  <td>R$ {fmt(p.valor_unitario)}</td>
-                                  <td>R$ {fmt(total)}</td>
-                                  <td>
-                                    <button
-                                      className={styles.btnCancelar}
-                                      onClick={() => setConfirmCancelar({ pedidoId: p.id, visitaId: vis.visita_id })}
-                                    >
-                                      Cancelar
-                                    </button>
-                                  </td>
-                                </tr>
-                              )
-                            })}
-                          </tbody>
-                        </table>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
         </div>
         )
       })}

@@ -5,15 +5,14 @@ export const colecoes = {
     const { data, error } = await supabase
       .from('colecoes')
       .select('*')
-      .order('ano', { ascending: false })
-      .order('estacao')
+      .order('id', { ascending: false })
     if (error) throw error
     return data
   },
-  async create({ nome, estacao, ano }) {
+  async create({ nome }) {
     const { data, error } = await supabase
       .from('colecoes')
-      .insert({ nome, estacao, ano })
+      .insert({ nome })
       .select()
       .single()
     if (error) throw error

@@ -8,17 +8,12 @@ import { compradores as compradoresService } from '../services/compradores'
 import { fornecedores as fornecedoresService } from '../services/fornecedores'
 import { supabase } from '../lib/supabase'
 
-// Bonus fix #4: module-level constant
-const anoAtual = new Date().getFullYear()
-
 // ---------------------------------------------------------------------------
 // AbaColecoes
 // ---------------------------------------------------------------------------
 function AbaColecoes() {
   const [colecoes, setColecoes] = useState([])
   const [nome, setNome] = useState('')
-  const [estacao, setEstacao] = useState('verao')
-  const [ano, setAno] = useState(anoAtual)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [erro, setErro] = useState(null)
@@ -40,10 +35,8 @@ function AbaColecoes() {
     if (!nome.trim()) return
     setSaving(true)
     try {
-      await colecoesService.create({ nome: nome.trim(), estacao, ano: Number(ano) })
+      await colecoesService.create({ nome: nome.trim() })
       setNome('')
-      setEstacao('verao')
-      setAno(anoAtual)
       await carregar()
     } finally {
       setSaving(false)
@@ -77,53 +70,16 @@ function AbaColecoes() {
       {erro && <div className={styles.erro}>{erro}</div>}
       <form className={styles.form} onSubmit={handleSubmit}>
         <h2 className={styles.sectionTitle}>Nova Coleção</h2>
-        <div className={styles.formRow}>
-          <div className={styles.field}>
-            <label className={styles.label}>Nome</label>
-            <input
-              className={styles.input}
-              type="text"
-              value={nome}
-              onChange={e => setNome(e.target.value)}
-              placeholder="Ex: Verão 2026"
-              required
-            />
-          </div>
-          <div className={styles.field}>
-            <label className={styles.label}>Ano</label>
-            <input
-              className={styles.input}
-              type="number"
-              value={ano}
-              onChange={e => setAno(e.target.value)}
-              min="2000"
-              max="2099"
-              required
-            />
-          </div>
-        </div>
         <div className={styles.field}>
-          <label className={styles.label}>Estação</label>
-          <div className={styles.radioGroup}>
-            <label className={styles.radioLabel}>
-              <input
-                type="radio"
-                value="verao"
-                checked={estacao === 'verao'}
-                onChange={() => setEstacao('verao')}
-              />
-              Verão
-            </label>
-            <label className={styles.radioLabel}>
-              <input
-                type="radio"
-                value="inverno"
-                checked={estacao === 'inverno'}
-                onChange={() => setEstacao('inverno')}
-              />
-              Inverno
-            </label>
-          </div>
+          <label className={styles.label}>Nome</label>
+          <input
+            className={styles.input}
+            type="text"
+            value={nome}
+            onChange={e => setNome(e.target.value)}
+            placeholder="Ex: 27/2"
+            required
+          />
         </div>
         <button className={styles.btnPrimary} type="submit" disabled={saving}>
           {saving ? 'Salvando…' : 'Adicionar Coleção'}
@@ -142,9 +98,6 @@ function AbaColecoes() {
               <div key={c.id} className={styles.listItem}>
                 <div className={styles.listItemLabel}>
                   <span className={styles.listItemName}>{c.nome}</span>
-                  <span className={styles.listItemSub}>
-                    {c.estacao === 'verao' ? 'Verão' : 'Inverno'} · {c.ano}
-                  </span>
                 </div>
                 <div className={styles.listItemActions}>
                   <span className={`${styles.badge} ${statusColors[c.status] || ''}`}>
