@@ -1564,127 +1564,130 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
             })}
           </div>
           <div className={styles.porLojaItemsList}>
-            {[...new Set(items.map(it => it.tipo_grade))].map(tipo_grade => {
-              const groupItems = items.filter(it => it.tipo_grade === tipo_grade)
-              const oMg = GRADE_DEFINITIONS[tipo_grade]?.ocultoMenores ?? 0
-              const oGg = GRADE_DEFINITIONS[tipo_grade]?.ocultoMaiores ?? 0
-              const usesRangeG = oMg > 0 || oGg > 0
-              const allTamsG = tamanhosDeTipoGrade(tipo_grade)
-              const showMg = gradeGroupExpand[tipo_grade]?.showMenores
-              const showGg = gradeGroupExpand[tipo_grade]?.showMaiores
+            {items.map(it => {
+              const v = visitas[lojaIdx]
+              if (!v) return null
+              const oM2 = GRADE_DEFINITIONS[it.tipo_grade]?.ocultoMenores ?? 0
+              const oG2 = GRADE_DEFINITIONS[it.tipo_grade]?.ocultoMaiores ?? 0
+              const usesRange2 = oM2 > 0 || oG2 > 0
+              const tams = tamanhosDeTipoGrade(it.tipo_grade)
+              const vTams = getVisibleTams(it.localId, tams, it.tipo_grade)
+              const hideFirst = vTams[0] !== tams[0]
+              const hideLast  = vTams[vTams.length - 1] !== tams[tams.length - 1]
+              const maxVisible2 = gradeExtremes[it.localId]?.maxVisible ?? PLUS_SIZE_DEFAULT - 1
+              const nextExpIdx2 = maxVisible2 + 1
+              const hideMiddle2 = !usesRange2 && tams.length > PLUS_SIZE_DEFAULT && nextExpIdx2 <= tams.length - 2
+              const total = totalQtdLoja(it.localId, v.id)
               return (
-                <Fragment key={tipo_grade}>
-                  {usesRangeG && (
-                    <div className={styles.gradeGroupHeader}>
-                      <span className={styles.gradeGroupLabel}>{tipo_grade}</span>
-                      {oMg > 0 && (
-                        <button
-                          className={`${styles.btnShowExtreme} ${showMg ? styles.btnShowExtremeActive : ''}`}
-                          onClick={() => setGradeGroupExpand(prev => ({ ...prev, [tipo_grade]: { ...prev[tipo_grade], showMenores: !showMg } }))}
-                          title={`${showMg ? 'Ocultar' : 'Mostrar'} tamanhos menores (${allTamsG[0]}–${allTamsG[oMg - 1]})`}
-                        >{showMg ? '−' : '+'}{allTamsG[0]}–{allTamsG[oMg - 1]}</button>
+                <div key={it.localId} className={`${styles.porLojaItemBlock} ${total > 0 ? styles.porLojaItemBlockFilled : ''}`}>
+                  <div className={styles.porLojaItemHeader}>
+                    <span className={styles.porLojaItemRef}>
+                      {it.ref}
+                      {(it.cor || it.detalhe) && (
+                        <span className={styles.itemRefDetail}>{[it.cor, it.detalhe].filter(Boolean).join(' · ')}</span>
                       )}
-                      {oGg > 0 && (
+                    </span>
+                    <span className={styles.porLojaItemMeta}>{it.tipo_produto} · {it.tipo_grade} · {it.classe}</span>
+                    {it.valor && <span className={styles.porLojaItemValor}>R$ {it.valor}</span>}
+                    <span className={styles.porLojaItemTotalBadge}>{total > 0 ? `${total} pç` : '—'}</span>
+                    {total > 0 && (
+                      <button
+                        className={styles.btnRemoveItemLoja}
+                        title={`Remover ${it.ref} do pedido de ${v.comprador_nome}`}
+                        onClick={() => setQtds(prev => {
+                          const next = { ...prev }
+                          if (next[it.localId]) {
+                            next[it.localId] = { ...next[it.localId] }
+                            delete next[it.localId][v.id]
+                          }
+                          return next
+                        })}
+                      >✕</button>
+                    )}
+                  </div>
+                  <div className={styles.porLojaGradeRow} data-grade-row="true">
+                    {usesRange2 ? (
+                      oM2 > 0 && (hideFirst ? (
                         <button
-                          className={`${styles.btnShowExtreme} ${showGg ? styles.btnShowExtremeActive : ''}`}
-                          onClick={() => setGradeGroupExpand(prev => ({ ...prev, [tipo_grade]: { ...prev[tipo_grade], showMaiores: !showGg } }))}
-                          title={`${showGg ? 'Ocultar' : 'Mostrar'} tamanhos maiores (${allTamsG[allTamsG.length - oGg]}–${allTamsG[allTamsG.length - 1]})`}
-                        >{showGg ? '−' : '+'}{allTamsG[allTamsG.length - oGg]}–{allTamsG[allTamsG.length - 1]}</button>
-                      )}
-                    </div>
-                  )}
-                  {groupItems.map(it => {
-                    const v = visitas[lojaIdx]
-                    if (!v) return null
-                    const tams = tamanhosDeTipoGrade(it.tipo_grade)
-                    const vTams = getVisibleTams(it.localId, tams, it.tipo_grade)
-                    const hideFirst = vTams[0] !== tams[0]
-                    const hideLast  = vTams[vTams.length - 1] !== tams[tams.length - 1]
-                    const maxVisible2 = gradeExtremes[it.localId]?.maxVisible ?? PLUS_SIZE_DEFAULT - 1
-                    const nextExpIdx2 = maxVisible2 + 1
-                    const hideMiddle2 = !usesRangeG && tams.length > PLUS_SIZE_DEFAULT && nextExpIdx2 <= tams.length - 2
-                    const total = totalQtdLoja(it.localId, v.id)
-                    return (
-                      <div key={it.localId} className={`${styles.porLojaItemBlock} ${total > 0 ? styles.porLojaItemBlockFilled : ''}`}>
-                        <div className={styles.porLojaItemHeader}>
-                          <span className={styles.porLojaItemRef}>
-                            {it.ref}
-                            {(it.cor || it.detalhe) && (
-                              <span className={styles.itemRefDetail}>{[it.cor, it.detalhe].filter(Boolean).join(' · ')}</span>
-                            )}
-                          </span>
-                          <span className={styles.porLojaItemMeta}>{it.tipo_produto} · {it.tipo_grade} · {it.classe}</span>
-                          {it.valor && <span className={styles.porLojaItemValor}>R$ {it.valor}</span>}
-                          <span className={styles.porLojaItemTotalBadge}>{total > 0 ? `${total} pç` : '—'}</span>
-                          {total > 0 && (
-                            <button
-                              className={styles.btnRemoveItemLoja}
-                              title={`Remover ${it.ref} do pedido de ${v.comprador_nome}`}
-                              onClick={() => setQtds(prev => {
-                                const next = { ...prev }
-                                if (next[it.localId]) {
-                                  next[it.localId] = { ...next[it.localId] }
-                                  delete next[it.localId][v.id]
-                                }
-                                return next
-                              })}
-                            >✕</button>
-                          )}
-                        </div>
-                        <div className={styles.porLojaGradeRow} data-grade-row="true">
-                          {!usesRangeG && (hideFirst ? (
-                            <button
-                              className={styles.btnShowExtreme}
-                              onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], first: true } }))}
-                              title={`Mostrar ${tams[0]}`}
-                            >+{tams[0]}</button>
-                          ) : tams.length >= 5 ? (
-                            <button
-                              className={`${styles.btnShowExtreme} ${styles.btnShowExtremeActive}`}
-                              onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], first: false } }))}
-                              title={`Ocultar ${tams[0]}`}
-                            >−{tams[0]}</button>
-                          ) : null)}
-                          {vTams.map(tam => (
-                            <div key={tam} className={styles.porLojaGradeTam}>
-                              <div className={styles.porLojaGradeTamLabel}>{tam}</div>
-                              <input
-                                type="number"
-                                min="0"
-                                className={styles.porLojaGradeInput}
-                                value={getQtd(it.localId, v.id, tam)}
-                                onChange={e => setQtd(it.localId, v.id, tam, e.target.value)}
-                                onKeyDown={handleEnterOnInputPorLoja}
-                                placeholder="0"
-                                data-por-loja-input="1"
-                              />
-                            </div>
-                          ))}
-                          {hideMiddle2 && (
-                            <button
-                              className={styles.btnExpandSize}
-                              onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], maxVisible: nextExpIdx2 } }))}
-                              title={`Mostrar ${tams[nextExpIdx2]}`}
-                            >+{tams[nextExpIdx2]}</button>
-                          )}
-                          {!usesRangeG && (hideLast ? (
-                            <button
-                              className={styles.btnShowExtreme}
-                              onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], last: true } }))}
-                              title={`Mostrar ${tams[tams.length - 1]}`}
-                            >+{tams[tams.length - 1]}</button>
-                          ) : tams.length >= 5 ? (
-                            <button
-                              className={`${styles.btnShowExtreme} ${styles.btnShowExtremeActive}`}
-                              onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], last: false } }))}
-                              title={`Ocultar ${tams[tams.length - 1]}`}
-                            >−{tams[tams.length - 1]}</button>
-                          ) : null)}
-                        </div>
+                          className={styles.btnShowExtreme}
+                          onClick={() => setGradeGroupExpand(prev => ({ ...prev, [it.tipo_grade]: { ...prev[it.tipo_grade], showMenores: true } }))}
+                          title={`Mostrar tamanhos menores (${tams[0]}–${tams[oM2 - 1]})`}
+                        >+{tams[0]}–{tams[oM2 - 1]}</button>
+                      ) : (
+                        <button
+                          className={`${styles.btnShowExtreme} ${styles.btnShowExtremeActive}`}
+                          onClick={() => setGradeGroupExpand(prev => ({ ...prev, [it.tipo_grade]: { ...prev[it.tipo_grade], showMenores: false } }))}
+                          title={`Ocultar tamanhos menores (${tams[0]}–${tams[oM2 - 1]})`}
+                        >−{tams[0]}–{tams[oM2 - 1]}</button>
+                      ))
+                    ) : (
+                      hideFirst ? (
+                        <button
+                          className={styles.btnShowExtreme}
+                          onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], first: true } }))}
+                          title={`Mostrar ${tams[0]}`}
+                        >+{tams[0]}</button>
+                      ) : tams.length >= 5 ? (
+                        <button
+                          className={`${styles.btnShowExtreme} ${styles.btnShowExtremeActive}`}
+                          onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], first: false } }))}
+                          title={`Ocultar ${tams[0]}`}
+                        >−{tams[0]}</button>
+                      ) : null
+                    )}
+                    {vTams.map(tam => (
+                      <div key={tam} className={styles.porLojaGradeTam}>
+                        <div className={styles.porLojaGradeTamLabel}>{tam}</div>
+                        <input
+                          type="number"
+                          min="0"
+                          className={styles.porLojaGradeInput}
+                          value={getQtd(it.localId, v.id, tam)}
+                          onChange={e => setQtd(it.localId, v.id, tam, e.target.value)}
+                          onKeyDown={handleEnterOnInputPorLoja}
+                          placeholder="0"
+                          data-por-loja-input="1"
+                        />
                       </div>
-                    )
-                  })}
-                </Fragment>
+                    ))}
+                    {hideMiddle2 && (
+                      <button
+                        className={styles.btnExpandSize}
+                        onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], maxVisible: nextExpIdx2 } }))}
+                        title={`Mostrar ${tams[nextExpIdx2]}`}
+                      >+{tams[nextExpIdx2]}</button>
+                    )}
+                    {usesRange2 ? (
+                      oG2 > 0 && (hideLast ? (
+                        <button
+                          className={styles.btnShowExtreme}
+                          onClick={() => setGradeGroupExpand(prev => ({ ...prev, [it.tipo_grade]: { ...prev[it.tipo_grade], showMaiores: true } }))}
+                          title={`Mostrar tamanhos maiores (${tams[tams.length - oG2]}–${tams[tams.length - 1]})`}
+                        >+{tams[tams.length - oG2]}–{tams[tams.length - 1]}</button>
+                      ) : (
+                        <button
+                          className={`${styles.btnShowExtreme} ${styles.btnShowExtremeActive}`}
+                          onClick={() => setGradeGroupExpand(prev => ({ ...prev, [it.tipo_grade]: { ...prev[it.tipo_grade], showMaiores: false } }))}
+                          title={`Ocultar tamanhos maiores (${tams[tams.length - oG2]}–${tams[tams.length - 1]})`}
+                        >−{tams[tams.length - oG2]}–{tams[tams.length - 1]}</button>
+                      ))
+                    ) : (
+                      hideLast ? (
+                        <button
+                          className={styles.btnShowExtreme}
+                          onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], last: true } }))}
+                          title={`Mostrar ${tams[tams.length - 1]}`}
+                        >+{tams[tams.length - 1]}</button>
+                      ) : tams.length >= 5 ? (
+                        <button
+                          className={`${styles.btnShowExtreme} ${styles.btnShowExtremeActive}`}
+                          onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], last: false } }))}
+                          title={`Ocultar ${tams[tams.length - 1]}`}
+                        >−{tams[tams.length - 1]}</button>
+                      ) : null
+                    )}
+                  </div>
+                </div>
               )
             })}
           </div>
@@ -1760,46 +1763,18 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
             </tr>
           </thead>
           <tbody>
-            {[...new Set(items.map(it => it.tipo_grade))].map(tipo_grade => {
-              const groupItems = items.filter(it => it.tipo_grade === tipo_grade)
-              const oMGR = GRADE_DEFINITIONS[tipo_grade]?.ocultoMenores ?? 0
-              const oGGR = GRADE_DEFINITIONS[tipo_grade]?.ocultoMaiores ?? 0
-              const usesRangeGR = oMGR > 0 || oGGR > 0
-              const allTamsGR = tamanhosDeTipoGrade(tipo_grade)
-              const showMGR = gradeGroupExpand[tipo_grade]?.showMenores
-              const showGGR = gradeGroupExpand[tipo_grade]?.showMaiores
-              return (
-                <Fragment key={tipo_grade}>
-                  {usesRangeGR && (
-                    <tr className={styles.gradeGroupHeaderRow}>
-                      <td colSpan={showCorDetalhe ? 8 : 7} className={styles.gradeGroupHeaderCell}>
-                        <span className={styles.gradeGroupLabel}>{tipo_grade}</span>
-                        {oMGR > 0 && (
-                          <button
-                            className={`${styles.btnShowExtreme} ${showMGR ? styles.btnShowExtremeActive : ''}`}
-                            onClick={() => setGradeGroupExpand(prev => ({ ...prev, [tipo_grade]: { ...prev[tipo_grade], showMenores: !showMGR } }))}
-                            title={`${showMGR ? 'Ocultar' : 'Mostrar'} tamanhos menores (${allTamsGR[0]}–${allTamsGR[oMGR - 1]})`}
-                          >{showMGR ? '−' : '+'}{allTamsGR[0]}–{allTamsGR[oMGR - 1]}</button>
-                        )}
-                        {oGGR > 0 && (
-                          <button
-                            className={`${styles.btnShowExtreme} ${showGGR ? styles.btnShowExtremeActive : ''}`}
-                            onClick={() => setGradeGroupExpand(prev => ({ ...prev, [tipo_grade]: { ...prev[tipo_grade], showMaiores: !showGGR } }))}
-                            title={`${showGGR ? 'Ocultar' : 'Mostrar'} tamanhos maiores (${allTamsGR[allTamsGR.length - oGGR]}–${allTamsGR[allTamsGR.length - 1]})`}
-                          >{showGGR ? '−' : '+'}{allTamsGR[allTamsGR.length - oGGR]}–{allTamsGR[allTamsGR.length - 1]}</button>
-                        )}
-                      </td>
-                    </tr>
-                  )}
-                  {groupItems.map(it => {
+            {items.map(it => {
               const isActive = it.localId === activeId
+              const oMR = GRADE_DEFINITIONS[it.tipo_grade]?.ocultoMenores ?? 0
+              const oGR = GRADE_DEFINITIONS[it.tipo_grade]?.ocultoMaiores ?? 0
+              const usesRangeR = oMR > 0 || oGR > 0
               const tams = tamanhosDeTipoGrade(it.tipo_grade)
               const vTams = getVisibleTams(it.localId, tams, it.tipo_grade)
               const hideFirst = vTams[0] !== tams[0]
               const hideLast  = vTams[vTams.length - 1] !== tams[tams.length - 1]
               const maxVisibleRef = gradeExtremes[it.localId]?.maxVisible ?? PLUS_SIZE_DEFAULT - 1
               const nextExpIdxRef = maxVisibleRef + 1
-              const hideMiddleRef = !usesRangeGR && tams.length > PLUS_SIZE_DEFAULT && nextExpIdxRef <= tams.length - 2
+              const hideMiddleRef = !usesRangeR && tams.length > PLUS_SIZE_DEFAULT && nextExpIdxRef <= tams.length - 2
               const total = totalQtdItem(it.localId)
               return (
                 <Fragment key={it.localId}>
@@ -2050,19 +2025,35 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                               className={styles.gradeInlineDist}
                               title="Auto Distribuir pela projeção: clique na célula, digite o total e pressione Enter"
                             >Dist.</div>
-                            {!usesRangeGR && (hideFirst ? (
-                              <button
-                                className={styles.btnShowExtreme}
-                                onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], first: true } }))}
-                                title={`Mostrar ${tams[0]}`}
-                              >+{tams[0]}</button>
-                            ) : tams.length >= 5 ? (
-                              <button
-                                className={`${styles.btnShowExtreme} ${styles.btnShowExtremeActive}`}
-                                onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], first: false } }))}
-                                title={`Ocultar ${tams[0]}`}
-                              >−{tams[0]}</button>
-                            ) : null)}
+                            {usesRangeR ? (
+                              oMR > 0 && (hideFirst ? (
+                                <button
+                                  className={styles.btnShowExtreme}
+                                  onClick={() => setGradeGroupExpand(prev => ({ ...prev, [it.tipo_grade]: { ...prev[it.tipo_grade], showMenores: true } }))}
+                                  title={`Mostrar tamanhos menores (${tams[0]}–${tams[oMR - 1]})`}
+                                >+{tams[0]}–{tams[oMR - 1]}</button>
+                              ) : (
+                                <button
+                                  className={`${styles.btnShowExtreme} ${styles.btnShowExtremeActive}`}
+                                  onClick={() => setGradeGroupExpand(prev => ({ ...prev, [it.tipo_grade]: { ...prev[it.tipo_grade], showMenores: false } }))}
+                                  title={`Ocultar tamanhos menores (${tams[0]}–${tams[oMR - 1]})`}
+                                >−{tams[0]}–{tams[oMR - 1]}</button>
+                              ))
+                            ) : (
+                              hideFirst ? (
+                                <button
+                                  className={styles.btnShowExtreme}
+                                  onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], first: true } }))}
+                                  title={`Mostrar ${tams[0]}`}
+                                >+{tams[0]}</button>
+                              ) : tams.length >= 5 ? (
+                                <button
+                                  className={`${styles.btnShowExtreme} ${styles.btnShowExtremeActive}`}
+                                  onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], first: false } }))}
+                                  title={`Ocultar ${tams[0]}`}
+                                >−{tams[0]}</button>
+                              ) : null
+                            )}
                             {vTams.map(t => (
                               <div key={t} className={styles.gradeInlineSize}>{t}</div>
                             ))}
@@ -2073,19 +2064,35 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                                 title={`Mostrar ${tams[nextExpIdxRef]}`}
                               >+{tams[nextExpIdxRef]}</button>
                             )}
-                            {!usesRangeGR && (hideLast ? (
-                              <button
-                                className={styles.btnShowExtreme}
-                                onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], last: true } }))}
-                                title={`Mostrar ${tams[tams.length - 1]}`}
-                              >+{tams[tams.length - 1]}</button>
-                            ) : tams.length >= 5 ? (
-                              <button
-                                className={`${styles.btnShowExtreme} ${styles.btnShowExtremeActive}`}
-                                onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], last: false } }))}
-                                title={`Ocultar ${tams[tams.length - 1]}`}
-                              >−{tams[tams.length - 1]}</button>
-                            ) : null)}
+                            {usesRangeR ? (
+                              oGR > 0 && (hideLast ? (
+                                <button
+                                  className={styles.btnShowExtreme}
+                                  onClick={() => setGradeGroupExpand(prev => ({ ...prev, [it.tipo_grade]: { ...prev[it.tipo_grade], showMaiores: true } }))}
+                                  title={`Mostrar tamanhos maiores (${tams[tams.length - oGR]}–${tams[tams.length - 1]})`}
+                                >+{tams[tams.length - oGR]}–{tams[tams.length - 1]}</button>
+                              ) : (
+                                <button
+                                  className={`${styles.btnShowExtreme} ${styles.btnShowExtremeActive}`}
+                                  onClick={() => setGradeGroupExpand(prev => ({ ...prev, [it.tipo_grade]: { ...prev[it.tipo_grade], showMaiores: false } }))}
+                                  title={`Ocultar tamanhos maiores (${tams[tams.length - oGR]}–${tams[tams.length - 1]})`}
+                                >−{tams[tams.length - oGR]}–{tams[tams.length - 1]}</button>
+                              ))
+                            ) : (
+                              hideLast ? (
+                                <button
+                                  className={styles.btnShowExtreme}
+                                  onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], last: true } }))}
+                                  title={`Mostrar ${tams[tams.length - 1]}`}
+                                >+{tams[tams.length - 1]}</button>
+                              ) : tams.length >= 5 ? (
+                                <button
+                                  className={`${styles.btnShowExtreme} ${styles.btnShowExtremeActive}`}
+                                  onClick={() => setGradeExtremes(prev => ({ ...prev, [it.localId]: { ...prev[it.localId], last: false } }))}
+                                  title={`Ocultar ${tams[tams.length - 1]}`}
+                                >−{tams[tams.length - 1]}</button>
+                              ) : null
+                            )}
                             <div className={styles.gradeInlineTotalReadonly}>Total</div>
                           </div>
                           {visitas.map((v, i) => {
@@ -2172,9 +2179,6 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                       </td>
                     </tr>
                   )}
-                </Fragment>
-              )
-            })}
                 </Fragment>
               )
             })}
