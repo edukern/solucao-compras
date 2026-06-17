@@ -4263,10 +4263,11 @@ export default function Compras() {
         if (!sessaoDb) { localStorage.removeItem(key); return null }
         // Ignora sessões de outras coleções
         if (sessaoDb.colecao_id !== active.id) return null
-        // Auto-limpa se a sessão já tem pedidos salvos no banco (foi concluída)
+        // Auto-limpa apenas se a sessão tem quantidades salvas no banco (foi concluída de verdade)
+        // Pedidos sem itens são rascunhos do auto-save — não descarta o recovery
         const totais = await pedidosService.totaisPorFornecedor(data.sessao_id)
-        const temPedidosSalvos = totais.some(v => v.pedidos?.length > 0)
-        if (temPedidosSalvos) { localStorage.removeItem(key); return null }
+        const temQtdsSalvas = totais.some(v => v.pedidos?.some(p => p.pedido_itens?.some(i => i.qtd > 0)))
+        if (temQtdsSalvas) { localStorage.removeItem(key); return null }
         const visEnriquecidas = sessaoDb.visitas.map(v => ({
           id:                 v.visita_id,
           comprador_id:       v.comprador_id,
