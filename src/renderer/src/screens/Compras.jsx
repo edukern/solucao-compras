@@ -792,6 +792,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     const localId = `item_${Date.now()}_${Math.random()}`
     const novoItem = {
       localId,
+      variante_key: '',
       ref: ref.trim(),
       tipo_produto: tipo_produto.trim().toUpperCase(),
       tipo_grade,
@@ -821,8 +822,9 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   function duplicateItem(item, e) {
     e.stopPropagation()
     const newId = `item_${Date.now()}_${Math.random()}`
-    // Zera cor/detalhe e não copia a grade
-    const copy = { ...item, localId: newId, cor: '', detalhe: '' }
+    const newVarianteKey = crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)
+    // Zera cor/detalhe e não copia a grade; atribui chave única para persistência no banco
+    const copy = { ...item, localId: newId, variante_key: newVarianteKey, cor: '', detalhe: '' }
     setItems(prev => {
       const idx = prev.findIndex(it => it.localId === item.localId)
       const next = [...prev]
@@ -1010,7 +1012,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     try {
       const pedidoRows = []
       for (const item of items) {
-        const { ref, tipo_produto, tipo_grade, classe, icms_pct, valor, desconto_pct, markup_pct, preco_venda, cor, detalhe, obs } = item
+        const { variante_key, ref, tipo_produto, tipo_grade, classe, icms_pct, valor, desconto_pct, markup_pct, preco_venda, cor, detalhe, obs } = item
         const valorNum      = parseFloat((valor ?? '').replace(',', '.')) || 0
         const icmsNum       = parseFloat((icms_pct ?? '').replace(',', '.')) || 0
         const markupNum     = parseFloat((markup_pct ?? '').replace(',', '.')) || 0
@@ -1027,7 +1029,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
             comprador_id: v.comprador_id,
             segmentacao_id: seg.id,
             valor_unitario: valorNum, desconto_pct: parseFloat((sessaoDesconto ?? "0").replace(",", ".")) || 0,
-            referencia: ref, icms_pct: icmsNum,
+            referencia: ref, variante_key: variante_key ?? '', icms_pct: icmsNum,
             markup_pct: markupNum, preco_venda: precoVendaNum,
             cor: cor || '', detalhe: detalhe || '', obs: obs || '',
           })
@@ -1052,7 +1054,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
       if (!orgVisita) throw new Error('Visita do organizador não encontrada.')
       const pedidoRows = []
       for (const item of items) {
-        const { ref, tipo_produto, tipo_grade, classe, icms_pct, valor, desconto_pct, markup_pct, preco_venda, cor, detalhe, obs } = item
+        const { variante_key, ref, tipo_produto, tipo_grade, classe, icms_pct, valor, desconto_pct, markup_pct, preco_venda, cor, detalhe, obs } = item
         const valorNum      = parseFloat((valor ?? '').replace(',', '.')) || 0
         const icmsNum       = parseFloat((icms_pct ?? '').replace(',', '.')) || 0
         const markupNum     = parseFloat((markup_pct ?? '').replace(',', '.')) || 0
@@ -1067,7 +1069,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
           comprador_id: orgVisita.comprador_id,
           segmentacao_id: seg.id,
           valor_unitario: valorNum, desconto_pct: parseFloat((sessaoDesconto ?? "0").replace(",", ".")) || 0,
-          referencia: ref, icms_pct: icmsNum,
+          referencia: ref, variante_key: variante_key ?? '', icms_pct: icmsNum,
           markup_pct: markupNum, preco_venda: precoVendaNum,
           cor: cor || '', detalhe: detalhe || '', obs: obs || '',
         })
@@ -1089,7 +1091,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
       const batch = []
       const meta  = []
       for (const item of items) {
-        const { localId, ref, tipo_produto, tipo_grade, classe, icms_pct, valor,
+        const { localId, variante_key, ref, tipo_produto, tipo_grade, classe, icms_pct, valor,
                 markup_pct, preco_venda, cor, detalhe, obs } = item
         const valorNum      = parseFloat((valor ?? '').replace(',', '.')) || 0
         const icmsNum       = parseFloat((icms_pct ?? '').replace(',', '.')) || 0
@@ -1114,7 +1116,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
           batch.push({
             visita_id: v.id, comprador_id: v.comprador_id, segmentacao_id: segId,
             valor_unitario: valorNum, desconto_pct: parseFloat((sessaoDesconto ?? "0").replace(",", ".")) || 0,
-            referencia: ref, icms_pct: icmsNum,
+            referencia: ref, variante_key: variante_key ?? '', icms_pct: icmsNum,
             markup_pct: markupNum, preco_venda: precoVendaNum,
             cor: cor || '', detalhe: detalhe || '',
             obs: obs || '', itens,
@@ -4433,16 +4435,19 @@ export default function Compras() {
 
       const toStr = n => (n != null && n !== '') ? String(n).replace('.', ',') : ''
 
-      // Build items as union of all refs across all visitas (keyed by referencia to deduplicate)
+      // Build items as union of all refs across all visitas (keyed by referencia+variante_key to deduplicate)
       // Sort by id (auto-increment) so references appear in the order they were originally added
       const allPedidos = visitasComPedidos.flatMap(v => v.pedidos ?? [])
       allPedidos.sort((a, b) => a.id - b.id)
 
       const itemMap = new Map()
       for (const ped of allPedidos) {
-        if (!itemMap.has(ped.referencia)) {
-          itemMap.set(ped.referencia, {
-            localId: ped.referencia,
+        const vk = ped.variante_key ?? ''
+        const lId = `${ped.referencia}|${vk}`
+        if (!itemMap.has(lId)) {
+          itemMap.set(lId, {
+            localId: lId,
+            variante_key: vk,
             ref: ped.referencia,
             tipo_produto: ped.segmentacao?.tipo_produto ?? '',
             tipo_grade: ped.segmentacao?.tipo_grade ?? 'AD',
@@ -4463,13 +4468,14 @@ export default function Compras() {
       const qtds = {}
       for (const visita of visitasComPedidos) {
         for (const ped of visita.pedidos ?? []) {
-          if (!qtds[ped.referencia]) qtds[ped.referencia] = {}
+          const lId = `${ped.referencia}|${ped.variante_key ?? ''}`
+          if (!qtds[lId]) qtds[lId] = {}
           const visitaQtds = {}
           for (const it of ped.itens ?? []) {
             if (it.qtd > 0) visitaQtds[it.tamanho] = it.qtd
           }
           if (Object.keys(visitaQtds).length) {
-            qtds[ped.referencia][visita.id] = visitaQtds
+            qtds[lId][visita.id] = visitaQtds
           }
         }
       }

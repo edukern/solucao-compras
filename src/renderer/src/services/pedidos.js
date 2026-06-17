@@ -26,18 +26,18 @@ export const pedidos = {
       for (const v of newVisitas ?? []) visitaMap[v.comprador_id] = v.id
     }
 
-    // 3. Upsert all pedidos in one batch (keyed by visita_id + referencia)
-    // Deduplica por (visita_id, referencia) mantendo a última ocorrência
+    // 3. Upsert all pedidos in one batch (keyed by visita_id + referencia + variante_key)
     const rowMap = new Map()
     for (const ped of validBatch) {
       const vid = visitaMap[ped.comprador_id]
       const { itens: _itens, ...fields } = ped
-      rowMap.set(`${vid}|${ped.referencia}`, { ...fields, visita_id: vid })
+      const vk = ped.variante_key ?? ''
+      rowMap.set(`${vid}|${ped.referencia}|${vk}`, { ...fields, variante_key: vk, visita_id: vid })
     }
     const pedidoRows = [...rowMap.values()]
     const { data: savedPedidos, error: pe } = await supabase
       .from('pedidos')
-      .upsert(pedidoRows, { onConflict: 'visita_id,referencia' })
+      .upsert(pedidoRows, { onConflict: 'visita_id,referencia,variante_key' })
       .select()
     if (pe) throw pe
 
@@ -49,11 +49,11 @@ export const pedidos = {
     }
 
     const byKey = Object.fromEntries(
-      (savedPedidos ?? []).map(p => [`${p.visita_id}|${p.referencia}`, p])
+      (savedPedidos ?? []).map(p => [`${p.visita_id}|${p.referencia}|${p.variante_key ?? ''}`, p])
     )
     const allItems = []
     for (const ped of validBatch) {
-      const saved = byKey[`${visitaMap[ped.comprador_id]}|${ped.referencia}`]
+      const saved = byKey[`${visitaMap[ped.comprador_id]}|${ped.referencia}|${ped.variante_key ?? ''}`]
       if (saved && ped.itens?.length) {
         for (const it of ped.itens) {
           allItems.push({ pedido_id: saved.id, tamanho: it.tamanho, qtd: it.qtd })
@@ -67,7 +67,7 @@ export const pedidos = {
 
     // Return in same order as input so caller's index-based meta merge stays correct
     return validBatch
-      .map(b => byKey[`${visitaMap[b.comprador_id]}|${b.referencia}`])
+      .map(b => byKey[`${visitaMap[b.comprador_id]}|${b.referencia}|${b.variante_key ?? ''}`])
       .filter(Boolean)
   },
 
@@ -117,10 +117,10 @@ export const pedidos = {
   async inicializarColaboracao(pedidoRows) {
     if (!pedidoRows.length) return 0
     const dedup = new Map()
-    for (const r of pedidoRows) dedup.set(`${r.visita_id}|${r.referencia}`, r)
+    for (const r of pedidoRows) dedup.set(`${r.visita_id}|${r.referencia}|${r.variante_key ?? ''}`, { variante_key: '', ...r })
     const { error } = await supabase
       .from('pedidos')
-      .upsert([...dedup.values()], { onConflict: 'visita_id,referencia', ignoreDuplicates: true })
+      .upsert([...dedup.values()], { onConflict: 'visita_id,referencia,variante_key', ignoreDuplicates: true })
     if (error) throw error
     return pedidoRows.length
   },
@@ -129,10 +129,10 @@ export const pedidos = {
   async salvarRascunho(visitaId, pedidoRows) {
     if (!pedidoRows.length) return
     const dedup = new Map()
-    for (const r of pedidoRows) dedup.set(r.referencia, { ...r, visita_id: visitaId })
+    for (const r of pedidoRows) dedup.set(`${r.referencia}|${r.variante_key ?? ''}`, { variante_key: '', ...r, visita_id: visitaId })
     const { error } = await supabase
       .from('pedidos')
-      .upsert([...dedup.values()], { onConflict: 'visita_id,referencia' })
+      .upsert([...dedup.values()], { onConflict: 'visita_id,referencia,variante_key' })
     if (error) throw error
   },
 
@@ -144,7 +144,7 @@ export const pedidos = {
     }))
     const { data: saved, error: pe } = await supabase
       .from('pedidos')
-      .upsert(pedidoRows, { onConflict: 'visita_id,referencia' })
+      .upsert(pedidoRows, { onConflict: 'visita_id,referencia,variante_key' })
       .select()
     if (pe) throw pe
 
@@ -154,10 +154,10 @@ export const pedidos = {
       if (de) throw de
     }
 
-    const byRef = Object.fromEntries((saved ?? []).map(p => [p.referencia, p]))
+    const byRef = Object.fromEntries((saved ?? []).map(p => [`${p.referencia}|${p.variante_key ?? ''}`, p]))
     const allItems = []
     for (const upd of updates) {
-      const ped = byRef[upd.referencia]
+      const ped = byRef[`${upd.referencia}|${upd.variante_key ?? ''}`]
       if (ped && upd.itens?.length) {
         for (const it of upd.itens) {
           allItems.push({ pedido_id: ped.id, tamanho: it.tamanho, qtd: it.qtd })
