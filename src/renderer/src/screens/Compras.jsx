@@ -12,6 +12,10 @@ import { segmentacoes as segmentacoesService } from '../services/segmentacoes'
 import { fornecedores as fornecedoresService } from '../services/fornecedores'
 import { compradores as compradoresService } from '../services/compradores'
 import { projecoes as projecoesService } from '../services/projecoes'
+import { appConfig as appConfigService } from '../services/appConfig'
+import { computeItensDelta } from '../services/pedidoMerge'
+import SaveStatus from '../components/SaveStatus'
+import { useBeforeUnload } from '../hooks/useBeforeUnload'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
@@ -598,7 +602,8 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
 // ─── Phase 2: Tabela de itens ─────────────────────────────────────────────
 
 function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, onRemoveVisita, onCancelarSessao, segs = [],
-  initialItems = [], initialQtds = {}, initialActiveId = null, initialLojaIdx = 0, initialCorDetalhe = false }) {
+  initialItems = [], initialQtds = {}, initialActiveId = null, initialLojaIdx = 0, initialCorDetalhe = false,
+  manutencaoAtiva = false }) {
   console.log('PHASE2 MOUNT', { visitas, items: initialItems })
   const { comprador: myComprador } = useAuth()
   const [items,         setItems]         = useState(initialItems)
@@ -621,6 +626,10 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   const firstInputRef   = useRef(null)
   const autoSaveRef     = useRef(null)
   const autoSaveInitRef = useRef(false)
+  // Snapshot {localId:{visitaId:{tam:qty}}} já confirmado no banco, p/ cálculo de delta
+  const lastSavedQtdsRef = useRef(JSON.parse(JSON.stringify(initialQtds ?? {})))
+  const qtdSaveTimerRef  = useRef(null)
+  const [saveState, setSaveState] = useState('idle')  // idle | saving | saved | error
   const [showAddForm,    setShowAddForm]    = useState(true)
   const [showCorDetalhe,    setShowCorDetalhe]    = useState(initialCorDetalhe)
   const [editingCorId,      setEditingCorId]      = useState(null)
@@ -687,7 +696,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   // Auto-save local (crash recovery)
   useEffect(() => {
     if (!sessao?.id) return
-    localStorage.setItem(RECOVERY_KEY, JSON.stringify({ sessao_id: sessao.id, items, qtds, activeId, lojaIdx }))
+    localStorage.setItem(RECOVERY_KEY, JSON.stringify({ sessao_id: sessao.id, items, qtds, activeId, lojaIdx, savedAt: Date.now() }))
   }, [items, qtds, activeId, lojaIdx])
 
   // Auto-save no banco com debounce de 2s quando items muda
@@ -698,6 +707,83 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     autoSaveRef.current = setTimeout(handleSalvarSessao, 2000)
     return () => clearTimeout(autoSaveRef.current)
   }, [items])
+
+  // Monta o payload de uma ref para uma visita (formato da RPC salvar_pedidos_visita)
+  function buildUpdateParaVisita(item, visitaId) {
+    const lojaTams = qtds[item.localId]?.[visitaId] ?? {}
+    const itens = tamanhosDeTipoGrade(item.tipo_grade)
+      .map(tam => ({ tamanho: tam, qtd: parseInt(lojaTams[tam]) || 0 }))
+      .filter(i => i.qtd > 0)
+    const num = s => parseFloat((s ?? '').replace(',', '.')) || 0
+    return {
+      referencia: item.ref, variante_key: item.variante_key ?? '',
+      segmentacao_id: item._segId,
+      valor_unitario: num(item.valor), desconto_pct: num(sessaoDesconto),
+      icms_pct: num(item.icms_pct), markup_pct: num(item.markup_pct),
+      preco_venda: num(item.preco_venda),
+      cor: item.cor || '', detalhe: item.detalhe || '', obs: item.obs || '',
+      itens,
+    }
+  }
+
+  // Resolve segmentacao_id (cacheado em item._segId) para os itens dados
+  async function resolverSegIds(itemList) {
+    for (const item of itemList) {
+      if (item._segId) continue
+      const classDef = GRADE_DEFINITIONS[item.tipo_grade]
+      if (!classDef) continue
+      const seg = await segmentacoesService.findOrCreate({
+        classificacao: classDef.classificacao, tipo_produto: item.tipo_produto,
+        classe: item.classe, tipo_grade: item.tipo_grade, estacao: colEstacao ?? 'inverno',
+      })
+      item._segId = seg.id
+    }
+  }
+
+  // Grava as refs alteradas (delta) em todas as visitas, via RPC atômica.
+  async function flushQtdsDelta(changedIds) {
+    const itemById = Object.fromEntries(items.map(i => [i.localId, i]))
+    await resolverSegIds(Object.values(itemById))
+    for (const v of visitas) {
+      const updates = changedIds
+        .map(id => itemById[id])
+        .filter(it => it && it._segId)
+        .map(it => buildUpdateParaVisita(it, v.id))
+      if (updates.length) await pedidosService.salvarQuantidadesDelta(v.id, updates)
+    }
+  }
+
+  // Retry após falha de salvamento: força recomputar tudo como delta e dispara o effect
+  function retrySalvarQtds() {
+    lastSavedQtdsRef.current = {}
+    setQtds(q => ({ ...q }))
+  }
+
+  // Auto-save de QUANTIDADES por delta (debounce 2s) — banco como fonte da verdade
+  useEffect(() => {
+    if (!sessao?.id || !items.length) return
+    if (qtdSaveTimerRef.current) clearTimeout(qtdSaveTimerRef.current)
+    qtdSaveTimerRef.current = setTimeout(async () => {
+      if (manutencaoAtiva) { setSaveState('idle'); return }
+      try {
+        const changedIds = computeItensDelta(lastSavedQtdsRef.current, qtds)
+        if (!changedIds.length) return
+        setSaveState('saving')
+        await flushQtdsDelta(changedIds)
+        lastSavedQtdsRef.current = JSON.parse(JSON.stringify(qtds))
+        setSaveState('saved')
+      } catch (e) {
+        setSaveState('error')
+        setError(`Falha ao salvar quantidades: ${e.message}`)
+      }
+    }, 2000)
+    return () => clearTimeout(qtdSaveTimerRef.current)
+  }, [qtds])
+
+  // Aviso ao fechar a aba com quantidades ainda não confirmadas no banco
+  const temDeltaPendente = saveState === 'saving' ||
+    computeItensDelta(lastSavedQtdsRef.current, qtds).length > 0
+  useBeforeUnload(temDeltaPendente)
 
   // Focus first input when active item / loja changes
   useEffect(() => {
@@ -1090,57 +1176,23 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     setSaving(true)
     setError(null)
     try {
-      const batch = []
-      const meta  = []
-      for (const item of items) {
-        const { localId, variante_key, ref, tipo_produto, tipo_grade, classe, icms_pct, valor,
-                markup_pct, preco_venda, cor, detalhe, obs } = item
-        const valorNum      = parseFloat((valor ?? '').replace(',', '.')) || 0
-        const icmsNum       = parseFloat((icms_pct ?? '').replace(',', '.')) || 0
-        const markupNum     = parseFloat((markup_pct ?? '').replace(',', '.')) || 0
-        const precoVendaNum = parseFloat((preco_venda ?? '').replace(',', '.')) || 0
-        const classDef = GRADE_DEFINITIONS[tipo_grade]
-        if (!classDef) continue
-        const classificacao = classDef.classificacao
-
-        const seg = await segmentacoesService.findOrCreate({
-          classificacao, tipo_produto, classe, tipo_grade,
-          estacao: colEstacao ?? 'inverno',
-        })
-        const segId = seg.id
-
-        for (const v of visitas) {
-          const lojaTams = qtds[localId]?.[v.id] ?? {}
-          const itens = tamanhosDeTipoGrade(tipo_grade)
-            .map(tam => ({ tamanho: tam, qtd: parseInt(lojaTams[tam]) || 0 }))
-            .filter(i => i.qtd > 0)
-          if (!itens.length) continue
-          batch.push({
-            visita_id: v.id, comprador_id: v.comprador_id, segmentacao_id: segId,
-            valor_unitario: valorNum, desconto_pct: parseFloat((sessaoDesconto ?? "0").replace(",", ".")) || 0,
-            referencia: ref, variante_key: variante_key ?? '', icms_pct: icmsNum,
-            markup_pct: markupNum, preco_venda: precoVendaNum,
-            cor: cor || '', detalhe: detalhe || '',
-            obs: obs || '', itens,
-          })
-          meta.push({
-            comprador_nome:     v.comprador_nome,
-            comprador_cnpj:     v.comprador_cnpj     ?? '',
-            comprador_cidade:   v.comprador_cidade   ?? '',
-            comprador_fantasia: v.comprador_fantasia ?? '',
-            comprador_ie:       v.comprador_ie       ?? '',
-            comprador_email:    v.comprador_email    ?? '',
-            comprador_telefone: v.comprador_telefone ?? '',
-            comprador_endereco: v.comprador_endereco ?? '',
-            classificacao, tipo_produto, classe, tipo_grade,
-          })
-        }
+      // 1. Flush de qualquer delta pendente (garante que o que está na tela foi gravado)
+      if (qtdSaveTimerRef.current) clearTimeout(qtdSaveTimerRef.current)
+      const changedIds = computeItensDelta(lastSavedQtdsRef.current, qtds)
+      if (changedIds.length) {
+        await flushQtdsDelta(changedIds)
+        lastSavedQtdsRef.current = JSON.parse(JSON.stringify(qtds))
       }
-      const salvos = await pedidosService.salvarBatch(batch, sessao.id)
+      // 2. Ler o estado fresco do banco — inclui o que as lojas preencheram em paralelo.
+      //    Nunca regravamos a partir do estado local: o organizador não sobrescreve as lojas.
+      const visitasComPedidos = await pedidosService.itensPorFornecedor(sessao.id)
+      const pedidosFresh = visitasComPedidos.flatMap(v =>
+        (v.pedidos ?? []).map(p => ({ ...p, visita_id: v.id }))
+      )
       localStorage.removeItem(RECOVERY_KEY)
-      onFechar(salvos.map((p, i) => ({ ...p, ...meta[i] })))
+      onFechar(pedidosFresh)
     } catch (e) {
-      setError(`Erro ao salvar pedidos: ${e.message}`)
+      setError(`Erro ao fechar sessão: ${e.message}`)
     } finally {
       setSaving(false)
     }
@@ -1313,6 +1365,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
             onClick={() => { setWorkMode('fill'); setActiveId(null) }}
           >Preencher grades</button>
         </div>
+        <SaveStatus state={saveState} onRetry={saveState === 'error' ? retrySalvarQtds : undefined} />
         <div style={{ position: 'relative' }}>
           <button
             className={styles.btnOverflowMenu}
@@ -3752,6 +3805,9 @@ function PreencherMinhaLoja({ sessaoId, visitaId, compradorNome, colEstacao, onB
   const [otherDevices, setOtherDevices] = useState(0)
   const [visibleUpTo,  setVisibleUpTo]  = useState({}) // { [pedido_id]: maxVisibleIdx }
 
+  // Estado único para o indicador de salvamento (Salvando… / ✓ Salvo / ⚠ Falha)
+  const saveState5 = saving ? 'saving' : error ? 'error' : saved ? 'saved' : 'idle'
+
   // Presence: detect other devices editing same session
   useEffect(() => {
     if (!sessaoId) return
@@ -3879,7 +3935,7 @@ function PreencherMinhaLoja({ sessaoId, visitaId, compradorNome, colEstacao, onB
       <div className={styles.viewOnlyHeader}>
         <button className={styles.btnBack} onClick={onBack}>← Voltar</button>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          {saved && <span className={styles.savedBadge}>✓ Salvo</span>}
+          <SaveStatus state={saveState5} onRetry={error ? handleSalvar : undefined} />
           <button className={styles.btnPrimary} onClick={handleSalvar} disabled={saving || pedidos.length === 0}>
             {saving ? 'Salvando…' : 'Salvar pedido'}
           </button>
@@ -4215,6 +4271,16 @@ export default function Compras() {
   const [sessaoCorDetalhe, setSessaoCorDetalhe] = useState(false)
   const [isOnline,        setIsOnline]        = useState(navigator.onLine)
   const [markupSessao,    setMarkupSessao]    = useState(null) // sessão aberta no modal de markup
+  const [manutencao,      setManutencao]      = useState(null) // null | { manutencao, mensagem }
+
+  // Polling leve da flag de manutenção (a cada 30s) — bloqueia gravação durante migração
+  useEffect(() => {
+    let alive = true
+    const load = () => appConfigService.get().then(c => { if (alive) setManutencao(c) }).catch(() => {})
+    load()
+    const t = setInterval(load, 30000)
+    return () => { alive = false; clearInterval(t) }
+  }, [])
 
   useEffect(() => {
     const onOnline  = () => setIsOnline(true)
@@ -4263,11 +4329,12 @@ export default function Compras() {
         if (!sessaoDb) { localStorage.removeItem(key); return null }
         // Ignora sessões de outras coleções
         if (sessaoDb.colecao_id !== active.id) return null
-        // Auto-limpa apenas se a sessão tem quantidades salvas no banco (foi concluída de verdade)
-        // Pedidos sem itens são rascunhos do auto-save — não descarta o recovery
-        const totais = await pedidosService.totaisPorFornecedor(data.sessao_id)
-        const temQtdsSalvas = totais.some(v => v.pedidos?.some(p => p.pedido_itens?.some(i => i.qtd > 0)))
-        if (temQtdsSalvas) { localStorage.removeItem(key); return null }
+        // Banco é a fonte da verdade. O buffer local só sobrevive se for estritamente mais
+        // novo que o updated_at máximo do banco (crash antes do flush de 2s). Senão, descarta.
+        const maxUpdated = await pedidosService.maxUpdatedAt(data.sessao_id)
+        if (maxUpdated && (!data.savedAt || data.savedAt <= maxUpdated)) {
+          localStorage.removeItem(key); return null
+        }
         const visEnriquecidas = sessaoDb.visitas.map(v => ({
           id:                 v.visita_id,
           comprador_id:       v.comprador_id,
@@ -4497,6 +4564,15 @@ export default function Compras() {
     <div className={styles.page}>
       <h1 className={styles.title}>Compras — {active.nome}</h1>
 
+      {manutencao?.manutencao && (
+        <div style={{
+          background: 'var(--red, #e05252)', color: '#fff', padding: '8px 16px',
+          textAlign: 'center', fontWeight: 600, fontSize: 14, borderRadius: 6, marginBottom: 8
+        }}>
+          {manutencao.mensagem}
+        </div>
+      )}
+
       {!isOnline && (
         <div className={styles.offlineBanner}>
           Sem conexão com a internet — mudanças não serão salvas.
@@ -4584,6 +4660,7 @@ export default function Compras() {
           initialActiveId={recoveryInitial?.activeId ?? null}
           initialLojaIdx={recoveryInitial?.lojaIdx ?? 0}
           initialCorDetalhe={sessaoCorDetalhe}
+          manutencaoAtiva={!!manutencao?.manutencao}
         />
       )}
 
