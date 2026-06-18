@@ -114,17 +114,20 @@ Indicador de status de salvamento sempre visível na Phase 2 e Phase 5:
 strings de erro discretas que passam despercebidas. Em falha, oferecer retry e
 **não** limpar o `localStorage` (preserva o buffer até confirmar gravação).
 
-### H. Backup automático — rede de segurança final (recomendação)
+### H. Backup automático — rede de segurança final
 
-Recomendação (resposta "me recomende o mais seguro"):
+**Decidido:** plano Supabase é **free e permanece free** → PITR não disponível.
+A rede de segurança mais robusta que roda dentro do próprio Supabase free:
 
-- **Baseline:** habilitar PITR (Point-in-Time Recovery) do Supabase se o plano
-  permitir — restauração a qualquer segundo, zero código no app. *Decisão pendente:
-  confirmar o plano do projeto `bhxpkysueyoblizkvomb`.*
-- **Se PITR indisponível (plano free):** job noturno de export (`pg_dump` agendado
-  ou Edge Function cron) de `pedidos` + `pedido_itens` para storage.
-- **Independente do plano:** como o item (A) elimina os deletes destrutivos não
-  atômicos, o principal vetor de perda já some. O backup é a apólice de seguro.
+- **Histórico append-only por trigger** em `pedido_itens` e `pedidos`. Toda
+  operação `UPDATE`/`DELETE` grava a linha **anterior** em tabelas
+  `pedido_itens_historico` / `pedidos_historico` (linha + operação + timestamp +
+  ator quando disponível). Nada é apagado de verdade: até uma edição ruim do mesmo
+  dia é recuperável.
+- **Poda automática via `pg_cron`** (extensão disponível no free): job diário que
+  remove histórico com mais de 60 dias, respeitando o limite de 500MB do free tier.
+- Combina com (A): os deletes destrutivos não atômicos somem **e** fica trilha de
+  recuperação. Dispensa export externo e infra paga.
 
 ---
 
@@ -140,7 +143,7 @@ Mesmo "resolvendo tudo", a ordem de deploy importa para não introduzir regress�
 4. **G — status de save visível.** Torna o resto observável.
 5. **F — beforeunload.** Defesa rápida.
 6. **E — protocolo + modo manutenção.** Processo + flag.
-7. **H — backup.** Configuração de infra.
+7. **H — histórico append-only + poda.** Triggers + `pg_cron` no Supabase.
 
 Cada passo é deployável e verificável isoladamente.
 
@@ -154,13 +157,27 @@ Cada passo é deployável e verificável isoladamente.
 - Falha de gravação é sempre visível ao usuário, com opção de retry.
 - Migração pode ser aplicada com o app no ar sem corromper dados (via modo
   manutenção + migração aditiva).
-- Existe ponto de restauração para qualquer dado dos últimos N dias.
+- Existe ponto de restauração para qualquer dado dos últimos 60 dias (histórico
+  append-only).
 
 ---
 
-## Decisões pendentes (para o plano)
+## Decisões técnicas (resolvidas)
 
-1. Plano do Supabase → define PITR vs export noturno (item H).
-2. `version` (inteiro) vs `updated_at` (timestamp) para concorrência otimística (B).
-3. Mecânica exata de "reaplicar edições locais" na reconciliação (B.3) — definir no
-   plano de implementação.
+1. **Backup:** plano free e permanece free → sem PITR. Rede de segurança =
+   histórico append-only por trigger + poda `pg_cron` de 60 dias (item H).
+2. **Concorrência otimística:** usar **`updated_at timestamptz`** em `pedidos`
+   (atualizado por trigger), não `version` inteiro. Motivo: serve duplo propósito —
+   detecção de conflito **e** timestamp para reconciliar `localStorage` vs banco no
+   recovery (item C). Resolução de milissegundo é suficiente para a escala (poucos
+   usuários simultâneos).
+3. **Granularidade de save e merge de conflito:**
+   - Saves por delta na granularidade **(visita, referencia)** — elimina por
+     construção toda colisão entre lojas diferentes e entre refs diferentes (o caso
+     comum de "os dois ao mesmo tempo").
+   - Conflito real só é possível em edição simultânea da **mesma (visita, ref)**.
+     Nesse caso, **merge no nível do tamanho**: recarrega os itens atuais daquela
+     ref no banco, aplica por cima apenas as células (tamanhos) que o usuário
+     editou localmente, mantém o valor do banco nas células que o usuário não
+     tocou. Last-write-wins fica restrito a uma única célula — limite bem pequeno e
+     não catastrófico.
