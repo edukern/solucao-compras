@@ -13,7 +13,7 @@ import { fornecedores as fornecedoresService } from '../services/fornecedores'
 import { compradores as compradoresService } from '../services/compradores'
 import { projecoes as projecoesService } from '../services/projecoes'
 import { appConfig as appConfigService } from '../services/appConfig'
-import { computeItensDelta } from '../services/pedidoMerge'
+import { computeItensDelta, computeDeltaPorVisita } from '../services/pedidoMerge'
 import SaveStatus from '../components/SaveStatus'
 import { useBeforeUnload } from '../hooks/useBeforeUnload'
 import jsPDF from 'jspdf'
@@ -740,16 +740,20 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     }
   }
 
-  // Grava as refs alteradas (delta) em todas as visitas, via RPC atômica.
-  async function flushQtdsDelta(changedIds) {
+  // Grava apenas os pares (visita, ref) alterados, via RPC atômica. Granularidade
+  // por visita garante que gravar uma loja nunca regrava/apaga outra.
+  // deltaPorVisita: { [visitaId]: [localId, ...] }
+  async function flushQtdsDelta(deltaPorVisita) {
     const itemById = Object.fromEntries(items.map(i => [i.localId, i]))
-    await resolverSegIds(Object.values(itemById))
-    for (const v of visitas) {
-      const updates = changedIds
+    const afetados = [...new Set(Object.values(deltaPorVisita).flat())]
+      .map(id => itemById[id]).filter(Boolean)
+    await resolverSegIds(afetados)
+    for (const [visitaId, localIds] of Object.entries(deltaPorVisita)) {
+      const updates = localIds
         .map(id => itemById[id])
         .filter(it => it && it._segId)
-        .map(it => buildUpdateParaVisita(it, v.id))
-      if (updates.length) await pedidosService.salvarQuantidadesDelta(v.id, updates)
+        .map(it => buildUpdateParaVisita(it, visitaId))
+      if (updates.length) await pedidosService.salvarQuantidadesDelta(Number(visitaId), updates)
     }
   }
 
@@ -766,10 +770,10 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     qtdSaveTimerRef.current = setTimeout(async () => {
       if (manutencaoAtiva) { setSaveState('idle'); return }
       try {
-        const changedIds = computeItensDelta(lastSavedQtdsRef.current, qtds)
-        if (!changedIds.length) return
+        const deltaPorVisita = computeDeltaPorVisita(lastSavedQtdsRef.current, qtds)
+        if (!Object.keys(deltaPorVisita).length) return
         setSaveState('saving')
-        await flushQtdsDelta(changedIds)
+        await flushQtdsDelta(deltaPorVisita)
         lastSavedQtdsRef.current = JSON.parse(JSON.stringify(qtds))
         setSaveState('saved')
       } catch (e) {
@@ -1178,9 +1182,9 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     try {
       // 1. Flush de qualquer delta pendente (garante que o que está na tela foi gravado)
       if (qtdSaveTimerRef.current) clearTimeout(qtdSaveTimerRef.current)
-      const changedIds = computeItensDelta(lastSavedQtdsRef.current, qtds)
-      if (changedIds.length) {
-        await flushQtdsDelta(changedIds)
+      const deltaPorVisita = computeDeltaPorVisita(lastSavedQtdsRef.current, qtds)
+      if (Object.keys(deltaPorVisita).length) {
+        await flushQtdsDelta(deltaPorVisita)
         lastSavedQtdsRef.current = JSON.parse(JSON.stringify(qtds))
       }
       // 2. Ler o estado fresco do banco — inclui o que as lojas preencheram em paralelo.
