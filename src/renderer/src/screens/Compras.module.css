@@ -2764,16 +2764,16 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0.45rem 1rem;
-  background: #16a34a;
-  color: #fff;
-  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border);
   border-radius: 7px;
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: border-color 0.15s;
 }
-.btnLiberar:hover:not(:disabled) { background: #15803d; }
+.btnLiberar:hover:not(:disabled) { border-color: var(--text-secondary); }
 .btnLiberar:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btnEditarSessaoInfo {
@@ -3028,19 +3028,19 @@
 
 .btnFecharSessao {
   padding: 0.45rem 1rem;
-  background: transparent;
-  color: var(--text-primary);
-  border: 1px solid var(--border);
+  background: #16a34a;
+  color: #fff;
+  border: none;
   border-radius: 7px;
   font-size: 0.85rem;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
-  transition: border-color 0.15s, opacity 0.15s;
+  transition: background 0.15s, opacity 0.15s;
 }
-.btnFecharSessao:hover:not(:disabled) { border-color: var(--text-secondary); }
-.btnFecharSessao:disabled { opacity: 0.4; cursor: not-allowed; }
+.btnFecharSessao:hover:not(:disabled) { background: #15803d; }
+.btnFecharSessao:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ── Overflow menu ─────────────────────────────────────────────────────────── */
 .btnOverflowMenu {
@@ -3156,20 +3156,24 @@
 
 /* ── Gear button (Phase 0) ─────────────────────────────────────────────────── */
 .histGearBtn {
-  padding: 0.28rem 0.55rem;
-  background: transparent;
-  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.34rem 0.7rem;
+  background: var(--bg-hover);
+  border: 1px solid var(--text-secondary);
   border-radius: 6px;
-  color: var(--text-muted);
-  font-size: 0.88rem;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 500;
   cursor: pointer;
   line-height: 1;
   font-family: inherit;
   flex-shrink: 0;
-  transition: border-color 0.15s, color 0.15s;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
-.histGearBtn:hover { border-color: var(--text-secondary); color: var(--text-primary); }
-.histGearBtn.open { border-color: var(--accent); color: var(--accent); background: rgba(var(--accent-rgb), 0.07); }
+.histGearBtn:hover { border-color: var(--accent); color: var(--accent); background: rgba(var(--accent-rgb), 0.07); }
+.histGearBtn.open { border-color: var(--accent); color: var(--accent); background: rgba(var(--accent-rgb), 0.12); }
 
 /* ── Gear panel (Phase 0) ──────────────────────────────────────────────────── */
 .histGearPanel {

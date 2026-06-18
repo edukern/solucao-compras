@@ -2310,18 +2310,18 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
             </span>
             <div className={styles.phase2FooterActions}>
               <button
-                className={styles.btnFecharSessao}
-                onClick={handleFechar}
-                disabled={saving || !items.length}
-                title="Fecha a sessão e vai para a tela de PDFs (Fase 3)"
-              >{saving ? 'Salvando…' : 'Fechar sessão'}</button>
-              <button
                 className={styles.btnLiberar}
                 onClick={handleLiberar}
                 disabled={liberando || !items.length}
               >
                 {liberando ? 'Liberando…' : '⇢ Liberar para as lojas'}
               </button>
+              <button
+                className={styles.btnFecharSessao}
+                onClick={handleFechar}
+                disabled={saving || !items.length}
+                title="Fecha a sessão e vai para a tela de PDFs (Fase 3)"
+              >{saving ? 'Salvando…' : 'Fechar sessão'}</button>
             </div>
           </>
         )}
@@ -3698,7 +3698,7 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetom
                 className={`${styles.histGearBtn} ${openGearId === ses.id ? 'open' : ''}`}
                 onClick={() => setOpenGearId(openGearId === ses.id ? null : ses.id)}
                 title="Ações desta sessão"
-              >⚙</button>
+              ><span aria-hidden="true">⚙</span> Opções</button>
             </div>
           </div>
 

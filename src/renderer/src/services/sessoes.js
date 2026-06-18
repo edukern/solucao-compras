@@ -41,7 +41,7 @@ export const sessoes = {
       .from('sessoes')
       .select(`*, fornecedor:fornecedores(id,nome), visitas(id, comprador_id, comprador:compradores(nome,cnpj,cidade,fantasia,ie,email,telefone,endereco))`)
       .eq('colecao_id', colecao_id)
-      .order('data_visita', { ascending: false })
+      .order('id', { ascending: false })
     if (error) throw error
     return (data ?? []).map(s => ({ ...s, visitas: normalizeVisitas(s.visitas) }))
   },
