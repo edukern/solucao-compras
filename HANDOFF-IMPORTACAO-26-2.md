@@ -1,5 +1,32 @@
 # HANDOFF — Importação 26/2 (planilhas do sistema antigo → Bolt)
-Data: 2026-06-18 | Sessão #10
+Data: 2026-06-18 | Sessão #11
+
+> ## ⏱ ATUALIZAÇÃO Sessão #11 (leia primeiro)
+>
+> **FEMMINART GRAVADO no banco** (1ª escrita real). Sessão id 40, fornecedor_id 690:
+> 7 visitas · 238 pedidos · **10654 peças** · classificação **AD/AD1** · tamanhos **46/48/50/52**. Conferido direto no SQL.
+>
+> **Decisão do rótulo Formato B resolvida:** sutiã = número de banda (46/48/50/52), NÃO P/M/G/GG
+> (este caía em grade **PP=bebê**, errado). Use `--rotulo-acima` no apply para esses casos.
+>
+> **Backup feito antes da escrita:** JSON em `docs/importar-26-2/out/backup-<ts>/` + tabelas
+> `sessoes/visitas/pedidos/pedido_itens/segmentacoes_backup_2622` no Supabase.
+>
+> ### 🚨 ACHADO CRÍTICO — fornecedores DUPLICADOS (NÃO rodar rollout cego)
+> A lista GAP_TOTAL da cobertura tem **falsos positivos já importados** sob nome variante,
+> porque `report-cobertura.js` casa por nome SEM tirar acento/pontuação:
+> - **Aconchego** já está no Bolt em id 9 `ACONCHEGO DO BEBE` (773 pç) — planilha casava com id 594 vazio.
+> - **Rakels** já está no Bolt em id 587 ``RAKEL`S`` (1135 pç) — planilha casava com id 642 vazio.
+> - **Mormaii** tem 3211 pç em id 512 `MORMAII CONF.` — ambíguo (confecção × calçados).
+> - Lupo / Íntima Flor: GAP real, mas com linhas duplicadas no cadastro.
+>
+> **ANTES do próximo `--apply`:** blindar o guard do `apply.js` para casar nome sem acento/pontuação
+> e abortar se QUALQUER linha-irmã do fornecedor tiver dados na coleção 1 (hoje só checa a fid exata).
+> Depois re-rodar cobertura com matching robusto para separar GAP real de já-importado.
+> FEMMINART era linha única e limpa — por isso foi seguro.
+>
+> ---
+> _Abaixo: handoff original da Sessão #10 (contexto que ainda vale)._
 
 > ⚠️ Existe outra `HANDOFF.md` na raiz, de tema diferente (Sync Macle → Supabase). **Não apagar/sobrescrever.** Este arquivo é só da importação 26/2.
 

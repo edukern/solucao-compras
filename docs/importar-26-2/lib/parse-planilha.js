@@ -59,8 +59,13 @@ function extrairItensFormatoA(ws) {
 }
 
 // --- Formato B/C: colunas fixas; tamanhos no header da linha "Referencia" (ou logo acima) ---
-function acharColunasTamanhoB(rows, headerRow) {
-  for (let i = headerRow; i >= Math.max(0, headerRow - 3); i--) {
+// modo 'header' (default): rótulo de tamanho está na própria linha "Referencia".
+// modo 'acima': usa a linha imediatamente acima do cabeçalho (ex. FEMMINART, onde
+//   as mesmas colunas têm P/M/G/GG no header e 46/48/50/52 na linha de cima — para
+//   sutiã o número da banda é o tamanho correto, e mapeia para grade AD, não PP).
+function acharColunasTamanhoB(rows, headerRow, modo = 'header') {
+  const start = modo === 'acima' ? headerRow - 1 : headerRow
+  for (let i = start; i >= Math.max(0, headerRow - 3); i--) {
     const row = rows[i] || []
     const cols = []
     for (let c = 2; c < row.length; c++) {
@@ -72,11 +77,11 @@ function acharColunasTamanhoB(rows, headerRow) {
   return []
 }
 
-function extrairItensFormatoB(ws) {
+function extrairItensFormatoB(ws, modo = 'header') {
   const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' })
   const h = acharHeaderItens(rows)
   if (h < 0) return []
-  const colsTam = acharColunasTamanhoB(rows, h)
+  const colsTam = acharColunasTamanhoB(rows, h, modo)
   if (!colsTam.length) return []
   // col "Quant" como oráculo (se existir) — total por linha
   const header = rows[h] || []
@@ -113,7 +118,8 @@ function fornecedorDoArquivo(filePath) {
     .trim()
 }
 
-function parsePlanilha(filePath) {
+function parsePlanilha(filePath, opts = {}) {
+  const modoB = opts.rotuloTamanhoB === 'acima' ? 'acima' : 'header'
   const wb = XLSX.readFile(filePath, { cellDates: false })
   const formato = detectarFormato(wb.SheetNames)
   const fornecedor_nome = fornecedorDoArquivo(filePath)
@@ -126,7 +132,7 @@ function parsePlanilha(filePath) {
     if (/^SOMA_/i.test(sn)) continue
     const cid = mapAba(sn)
     if (cid == null) { if (isExtra(sn)) abasExtrasComDados.push(sn); continue }
-    const abaItens = formato === 'A' ? extrairItensFormatoA(wb.Sheets[sn]) : extrairItensFormatoB(wb.Sheets[sn])
+    const abaItens = formato === 'A' ? extrairItensFormatoA(wb.Sheets[sn]) : extrairItensFormatoB(wb.Sheets[sn], modoB)
     for (const it of abaItens) {
       itens.push({ ...it, fornecedor_nome, comprador_id: cid })
       totaisPorLoja[cid] = (totaisPorLoja[cid] || 0) + it.pecas
