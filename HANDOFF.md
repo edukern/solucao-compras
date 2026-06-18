@@ -26,7 +26,7 @@ Decisão de produto já tomada: sessão é **fechada quando clica em "Fechar ses
 - **Identificar coleção pelo campo `nome`** (ex.: '27/1'), nunca por `ano`/`estacao` (inconsistentes; 26/2 aparece como 2026/verao). Ordenação e identificação usam `nome`.
 - **SQL Editor**: "Run and enable RLS" reescreve scripts com `CREATE TABLE` e quebra transações → backup é passo separado. Operações no editor rodam como `postgres` e ignoram RLS.
 - **Deploy**: nada de código pendente; `git status` limpo em `815a7ee` (já no ar). UI desta sessão já publicada: ordenação de sessões, botão "Opções", rodapé invertido, seletor de coleções.
-- **Build**: o script real é `npm run build` (CLAUDE.md cita `build:web`, que não existe — drift de doc, não corrigido).
+- **Build**: o script real é `npm run build` (`vite build --config vite.web.config.js` → `dist/web`). Drift do `.claude/CLAUDE.md` (citava `build:web`) corrigido em 18/06.
 
 ## 📁 Arquivos relevantes
 - `docs/migracao-27-1-para-26-2.sql` — script da migração pausada.

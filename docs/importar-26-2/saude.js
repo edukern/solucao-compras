@@ -35,13 +35,22 @@ async function main() {
 
   const totalPecasBolt = Object.values(pecasPorForn).reduce((a, b) => a + b, 0)
 
+  // Arquivos "X Programação" / "X Calçados" são PEDIDOS SEPARADOS do fornecedor,
+  // não o pedido base. O prefix-match os fazia casar com a base (ex. FEMMINART
+  // PROGRAMACAO → FEMMINART#690, diff falso de +9920). Variantes só casam por nome
+  // exato — sem cadastro próprio caem em FALTA_CADASTRO (correto), não em DIVERGE.
+  const VARIANTE = /(PROGRAMAC|CALCA)/ // já em strip (sem acento): PROGRAMACAO, CALCADOS (e o typo "Calcacados")
+
   // candidatos de fornecedor por nome (accent/punct-insensitive, com prefixo)
   function candidatos(nome) {
     const k = strip(nome)
+    const variante = VARIANTE.test(k)
     const out = []
     for (const f of forns) {
       const fk = strip(f.nome)
-      if (fk === k || fk.startsWith(k) || k.startsWith(fk)) out.push(f)
+      if (fk === k) { out.push(f); continue }       // exato sempre casa
+      if (variante) continue                          // variante não rola pra base
+      if (fk.startsWith(k) || k.startsWith(fk)) out.push(f)
     }
     return [...new Map(out.map(c => [c.id, c])).values()]
   }
