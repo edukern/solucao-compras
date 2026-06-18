@@ -1,32 +1,53 @@
 # HANDOFF — Importação 26/2 (planilhas do sistema antigo → Bolt)
 Data: 2026-06-18 | Sessão #11
 
-> ## ⏱ ATUALIZAÇÃO Sessão #11 (leia primeiro)
+> ## ⏱ ATUALIZAÇÃO Sessão #11 — fim (leia primeiro)
 >
-> **FEMMINART GRAVADO no banco** (1ª escrita real). Sessão id 40, fornecedor_id 690:
-> 7 visitas · 238 pedidos · **10654 peças** · classificação **AD/AD1** · tamanhos **46/48/50/52**. Conferido direto no SQL.
+> **Git:** trabalho está em `main` (commits locais, NÃO pushados): `144dfa3` (apply/backup/FEMMINART)
+> e `dcce7bc` (revisor de impacto + saude.js). O branch `safeguards-perda-dados` é antigo e NÃO tem
+> esse trabalho — ignore a menção a ele no handoff antigo abaixo.
 >
-> **Decisão do rótulo Formato B resolvida:** sutiã = número de banda (46/48/50/52), NÃO P/M/G/GG
-> (este caía em grade **PP=bebê**, errado). Use `--rotulo-acima` no apply para esses casos.
+> ### Feito nesta sessão
+> - **FEMMINART GRAVADO** (1ª escrita real): sessão id 40, fornecedor_id 690 · 7 visitas · 238 pedidos ·
+>   **10654 peças** · classificação **AD/AD1** · tamanhos **46/48/50/52**. Conferido direto no SQL.
+> - **Backup antes da escrita:** JSON em `docs/importar-26-2/out/backup-<ts>/` + tabelas `*_backup_2622` no Supabase.
+> - **Rótulo Formato B resolvido:** sutiã = número de banda (46/48/50/52), não P/M/G/GG (este caía em
+>   grade **PP=bebê**, errado). `apply.js --rotulo-acima` ativa isso; parser ganhou opção `rotuloTamanhoB:'acima'`.
+> - **`saude.js`** (novo, re-executável): `node saude.js` → estado do Bolt + reconciliação planilha×Bolt +
+>   `out/SAUDE-BOLT.md`. Hoje: Bolt tem 51312 peças; 9 fornecedores fecham; 23 ainda fora; 10 DIVERGE.
+> - **Revisor de impacto** (novo): agente `.claude/agents/revisor-impacto.md` + regra no `CLAUDE.md`
+>   (rodar análise 1ª/2ª/3ª ordem antes de mudança que toque schema/serviço/dados/deploy).
 >
-> **Backup feito antes da escrita:** JSON em `docs/importar-26-2/out/backup-<ts>/` + tabelas
-> `sessoes/visitas/pedidos/pedido_itens/segmentacoes_backup_2622` no Supabase.
+> ### 🚨 NÃO rodar rollout cego — fornecedores DUPLICADOS
+> `report-cobertura.js` casa nome SEM tirar acento/pontuação → falsos "GAP_TOTAL" que já estão importados:
+> Aconchego (já no id 9, 773pç) · Rakels (id 587, 1135pç) · Mormaii (id 512 CONF., 3211pç) · Lupo/Íntima Flor (linhas dup).
+> Antes do próximo `--apply`: blindar o guard do `apply.js` p/ casar sem acento/pontuação e abortar se
+> QUALQUER linha-irmã do fornecedor tiver dados na coleção 1 (hoje só checa a fid exata). (O `saude.js` já usa esse matching robusto — espelhar nele.)
 >
-> ### 🚨 ACHADO CRÍTICO — fornecedores DUPLICADOS (NÃO rodar rollout cego)
-> A lista GAP_TOTAL da cobertura tem **falsos positivos já importados** sob nome variante,
-> porque `report-cobertura.js` casa por nome SEM tirar acento/pontuação:
-> - **Aconchego** já está no Bolt em id 9 `ACONCHEGO DO BEBE` (773 pç) — planilha casava com id 594 vazio.
-> - **Rakels** já está no Bolt em id 587 ``RAKEL`S`` (1135 pç) — planilha casava com id 642 vazio.
-> - **Mormaii** tem 3211 pç em id 512 `MORMAII CONF.` — ambíguo (confecção × calçados).
-> - Lupo / Íntima Flor: GAP real, mas com linhas duplicadas no cadastro.
+> ### ▶️ Próximos passos (em ordem, quando retomar)
+> 1. **Decisões pendentes com o Eduardo** (ele vai repassar à equipe — lista já entregue no chat):
+>    fornecedores a cadastrar (18: AGGY, BEAVER, CHARMS, DOBELLE, DOCE MEL, ESTILO A, FATAL SUL,
+>    JEITO FASHION, KANOA, LINDA BEL, LOOK CHIC, PONTO IGUI, PURO MAR, RECOLLETA, ROYACK, SHAPE, SOLRAC;
+>    DECIZAO = arquivo vazio, ignorar); qual Mormaii×qual planilha; Lupo é 1 ou vários; como tratar os
+>    arquivos "Programação" (FEMMINART/LZT/Mormaii Programação = pedido separado do mesmo fornecedor?);
+>    Urban City tem +2 no Bolt que na planilha (alguém lançou direto?).
+> 2. **Blindar o guard do `apply.js`** (item acima) ANTES de qualquer novo `--apply`.
+> 3. **Refinar `saude.js`**: os arquivos "Programação" hoje casam com o fornecedor base e geram diff gigante
+>    falso (FEMMINART PROG +9920, LZT PROG +10018, Mormaii +1751). Tratar como pedido separado, não comparar com a base.
+> 4. **GAP real restante** (depois de cadastro+guard): Doce Glamour (4406, tem sessão vazia id 448), Íntima Flor (5458),
+>    Lupo (4743), + os 18 após cadastrados.
+> 5. **Divergências PARCIAL pequenas** (diff item-a-item, read-only, antes de decidir mexer): Trajadinhos −189,
+>    SCHRAMM −74, Desayner −61, Tanise −3, Marco Têxtil −3, Aconchego +2, Urban City +2.
+> 6. Task 9: renomear rótulo coleção 1 "27/1" → "26/2".
 >
-> **ANTES do próximo `--apply`:** blindar o guard do `apply.js` para casar nome sem acento/pontuação
-> e abortar se QUALQUER linha-irmã do fornecedor tiver dados na coleção 1 (hoje só checa a fid exata).
-> Depois re-rodar cobertura com matching robusto para separar GAP real de já-importado.
-> FEMMINART era linha única e limpa — por isso foi seguro.
+> ### Ofertas em aberto (Eduardo não decidiu ainda)
+> - Destravar `.gitignore` p/ `.claude/agents/` e `.claude/memory/` viajarem entre máquinas (hoje o agente
+>   revisor só existe nesta máquina; a regra no CLAUDE.md já viaja).
+> - Demonstrar o revisor numa mudança real: pôr trava de unicidade no cadastro de fornecedor (raiz dos duplicados).
+> - 2ª salvaguarda (separada): conferência automática pré-deploy do app (a dor "quebra quando vou usar" é de código/deploy, não dos dados).
 >
 > ---
-> _Abaixo: handoff original da Sessão #10 (contexto que ainda vale)._
+> _Abaixo: handoff das Sessões #10 e anteriores (contexto que ainda vale; ignore "branch safeguards-perda-dados")._
 
 > ⚠️ Existe outra `HANDOFF.md` na raiz, de tema diferente (Sync Macle → Supabase). **Não apagar/sobrescrever.** Este arquivo é só da importação 26/2.
 
