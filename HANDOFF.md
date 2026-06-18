@@ -1,36 +1,22 @@
 # HANDOFF — Solução Compras
-Atualizado: 2026-06-18 | Sessão #9
+Atualizado: 2026-06-18 | Sessão #10
 
-> Este projeto tem **3 frentes em aberto em paralelo**. A frente ATIVA desta sessão é a #1 (Salvaguardas). As frentes #2 e #3 continuam pendentes e **não devem ser perdidas**.
+> Este projeto tem **2 frentes em aberto em paralelo**. A Frente #1 (Salvaguardas) foi **concluída e está em produção**. As frentes #2 e #3 continuam pendentes e **não devem ser perdidas**.
 
 ---
 
-# 🔴 FRENTE 1 (ATIVA) — Salvaguardas contra perda de dados
+# ✅ FRENTE 1 (CONCLUÍDA — em produção) — Salvaguardas contra perda de dados
 
-Branch: **`safeguards-perda-dados`** (NÃO está em `main`, NÃO está em produção).
+Branch `safeguards-perda-dados` **mergeado em `main` e no ar** (commit `1a87335`).
 Spec: `docs/superpowers/specs/2026-06-18-safeguards-perda-dados-design.md`
 Plano: `docs/superpowers/plans/2026-06-18-safeguards-perda-dados.md`
 
-Código 100% implementado, testado (build ok, 8/8 testes) e revisado. Falta só **aplicar as migrations e publicar**.
+Entregue na sessão #10:
+- ✅ 4 migrations aplicadas e verificadas no Supabase (`bhxpkysueyoblizkvomb`), na ordem `022 → 024 → 025 → 023`. Todas as verificações bateram (incl. job `pg_cron` `podar-historico` agendado).
+- ✅ Merge em `main` + push. Deploy publicado no Cloudflare Pages via GitHub Actions (`deploy-web.yml`, run do SHA `1a87335` = success; bundle novo respondendo 200).
 
-## ⏳ Próximos passos (em ordem)
-
-### 1. Aplicar as 4 migrations no Supabase (projeto `bhxpkysueyoblizkvomb`)
-No SQL Editor, rodar o conteúdo de cada arquivo, **um de cada vez**, e conferir a verificação:
-
-| Ordem | Arquivo | Verificação (resultado esperado) |
-|---|---|---|
-| 1 | `supabase/migrations/022_pedidos_updated_at.sql` | `SELECT column_name FROM information_schema.columns WHERE table_name='pedidos' AND column_name='updated_at';` → 1 linha |
-| 2 | `supabase/migrations/024_rpc_salvar_pedidos.sql` | `SELECT proname FROM pg_proc WHERE proname='salvar_pedidos_visita';` → 1 linha |
-| 3 | `supabase/migrations/025_app_config_manutencao.sql` | `SELECT id, manutencao FROM app_config;` → `1 | false` |
-| 4 | `supabase/migrations/023_historico_append_only.sql` | `SELECT jobname FROM cron.job WHERE jobname='podar-historico';` → 1 linha |
-
-⚠️ Se o **023** falhar em `CREATE EXTENSION pg_cron`: ativar `pg_cron` em **Database → Extensions** e rodar de novo (o 023 é idempotente).
-
-### 2. Publicar (só DEPOIS das migrations confirmadas)
-`git checkout main && git merge safeguards-perda-dados && git push` — o push para `main` dispara o deploy no Cloudflare Pages. Ordem obrigatória: **banco primeiro, código depois** (o código novo chama a RPC, lê `updated_at` e `app_config`).
-
-### 3. Verificação pós-deploy (cenários)
+## ⏳ Único pendente (opcional) — validação funcional dos 3 cenários no app no ar
+Precisa de login de comprador + sessão de teste descartável (o banco é o de produção). Cenários:
 - F5 no meio do preenchimento → quantidades voltam (não somem).
 - 2 abas (organizador Phase 2 + loja Phase 5 na mesma sessão) → organizador "Gerar PDFs" preserva o que a loja preencheu.
 - Sem internet → status "⚠ Falha ao salvar / tentar de novo".
