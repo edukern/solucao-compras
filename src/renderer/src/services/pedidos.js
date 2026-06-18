@@ -103,6 +103,23 @@ export const pedidos = {
     return data
   },
 
+  // Maior updated_at (ms) entre pedidos da sessão; null se não houver pedidos.
+  async maxUpdatedAt(sessao_id) {
+    const { data, error } = await supabase
+      .from('visitas')
+      .select('pedidos(updated_at)')
+      .eq('sessao_id', sessao_id)
+    if (error) throw error
+    let max = null
+    for (const v of data ?? []) {
+      for (const p of v.pedidos ?? []) {
+        const t = new Date(p.updated_at).getTime()
+        if (max === null || t > max) max = t
+      }
+    }
+    return max
+  },
+
   async updateVisita(id, fields) {
     const { error } = await supabase.from('visitas').update(fields).eq('id', id)
     if (error) throw error
@@ -136,38 +153,27 @@ export const pedidos = {
     if (error) throw error
   },
 
-  // Salva pedidos de uma visita específica (uso no preenchimento colaborativo)
+  // Salva pedidos de uma visita específica de forma atômica (RPC transacional).
+  // updates: array de { referencia, variante_key, segmentacao_id, valor_unitario,
+  //   desconto_pct, icms_pct, markup_pct, preco_venda, cor, detalhe, obs, itens:[{tamanho,qtd}] }
   async salvarPedidosVisita(visitaId, updates) {
-    const pedidoRows = updates.map(({ itens: _itens, ...fields }) => ({
+    const payload = updates.map(({ itens, ...fields }) => ({
+      variante_key: '',
       ...fields,
-      visita_id: visitaId,
+      itens: (itens ?? []).filter(i => i.qtd > 0),
     }))
-    const { data: saved, error: pe } = await supabase
-      .from('pedidos')
-      .upsert(pedidoRows, { onConflict: 'visita_id,referencia,variante_key' })
-      .select()
-    if (pe) throw pe
+    const { error } = await supabase.rpc('salvar_pedidos_visita', {
+      p_visita_id: visitaId,
+      p_payload: payload,
+    })
+    if (error) throw error
+  },
 
-    const pedidoIds = (saved ?? []).map(p => p.id)
-    if (pedidoIds.length) {
-      const { error: de } = await supabase.from('pedido_itens').delete().in('pedido_id', pedidoIds)
-      if (de) throw de
-    }
-
-    const byRef = Object.fromEntries((saved ?? []).map(p => [`${p.referencia}|${p.variante_key ?? ''}`, p]))
-    const allItems = []
-    for (const upd of updates) {
-      const ped = byRef[`${upd.referencia}|${upd.variante_key ?? ''}`]
-      if (ped && upd.itens?.length) {
-        for (const it of upd.itens) {
-          allItems.push({ pedido_id: ped.id, tamanho: it.tamanho, qtd: it.qtd })
-        }
-      }
-    }
-    if (allItems.length) {
-      const { error: ie } = await supabase.from('pedido_itens').insert(allItems)
-      if (ie) throw ie
-    }
+  // Grava apenas os pedidos (refs) que mudaram para esta visita, via RPC atômica.
+  // Mesmo formato de updates de salvarPedidosVisita.
+  async salvarQuantidadesDelta(visitaId, updatesAlterados) {
+    if (!updatesAlterados.length) return
+    return this.salvarPedidosVisita(visitaId, updatesAlterados)
   },
 
   async atualizarMarkupSessao(sessao_id, precosMap, idx1Str, idx2Str) {
