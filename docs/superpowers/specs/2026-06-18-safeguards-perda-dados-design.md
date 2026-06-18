@@ -64,15 +64,23 @@ Estratégia:
 2. **Concorrência otimística por linha.** Coluna `updated_at` (e/ou `version`) em
    `pedidos`. Ao salvar, se a linha foi alterada por outro desde que o cliente a
    carregou, a RPC não sobrescreve cegamente: retorna conflito.
-3. **Reconciliação em vez de clobber.** No conflito, o cliente recarrega o estado
-   fresco do banco e **reaplica apenas as edições locais do usuário** por cima,
-   depois regrava. Resultado: o único conflito verdadeiro possível é duas pessoas
-   setando exatamente a mesma célula (mesmo tamanho, mesma ref, mesma loja) no mesmo
-   instante — onde last-write-wins é aceitável e não catastrófico.
+3. **Última escrita vence por (visita, ref).** Como o save é por delta nessa
+   granularidade, o único conflito verdadeiro possível é duas pessoas editando
+   **exatamente a mesma (visita, ref)** quase no mesmo instante — janela de ~2s.
+   Nesse caso, a última gravação da ref vence. É um caso raro e não catastrófico
+   (perde-se no máximo a edição de uma ref de uma loja, não o trabalho de um editor
+   inteiro).
 
-> Alternativa considerada e descartada: last-write-wins no nível da visita inteira.
-> Mais simples, mas com "os dois ao mesmo tempo" perde o trabalho de um editor inteiro.
-> Rejeitada por não ser segura o suficiente para o fluxo real.
+> Alternativa descartada: last-write-wins no nível da **visita inteira** (como o
+> código atual faz). Com "os dois ao mesmo tempo" perde o trabalho de um editor
+> inteiro. O delta em (visita, ref) reduz a perda possível de "uma visita inteira"
+> para "uma única ref", e só na colisão de mesma ref/mesmo instante.
+>
+> **Evolução futura (não nesta entrega):** merge no nível do **tamanho** para a
+> mesma (visita, ref) — recarregar os itens atuais da ref e reaplicar só as células
+> que o usuário tocou. Reduziria o conflito de "uma ref" para "uma única célula".
+> Adiado por exigir leitura extra por ciclo de save sem necessidade comprovada; só
+> vale implementar se colisões de mesma-ref se mostrarem reais em produção.
 
 ### C. Quantidades persistidas continuamente no banco — resolve #3 e #6
 
@@ -171,13 +179,10 @@ Cada passo é deployável e verificável isoladamente.
    detecção de conflito **e** timestamp para reconciliar `localStorage` vs banco no
    recovery (item C). Resolução de milissegundo é suficiente para a escala (poucos
    usuários simultâneos).
-3. **Granularidade de save e merge de conflito:**
-   - Saves por delta na granularidade **(visita, referencia)** — elimina por
-     construção toda colisão entre lojas diferentes e entre refs diferentes (o caso
-     comum de "os dois ao mesmo tempo").
-   - Conflito real só é possível em edição simultânea da **mesma (visita, ref)**.
-     Nesse caso, **merge no nível do tamanho**: recarrega os itens atuais daquela
-     ref no banco, aplica por cima apenas as células (tamanhos) que o usuário
-     editou localmente, mantém o valor do banco nas células que o usuário não
-     tocou. Last-write-wins fica restrito a uma única célula — limite bem pequeno e
-     não catastrófico.
+3. **Granularidade de save:** saves por delta na granularidade
+   **(visita, referencia)** — elimina por construção toda colisão entre lojas
+   diferentes e entre refs diferentes (o caso comum de "os dois ao mesmo tempo").
+   Conflito real só é possível em edição simultânea da **mesma (visita, ref)**, onde
+   vale última-escrita-vence por ref (perda máxima = uma ref, na janela de ~2s). O
+   merge no nível do tamanho fica documentado como evolução futura (ver seção B.3),
+   não implementado nesta entrega.
