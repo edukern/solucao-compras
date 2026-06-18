@@ -17,6 +17,13 @@ CREATE TABLE IF NOT EXISTS pedido_itens_historico (
   dados      jsonb NOT NULL
 );
 
+-- RLS sem política de SELECT: clientes (authenticated) NÃO leem o histórico.
+-- As triggers são SECURITY DEFINER, então continuam inserindo normalmente.
+-- Restauração de dados é feita pelo owner via dashboard. Evita que uma loja
+-- leia o histórico de pedidos de outra (as tabelas-base têm comprador_read_own).
+ALTER TABLE pedidos_historico      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pedido_itens_historico ENABLE ROW LEVEL SECURITY;
+
 CREATE OR REPLACE FUNCTION log_pedidos_historico()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
@@ -53,5 +60,13 @@ RETURNS void LANGUAGE sql AS $$
   DELETE FROM pedidos_historico       WHERE registrado_em < now() - interval '60 days';
   DELETE FROM pedido_itens_historico  WHERE registrado_em < now() - interval '60 days';
 $$;
+
+-- Idempotente: remove o job anterior (se existir) antes de reagendar.
+DO $$
+BEGIN
+  PERFORM cron.unschedule('podar-historico');
+EXCEPTION WHEN OTHERS THEN
+  NULL;  -- job ainda não existia
+END $$;
 
 SELECT cron.schedule('podar-historico', '0 4 * * *', 'SELECT podar_historico()');

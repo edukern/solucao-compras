@@ -629,6 +629,8 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   // Snapshot {localId:{visitaId:{tam:qty}}} já confirmado no banco, p/ cálculo de delta
   const lastSavedQtdsRef = useRef(JSON.parse(JSON.stringify(initialQtds ?? {})))
   const qtdSaveTimerRef  = useRef(null)
+  const qtdsRef          = useRef(initialQtds)   // espelho sempre-fresco de qtds (evita closure stale)
+  const qtdFlushInFlight = useRef(false)         // trava p/ não sobrepor flushes
   const [saveState, setSaveState] = useState('idle')  // idle | saving | saved | error
   const [showAddForm,    setShowAddForm]    = useState(true)
   const [showCorDetalhe,    setShowCorDetalhe]    = useState(initialCorDetalhe)
@@ -657,6 +659,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
 
   const activeItem = items.find(it => it.localId === activeId) ?? null
   const displayItems = workMode === 'add' ? [...items].reverse() : items
+  qtdsRef.current = qtds   // mantém o espelho fresco para o flush assíncrono
 
   // ── Supabase Realtime Presence: detecta outros dispositivos na mesma sessão ──
   useEffect(() => {
@@ -708,9 +711,10 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     return () => clearTimeout(autoSaveRef.current)
   }, [items])
 
-  // Monta o payload de uma ref para uma visita (formato da RPC salvar_pedidos_visita)
-  function buildUpdateParaVisita(item, visitaId) {
-    const lojaTams = qtds[item.localId]?.[visitaId] ?? {}
+  // Monta o payload de uma ref para uma visita (formato da RPC salvar_pedidos_visita).
+  // qtdsSrc permite usar o estado fresco (qtdsRef) em vez do closure no flush assíncrono.
+  function buildUpdateParaVisita(item, visitaId, qtdsSrc = qtds) {
+    const lojaTams = qtdsSrc[item.localId]?.[visitaId] ?? {}
     const itens = tamanhosDeTipoGrade(item.tipo_grade)
       .map(tam => ({ tamanho: tam, qtd: parseInt(lojaTams[tam]) || 0 }))
       .filter(i => i.qtd > 0)
@@ -742,8 +746,8 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
 
   // Grava apenas os pares (visita, ref) alterados, via RPC atômica. Granularidade
   // por visita garante que gravar uma loja nunca regrava/apaga outra.
-  // deltaPorVisita: { [visitaId]: [localId, ...] }
-  async function flushQtdsDelta(deltaPorVisita) {
+  // deltaPorVisita: { [visitaId]: [localId, ...] };  qtdsSrc: fonte fresca de qtds.
+  async function flushQtdsDelta(deltaPorVisita, qtdsSrc) {
     const itemById = Object.fromEntries(items.map(i => [i.localId, i]))
     const afetados = [...new Set(Object.values(deltaPorVisita).flat())]
       .map(id => itemById[id]).filter(Boolean)
@@ -752,8 +756,33 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
       const updates = localIds
         .map(id => itemById[id])
         .filter(it => it && it._segId)
-        .map(it => buildUpdateParaVisita(it, visitaId))
+        .map(it => buildUpdateParaVisita(it, visitaId, qtdsSrc))
       if (updates.length) await pedidosService.salvarQuantidadesDelta(Number(visitaId), updates)
+    }
+  }
+
+  // Drena todo o delta pendente contra o estado fresco (qtdsRef), sem sobrepor flushes.
+  // O loop captura edições feitas durante o await; a trava evita corridas/baseline velho.
+  async function drenarQtdsDelta() {
+    if (qtdFlushInFlight.current) return
+    if (manutencaoAtiva) { setSaveState('idle'); return }
+    qtdFlushInFlight.current = true
+    try {
+      while (true) {
+        const current = qtdsRef.current
+        const deltaPorVisita = computeDeltaPorVisita(lastSavedQtdsRef.current, current)
+        if (!Object.keys(deltaPorVisita).length) break
+        setSaveState('saving')
+        const snapshot = JSON.parse(JSON.stringify(current))
+        await flushQtdsDelta(deltaPorVisita, current)
+        lastSavedQtdsRef.current = snapshot
+      }
+      setSaveState('saved')
+    } catch (e) {
+      setSaveState('error')
+      setError(`Falha ao salvar quantidades: ${e.message}`)
+    } finally {
+      qtdFlushInFlight.current = false
     }
   }
 
@@ -767,20 +796,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   useEffect(() => {
     if (!sessao?.id || !items.length) return
     if (qtdSaveTimerRef.current) clearTimeout(qtdSaveTimerRef.current)
-    qtdSaveTimerRef.current = setTimeout(async () => {
-      if (manutencaoAtiva) { setSaveState('idle'); return }
-      try {
-        const deltaPorVisita = computeDeltaPorVisita(lastSavedQtdsRef.current, qtds)
-        if (!Object.keys(deltaPorVisita).length) return
-        setSaveState('saving')
-        await flushQtdsDelta(deltaPorVisita)
-        lastSavedQtdsRef.current = JSON.parse(JSON.stringify(qtds))
-        setSaveState('saved')
-      } catch (e) {
-        setSaveState('error')
-        setError(`Falha ao salvar quantidades: ${e.message}`)
-      }
-    }, 2000)
+    qtdSaveTimerRef.current = setTimeout(drenarQtdsDelta, 2000)
     return () => clearTimeout(qtdSaveTimerRef.current)
   }, [qtds])
 
@@ -1180,13 +1196,11 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     setSaving(true)
     setError(null)
     try {
-      // 1. Flush de qualquer delta pendente (garante que o que está na tela foi gravado)
+      // 1. Garante que todo delta pendente foi gravado: cancela o timer, espera um flush
+      //    em andamento terminar e drena o que restou contra o estado fresco.
       if (qtdSaveTimerRef.current) clearTimeout(qtdSaveTimerRef.current)
-      const deltaPorVisita = computeDeltaPorVisita(lastSavedQtdsRef.current, qtds)
-      if (Object.keys(deltaPorVisita).length) {
-        await flushQtdsDelta(deltaPorVisita)
-        lastSavedQtdsRef.current = JSON.parse(JSON.stringify(qtds))
-      }
+      while (qtdFlushInFlight.current) await new Promise(r => setTimeout(r, 50))
+      await drenarQtdsDelta()
       // 2. Ler o estado fresco do banco — inclui o que as lojas preencheram em paralelo.
       //    Nunca regravamos a partir do estado local: o organizador não sobrescreve as lojas.
       const visitasComPedidos = await pedidosService.itensPorFornecedor(sessao.id)
