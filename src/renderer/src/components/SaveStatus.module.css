@@ -1,0 +1,5 @@
+.saving { color: var(--text-secondary, #aaa); font-size: 13px; }
+.saved  { color: var(--green, #3fa45b); font-size: 13px; }
+.error  { color: var(--red, #e05252); font-size: 13px; display: inline-flex; gap: 6px; align-items: center; }
+.retry  { background: none; border: 1px solid currentColor; border-radius: 4px;
+          color: inherit; cursor: pointer; font-size: 12px; padding: 1px 6px; }
