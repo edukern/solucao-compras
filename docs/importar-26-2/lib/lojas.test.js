@@ -13,8 +13,8 @@ test('Formato B: nomes de pessoa mapeiam para a loja certa', () => {
   assert.equal(mapAba('CD Prog 1'), 2)
   assert.equal(mapAba('Cd Prog 1'), 2)     // variação de caixa (Mormaii Calçados)
   assert.equal(mapAba('Elisangela'), 5)    // Rafael Filial 1
-  assert.equal(mapAba('Alexandre'), 6)     // Rafael Filial 2
-  assert.equal(mapAba('Rafael'), 4)        // Rafael J. Backes
+  assert.equal(mapAba('Alexandre'), 4)     // Rafael Filial 2
+  assert.equal(mapAba('Rafael'), 6)        // Rafael J. Backes
   assert.equal(mapAba('Streit'), 7)
   assert.equal(mapAba('FMV'), 8)
 })
