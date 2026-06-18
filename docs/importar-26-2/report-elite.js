@@ -12,8 +12,7 @@ const XLSX = require('xlsx')
 const { makeClient, fetchBoltColecao } = require('./lib/db')
 const { detectarGrade } = require('./lib/grades')
 const { ABAS_A } = require('./lib/lojas')
-
-const COLECAO_ID = 1
+const { COLECAO_ID } = require('./lib/colecao')
 const FORNECEDOR_ELITE = 32
 const ARQUIVO = path.resolve(__dirname, '..', '..', 'Pedidos', '26-2-import', 'Elite 28-05-26.xlsx')
 const OUT = path.resolve(__dirname, 'out')

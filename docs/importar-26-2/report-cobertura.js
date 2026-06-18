@@ -6,8 +6,7 @@ const fs = require('fs')
 const path = require('path')
 const { makeClient, fetchBoltColecao } = require('./lib/db')
 const { parsePlanilha } = require('./lib/parse-planilha')
-
-const COLECAO_ID = 1
+const { COLECAO_ID } = require('./lib/colecao')
 const DIR = path.resolve(__dirname, '..', '..', 'Pedidos', '26-2-import')
 const OUT = path.resolve(__dirname, 'out')
 const norm = s => String(s ?? '').trim().toUpperCase().replace(/\s+/g, ' ')

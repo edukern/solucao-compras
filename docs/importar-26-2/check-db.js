@@ -1,6 +1,5 @@
 const { makeClient, fetchBoltColecao } = require('./lib/db')
-
-const COLECAO_ID = 1
+const { COLECAO_ID } = require('./lib/colecao')
 
 async function main() {
   const { client, usingServiceRole } = makeClient()

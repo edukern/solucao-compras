@@ -1,4 +1,4 @@
-// apply.js — grava UM fornecedor GAP_TOTAL da planilha 26/2 no Bolt (coleção 1).
+// apply.js — grava UM fornecedor GAP_TOTAL da planilha 26/2 no Bolt (coleção 17 = 26/2).
 // DRY-RUN por padrão; só escreve com --apply. Espelha a transformação canônica
 // de docs/importar-elite.js (segmentacao por classificacao|tipo_produto|classe|
 // tipo_grade, sufixo _tipo_grade em refs multi-grade, valor col23 / preço col27
@@ -10,15 +10,15 @@
 //
 // Salvaguardas:
 //   - exige service_role (senão RLS bloquearia a escrita silenciosamente)
-//   - GAP_TOTAL: aborta se o fornecedor já tiver QUALQUER sessão na coleção 1
+//   - GAP_TOTAL: aborta se o fornecedor já tiver QUALQUER sessão na coleção alvo
 //   - dry-run confere total de peças (parser == payload) antes de liberar --apply
 
 const fs = require('fs')
 const path = require('path')
 const { makeClient } = require('./lib/db')
 const { parsePlanilha, fornecedorDoArquivo } = require('./lib/parse-planilha')
+const { COLECAO_ID } = require('./lib/colecao')
 
-const COLECAO_ID = 1
 const ESTACAO = 'verao' // estação da coleção 1 (colecoes.estacao); segmentacoes.estacao é NOT NULL
 const DIR = path.resolve(__dirname, '..', '..', 'Pedidos', '26-2-import')
 const NOME_LOJA = { 1: 'Backes Art', 2: 'Backes Prog 1', 3: 'Backes Prog 2', 4: 'Rafael Filial 2', 5: 'Rafael Filial 1', 6: 'Rafael J. Backes', 7: 'Streit Conf', 8: 'FMV Streit Conf' }

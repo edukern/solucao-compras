@@ -1,4 +1,4 @@
-// saude.js — RELATÓRIO DE SAÚDE read-only do Bolt (coleção 26/2 = colecao_id 1).
+// saude.js — RELATÓRIO DE SAÚDE read-only do Bolt (coleção 26/2 = colecao_id 17).
 // Não grava nada. Roda quando quiser: node saude.js
 // Mostra, de uma vez: volume, reconciliação planilha×Bolt por fornecedor,
 // e riscos com gravidade (duplicados, divergências, cadastros faltando).
@@ -8,8 +8,7 @@ const fs = require('fs')
 const path = require('path')
 const { makeClient, fetchBoltColecao } = require('./lib/db')
 const { parsePlanilha, fornecedorDoArquivo } = require('./lib/parse-planilha')
-
-const COLECAO_ID = 1
+const { COLECAO_ID } = require('./lib/colecao')
 const DIR = path.resolve(__dirname, '..', '..', 'Pedidos', '26-2-import')
 const OUT = path.resolve(__dirname, 'out')
 

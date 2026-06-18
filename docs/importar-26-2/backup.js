@@ -10,8 +10,7 @@
 const fs = require('fs')
 const path = require('path')
 const { makeClient, fetchBoltColecao } = require('./lib/db')
-
-const COLECAO_ID = 1
+const { COLECAO_ID } = require('./lib/colecao')
 
 async function fetchPage(client, table, select, filterCol, idChunk) {
   // Paginação defensiva por range (PostgREST corta em 1000).

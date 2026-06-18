@@ -1,7 +1,17 @@
 # HANDOFF — Importação 26/2 (planilhas do sistema antigo → Bolt)
 Data: 2026-06-18 | Sessão #11
 
-> ## ⏱ ATUALIZAÇÃO Sessão #11 — fim (leia primeiro)
+> ## ⏱ ATUALIZAÇÃO Sessão #12 — coleção migrada (leia primeiro)
+>
+> **A coleção alvo mudou de `1` para `17`.** Em 18/06 (noite) a migração `docs/migracao-27-1-para-26-2.sql`
+> moveu as 20 sessões da coleção 1 (rótulo errado "27/1") para a 17 (a 26/2 real) e **apagou a coleção 1**.
+> FEMMINART (sessão 40) foi junto — confirmado no banco: coleção 17 tem 21 sessões / 4000 pedidos / 54388 peças.
+> - **Scripts já corrigidos:** o alvo virou fonte única em `lib/colecao.js` (`COLECAO_ID = 17`, override por
+>   `IMPORT_COLECAO_ID`); apply/backup/check-db/report-cobertura/report-elite/saude importam de lá (não há mais `= 1` espalhado).
+> - **Task 9 (renomear 27/1→26/2) está RESOLVIDA** pela migração — pode riscar da lista.
+> - Os números antigos de `saude.js` neste handoff foram medidos na coleção 1; **rode `node saude.js` de novo** para o retrato atual da 17.
+>
+> ## ⏱ ATUALIZAÇÃO Sessão #11 — fim
 >
 > **Git:** trabalho está em `main` (commits locais, NÃO pushados): `144dfa3` (apply/backup/FEMMINART)
 > e `dcce7bc` (revisor de impacto + saude.js). O branch `safeguards-perda-dados` é antigo e NÃO tem
