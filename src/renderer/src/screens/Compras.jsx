@@ -1356,10 +1356,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                       desconto_pct:   novoDescontoPct,
                       icms_pct:       parseFloat(novoIcms.replace(',', '.')) || 0,
                     })
-                    const descontoAnterior = parseFloat(String(sessaoDesconto).replace(',', '.')) || 0
-                    if (novoDescontoPct !== descontoAnterior) {
-                      await pedidosService.atualizarDescontoSessao(sessao.id, novoDescontoPct)
-                    }
+                    await pedidosService.atualizarDescontoSessao(sessao.id, novoDescontoPct)
                     Object.assign(sessao, editSessaoForm)
                     setSessaoDesconto(novoDesconto)
                     setSessaoIcms(novoIcms)
