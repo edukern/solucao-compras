@@ -9,14 +9,8 @@ Atualizado: 2026-06-18 | Handoff #10
 
 ## ⏳ Próximos passos pendentes
 
-### 1. Migração 27/1 → 26/2 (PAUSADA — retomar só quando NÃO houver usuários ativos)
-Mover todas as sessões da coleção `27/1` (id 1) para a `26/2` (id 17) e apagar a 27/1 (criada por engano — "não existe 27/1 ainda"; Eduardo confirmou que todas as 27/1 são na verdade 26/2). Pausada porque os compradores voltaram a preencher referências/grades; apagar coleção ao vivo deixa o seletor num estado morto até F5 (não corrompe dado).
-
-**Como retomar** — tudo no SQL Editor do Supabase, script pronto em `docs/migracao-27-1-para-26-2.sql`:
-1. Reconferir: `SELECT count(*) FROM sessoes WHERE colecao_id = 1`. Se entraram sessões novas, será > 19 → ajustar o esperado do ensaio (`sessoes_na_26_2 = count + 1`).
-2. **Passo 1 — Backup** (rodar 1x; botão verde "Run and enable RLS"): cria `backup_move_colecao_20260618`; confirmar 19 linhas.
-3. **Passo 2 — Ensaio** (BEGIN…ROLLBACK; não cria tabela → não pede RLS): esperado `0 · 20 · 0`.
-4. **Passo 3 — Definitivo** (BEGIN…COMMIT) só se o ensaio bateu. Depois F5: a 26/2 passa a abrir por padrão e a 27/1 some do seletor.
+### 1. Migração 27/1 → 26/2 — ✅ CONCLUÍDA (18/06, noite)
+20 sessões movidas da coleção `27/1` (id 1) para a `26/2` (id 17); coleção 27/1 apagada. Verificação final `0 · 21 · 0` (21 = 20 movidas + 1 que a 26/2 já tinha). Backup em `backup_move_colecao_20260618` (mantido como fallback; rollback manual no rodapé de `docs/migracao-27-1-para-26-2.sql`). Rodado com 0 usuários ativos.
 
 ### 2. Desenhar o modelo "Eduardo como cliente" para o projeto todo (estratégico — quando ele quiser)
 Eduardo quer operar o projeto inteiro pedindo em linguagem simples, tratado como cliente que só quer que funcione. Já é o modo padrão para features/UI/fixes. Para ampliar o alcance até casos sensíveis, desenhar os **dois passos estruturais**:
