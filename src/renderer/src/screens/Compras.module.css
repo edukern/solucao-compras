@@ -3027,20 +3027,19 @@
 }
 
 .btnFecharSessao {
-  margin-left: auto;
-  padding: 0.34rem 0.9rem;
-  background: var(--text-primary);
-  color: var(--bg-card);
-  border: 1px solid var(--text-primary);
-  border-radius: 6px;
-  font-size: 0.78rem;
+  padding: 0.45rem 1rem;
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-size: 0.85rem;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
-  transition: opacity 0.15s;
+  transition: border-color 0.15s, opacity 0.15s;
 }
-.btnFecharSessao:hover:not(:disabled) { opacity: 0.85; }
+.btnFecharSessao:hover:not(:disabled) { border-color: var(--text-secondary); }
 .btnFecharSessao:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ── Overflow menu ─────────────────────────────────────────────────────────── */
@@ -3134,6 +3133,11 @@
 .phase2FooterMeta {
   font-size: 0.8rem;
   color: var(--text-muted);
+}
+.phase2FooterActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 .btnGoToFill {
   margin-left: auto;

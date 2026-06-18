@@ -1384,12 +1384,6 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
           >Preencher grades</button>
         </div>
         <SaveStatus state={saveState} onRetry={saveState === 'error' ? retrySalvarQtds : undefined} />
-        <button
-          className={styles.btnFecharSessao}
-          onClick={handleFechar}
-          disabled={saving || !items.length}
-          title="Fecha a sessão e abre a geração de PDFs"
-        >{saving ? 'Salvando…' : '📄 Fechar sessão e gerar PDFs'}</button>
         <div style={{ position: 'relative' }}>
           <button
             className={styles.btnOverflowMenu}
@@ -2314,13 +2308,21 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
             <span className={styles.phase2FooterMeta}>
               {items.filter(it => totalQtdItem(it.localId) > 0).length} de {items.length} {items.length === 1 ? 'item preenchido' : 'itens preenchidos'}
             </span>
-            <button
-              className={styles.btnLiberar}
-              onClick={handleLiberar}
-              disabled={liberando || !items.length}
-            >
-              {liberando ? 'Liberando…' : '⇢ Liberar para as lojas'}
-            </button>
+            <div className={styles.phase2FooterActions}>
+              <button
+                className={styles.btnFecharSessao}
+                onClick={handleFechar}
+                disabled={saving || !items.length}
+                title="Fecha a sessão e vai para a tela de PDFs (Fase 3)"
+              >{saving ? 'Salvando…' : 'Fechar sessão'}</button>
+              <button
+                className={styles.btnLiberar}
+                onClick={handleLiberar}
+                disabled={liberando || !items.length}
+              >
+                {liberando ? 'Liberando…' : '⇢ Liberar para as lojas'}
+              </button>
+            </div>
           </>
         )}
       </div>
@@ -3601,7 +3603,7 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetom
     setSessoesList(prev => prev.filter(s => s.id !== id))
   }
 
-  async function handleReimprimir(ses) {
+  async function handleReimprimir(ses, escopo = 'all') {
     setReimprimindo(ses.id)
     try {
       // Carrega pedidos de TODAS as visitas via itensPorFornecedor (inclui pedido_itens)
@@ -3609,7 +3611,11 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetom
       const allPeds = Object.fromEntries(
         visitasComPedidos.map(v => [v.id, v.pedidos ?? []])
       )
-      const visitasForPDF = ses.visitas.map(v => ({
+      // 'mine' = só a loja do usuário logado; 'all' = todas as lojas do fornecedor
+      const visitasBase = escopo === 'mine' && comprador
+        ? (ses.visitas ?? []).filter(v => v.comprador_id === comprador.id)
+        : (ses.visitas ?? [])
+      const visitasForPDF = visitasBase.map(v => ({
         id:                 v.visita_id,
         comprador_nome:     v.comprador_nome,
         comprador_cnpj:     v.comprador_cnpj     ?? '',
@@ -3727,11 +3733,18 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetom
                     onClick={() => { onMarkup(ses); setOpenGearId(null) }}
                   >Markup</button>
                 )}
+                {minhaVisita && (
+                  <button
+                    className={styles.btnHistAction}
+                    onClick={() => handleReimprimir(ses, 'mine')}
+                    disabled={reimprimindo === ses.id}
+                  >{reimprimindo === ses.id ? '…' : '🖨 Reimprimir minha loja'}</button>
+                )}
                 <button
                   className={styles.btnHistAction}
-                  onClick={() => handleReimprimir(ses)}
+                  onClick={() => handleReimprimir(ses, 'all')}
                   disabled={reimprimindo === ses.id}
-                >{reimprimindo === ses.id ? '…' : '🖨 Reimprimir'}</button>
+                >{reimprimindo === ses.id ? '…' : '🖨 Reimprimir todas as lojas'}</button>
                 {comprador?.is_editor && (
                   <button
                     className={styles.histGearPanelDanger}
