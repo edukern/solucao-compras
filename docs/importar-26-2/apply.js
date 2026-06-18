@@ -19,10 +19,53 @@ const { makeClient } = require('./lib/db')
 const { parsePlanilha, fornecedorDoArquivo } = require('./lib/parse-planilha')
 const { COLECAO_ID } = require('./lib/colecao')
 
+// Erro-sentinela: aborto controlado (mensagem já impressa). Top-level só seta exitCode.
+class Abort extends Error {}
+
 const ESTACAO = 'verao' // estação da coleção 1 (colecoes.estacao); segmentacoes.estacao é NOT NULL
 const DIR = path.resolve(__dirname, '..', '..', 'Pedidos', '26-2-import')
 const NOME_LOJA = { 1: 'Backes Art', 2: 'Backes Prog 1', 3: 'Backes Prog 2', 4: 'Rafael Filial 2', 5: 'Rafael Filial 1', 6: 'Rafael J. Backes', 7: 'Streit Conf', 8: 'FMV Streit Conf' }
 const norm = s => String(s ?? '').trim().toUpperCase().replace(/\s+/g, ' ')
+
+// strip: normaliza sem acento/pontuação (RAKEL`S == RAKELS, BEBÊ == BEBE).
+// Espelha saude.js — é o matching robusto que evita falsos GAP_TOTAL.
+const strip = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+
+// candidatos: todas as linhas de fornecedores que são "a mesma marca" do nome dado
+// (igual, prefixo, ou contém-como-prefixo após strip). Pega duplicados/variantes.
+function candidatos(nome, forns) {
+  const k = strip(nome)
+  const out = []
+  for (const f of forns) {
+    const fk = strip(f.nome)
+    if (fk === k || fk.startsWith(k) || k.startsWith(fk)) out.push(f)
+  }
+  return [...new Map(out.map(c => [c.id, c])).values()]
+}
+
+// peças totais (na coleção alvo) das sessões dadas, agrupadas por fornecedor_id.
+async function pecasPorFornecedorDeSessoes(client, sessoes) {
+  const sessForn = new Map(sessoes.map(s => [s.id, s.fornecedor_id]))
+  const sessIds = sessoes.map(s => s.id)
+  if (!sessIds.length) return {}
+  const { data: vis, error: ev } = await client.from('visitas').select('id, sessao_id').in('sessao_id', sessIds)
+  if (ev) throw ev
+  const visForn = new Map((vis || []).map(v => [v.id, sessForn.get(v.sessao_id)]))
+  const visIds = (vis || []).map(v => v.id)
+  const acc = {}
+  if (!visIds.length) return acc
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await client.from('pedidos')
+      .select('visita_id, itens:pedido_itens(qtd)').in('visita_id', visIds).range(from, from + 999)
+    if (error) throw error
+    for (const p of data) {
+      const fid = visForn.get(p.visita_id)
+      acc[fid] = (acc[fid] || 0) + (p.itens || []).reduce((a, i) => a + (i.qtd || 0), 0)
+    }
+    if (data.length < 1000) break
+  }
+  return acc
+}
 
 // ── args ──────────────────────────────────────────────────────────────────────
 function parseArgs(argv) {
@@ -31,9 +74,9 @@ function parseArgs(argv) {
     if (arg === '--apply') a.apply = true
     else if (arg === '--rotulo-acima') a.rotuloAcima = true
     else if (arg.startsWith('--fornecedor=')) a.fornecedor = arg.slice('--fornecedor='.length).replace(/^["']|["']$/g, '')
-    else { console.error('Argumento desconhecido:', arg); process.exit(1) }
+    else { console.error('Argumento desconhecido:', arg); throw new Abort() }
   }
-  if (!a.fornecedor) { console.error('Uso: node apply.js --fornecedor="NOME" [--apply]'); process.exit(1) }
+  if (!a.fornecedor) { console.error('Uso: node apply.js --fornecedor="NOME" [--apply]'); throw new Abort() }
   return a
 }
 
@@ -70,7 +113,7 @@ function acharArquivo(fornecedor) {
   const files = fs.readdirSync(DIR).filter(f => f.endsWith('.xlsx') && !f.startsWith('~$'))
   const alvo = norm(fornecedor)
   const hit = files.find(f => norm(fornecedorDoArquivo(f)) === alvo)
-  if (!hit) { console.error(`Arquivo não encontrado para "${fornecedor}" em ${DIR}`); process.exit(1) }
+  if (!hit) { console.error(`Arquivo não encontrado para "${fornecedor}" em ${DIR}`); throw new Abort() }
   return path.join(DIR, hit)
 }
 
@@ -116,7 +159,7 @@ async function main() {
   const { client, usingServiceRole } = makeClient()
   if (!usingServiceRole) {
     console.error('ERRO: --apply/dry-run exige service_role. Configure SUPABASE_SERVICE_KEY no .env.local.')
-    process.exit(1)
+    throw new Abort()
   }
 
   // 1. arquivo + parser
@@ -124,21 +167,38 @@ async function main() {
   const arquivo = path.basename(filePath)
   const parsed = parsePlanilha(filePath, { rotuloTamanhoB: args.rotuloAcima ? 'acima' : 'header' })
   const data_visita = dataVisitaDoArquivo(arquivo)
-  if (!data_visita) { console.error('Não consegui extrair data do nome do arquivo:', arquivo); process.exit(1) }
+  if (!data_visita) { console.error('Não consegui extrair data do nome do arquivo:', arquivo); throw new Abort() }
 
-  // 2. fornecedor_id
+  // 2. fornecedor: candidatos robustos (sem acento/pontuação, com prefixo) — espelha saude.js.
+  //    Pega TODAS as linhas-irmãs (duplicados/variantes), não só o nome exato.
   const { data: forns, error: ef } = await client.from('fornecedores').select('id, nome')
   if (ef) throw ef
-  const fid = new Map(forns.map(f => [norm(f.nome), f.id])).get(norm(parsed.fornecedor_nome))
-  if (fid == null) { console.error(`Fornecedor "${parsed.fornecedor_nome}" não está cadastrado (SEM_CADASTRO). Abortando.`); process.exit(1) }
+  const cands = candidatos(parsed.fornecedor_nome, forns)
+  if (!cands.length) { console.error(`Fornecedor "${parsed.fornecedor_nome}" não está cadastrado (SEM_CADASTRO). Abortando.`); throw new Abort() }
 
-  // 3. GUARD GAP_TOTAL: o fornecedor não pode ter sessão na coleção 1
-  const { data: sessExist, error: es } = await client
-    .from('sessoes').select('id').eq('fornecedor_id', fid).eq('colecao_id', COLECAO_ID)
+  // alvo da inserção: exige match exato (strip) único; senão é ambíguo → aborta (não chuta)
+  const exatos = cands.filter(c => strip(c.nome) === strip(parsed.fornecedor_nome))
+  const alvo = exatos.length === 1 ? exatos[0] : (cands.length === 1 ? cands[0] : null)
+  if (!alvo) {
+    console.error(`AMBÍGUO: "${parsed.fornecedor_nome}" casa com ${cands.length} cadastros: ${cands.map(c => `${c.nome}#${c.id}`).join(' | ')}. Defina qual usar (renomeie/funda no cadastro) antes de gravar.`)
+    throw new Abort()
+  }
+  const fid = alvo.id
+
+  // 3. GUARD GAP_TOTAL robusto: NENHUMA linha-irmã pode ter sessão na coleção alvo.
+  //    (o guard antigo só olhava o fid exato → deixava passar Aconchego/Rakels/Mormaii duplicados)
+  const candIds = cands.map(c => c.id)
+  const { data: sessIrmas, error: es } = await client
+    .from('sessoes').select('id, fornecedor_id').in('fornecedor_id', candIds).eq('colecao_id', COLECAO_ID)
   if (es) throw es
-  if (sessExist.length) {
-    console.error(`ABORTADO: fornecedor ${fid} já tem ${sessExist.length} sessão(ões) na coleção ${COLECAO_ID} (ids ${sessExist.map(s => s.id).join(',')}). Isto NÃO é GAP_TOTAL — use o fluxo de apagar-e-reinserir, não o apply puro.`)
-    process.exit(1)
+  if (sessIrmas.length) {
+    const pecasForn = await pecasPorFornecedorDeSessoes(client, sessIrmas)
+    const nomePorId = new Map(cands.map(c => [c.id, c.nome]))
+    const resumo = [...new Set(sessIrmas.map(s => s.fornecedor_id))].map(f =>
+      `${nomePorId.get(f) || '?'}#${f}: ${sessIrmas.filter(s => s.fornecedor_id === f).length} sessão(ões), ${pecasForn[f] || 0} peças`).join(' | ')
+    console.error(`ABORTADO: "${parsed.fornecedor_nome}" NÃO é GAP_TOTAL — já há dados de linha(s)-irmã(s) na coleção ${COLECAO_ID}: ${resumo}.`)
+    console.error('Use o fluxo apagar-e-reinserir (ou consolide os cadastros duplicados), não o apply puro.')
+    throw new Abort()
   }
 
   // 4. montar pedidos + segmentações
@@ -172,9 +232,9 @@ async function main() {
   // checagem de integridade dura
   if (totalPecasPayload !== totalPecasParser) {
     console.error(`\n❌ DIVERGÊNCIA de peças (payload ${totalPecasPayload} ≠ parser ${totalPecasParser}). Abortando antes de qualquer escrita.`)
-    process.exit(1)
+    throw new Abort()
   }
-  if (!pedidos.length) { console.error('\n❌ 0 pedidos. Nada a fazer.'); process.exit(1) }
+  if (!pedidos.length) { console.error('\n❌ 0 pedidos. Nada a fazer.'); throw new Abort() }
 
   if (!args.apply) {
     console.log('\n✅ DRY-RUN ok. Nada gravado. Rode de novo com --apply para gravar.')
@@ -210,7 +270,7 @@ async function main() {
     .select('id, classificacao, tipo_produto, classe, tipo_grade')
   if (e3b) throw e3b
   const segIdByKey = new Map(allSegs.map(s => [`${s.classificacao}|${s.tipo_produto}|${s.classe}|${s.tipo_grade}`, s.id]))
-  for (const k of segMap.keys()) if (!segIdByKey.has(k)) { console.error('❌ segmentação não encontrada após upsert:', k); process.exit(1) }
+  for (const k of segMap.keys()) if (!segIdByKey.has(k)) { console.error('❌ segmentação não encontrada após upsert:', k); throw new Abort() }
   console.log('  segmentações garantidas:', segMap.size)
 
   // 4d. pedidos
@@ -238,7 +298,7 @@ async function main() {
   for (const p of pedidos) {
     const vid = visitaPorComprador.get(p.comprador_id)
     const pid = pedIdByKey.get(`${vid}|${p.referencia}`)
-    if (pid == null) { console.error('❌ pedido_id ausente p/', vid, p.referencia); process.exit(1) }
+    if (pid == null) { console.error('❌ pedido_id ausente p/', vid, p.referencia); throw new Abort() }
     for (const [tamanho, qtd] of Object.entries(p.grade)) {
       if (qtd > 0) itemRows.push({ pedido_id: pid, tamanho, qtd })
     }
@@ -256,4 +316,10 @@ async function main() {
   console.log('   Confira com: node report-cobertura.js  (esperado:', parsed.fornecedor_nome, '→ JA_IMPORTADO)')
 }
 
-main().catch(e => { console.error('ERRO:', e.message); process.exit(1) })
+// Aborts sobem como Abort (mensagem já impressa no ponto da falha). Setamos
+// process.exitCode em vez de process.exit() para não disparar a assertion do
+// libuv no Windows (socket do Supabase ainda aberto) — saída limpa, sem ruído.
+main().catch(e => {
+  if (!(e instanceof Abort)) console.error('ERRO:', e.message)
+  process.exitCode = 1
+})

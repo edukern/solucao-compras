@@ -1,7 +1,7 @@
 # HANDOFF — Importação 26/2 (planilhas do sistema antigo → Bolt)
 Data: 2026-06-18 | Sessão #11
 
-> ## ⏱ ATUALIZAÇÃO Sessão #12 — coleção migrada (leia primeiro)
+> ## ⏱ ATUALIZAÇÃO Sessão #12 — coleção migrada + guard blindado (leia primeiro)
 >
 > **A coleção alvo mudou de `1` para `17`.** Em 18/06 (noite) a migração `docs/migracao-27-1-para-26-2.sql`
 > moveu as 20 sessões da coleção 1 (rótulo errado "27/1") para a 17 (a 26/2 real) e **apagou a coleção 1**.
@@ -9,7 +9,15 @@ Data: 2026-06-18 | Sessão #11
 > - **Scripts já corrigidos:** o alvo virou fonte única em `lib/colecao.js` (`COLECAO_ID = 17`, override por
 >   `IMPORT_COLECAO_ID`); apply/backup/check-db/report-cobertura/report-elite/saude importam de lá (não há mais `= 1` espalhado).
 > - **Task 9 (renomear 27/1→26/2) está RESOLVIDA** pela migração — pode riscar da lista.
-> - Os números antigos de `saude.js` neste handoff foram medidos na coleção 1; **rode `node saude.js` de novo** para o retrato atual da 17.
+> - **Guard do `apply.js` BLINDADO** (era o pré-requisito do próximo `--apply`): resolve fornecedor por
+>   `strip` (sem acento/pontuação) com `candidatos()` por prefixo; aborta se houver **ambiguidade** de cadastro
+>   ou se **qualquer linha-irmã** já tiver sessão na coleção (não só o id exato). Aborts agora saem limpos
+>   (sentinela `Abort` + `process.exitCode`, sem a assertion do libuv). Testado: Rakels→AMBÍGUO, AGGY→SEM_CADASTRO,
+>   Lupo→dry-run ok (4743 pç, payload==parser).
+> - **🆕 Descoberto pelo guard:** **Rakels tem cadastro DUPLICADO** — `RAKEL`S#587` e `RAKELS#642`. Decidir
+>   qual manter / fundir antes de importar Rakels. (Mesma classe de problema provável em Mormaii/Aconchego.)
+> - Os números antigos de `saude.js` neste handoff foram medidos na coleção 1; o retrato atual da 17 está em
+>   `out/SAUDE-BOLT.md` (rodado nesta sessão): 5 OK, 4 OK_MAS_DUP, 10 DIVERGE, 5 NAO_IMPORTADO, 18 FALTA_CADASTRO.
 >
 > ## ⏱ ATUALIZAÇÃO Sessão #11 — fim
 >
