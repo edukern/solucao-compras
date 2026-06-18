@@ -1,57 +1,71 @@
 # HANDOFF — Importação 26/2 (planilhas do sistema antigo → Bolt)
-Data: 2026-06-18 | Sessão #8
+Data: 2026-06-18 | Sessão #10
 
-> ⚠️ Existe outra `HANDOFF.md` na raiz, de tema diferente (Sync Macle → Supabase), com passos ainda pendentes. **Não apagar.** Este arquivo é só da importação 26/2.
+> ⚠️ Existe outra `HANDOFF.md` na raiz, de tema diferente (Sync Macle → Supabase). **Não apagar/sobrescrever.** Este arquivo é só da importação 26/2.
 
 ---
 
 ## Estado atual
 
-Brainstorming + spec + plano de implementação **escritos, revisados e commitados**. **Nenhum código de importação foi escrito ainda.** Nenhuma escrita no banco aconteceu.
+**Tasks 1–4 do plano feitas + parser A/B + relatórios read-only. NENHUMA escrita no banco ainda.**
+Branch: `safeguards-perda-dados` (commits locais, não pushados). Acesso ao banco via `SUPABASE_SERVICE_KEY` (RLS bloqueia anon).
 
-- Spec: `docs/superpowers/specs/2026-06-18-importacao-26-2-design.md`
-- Plano (10 tasks bite-sized, TDD, checkpoints): `docs/superpowers/plans/2026-06-18-importacao-26-2.md`
-- Planilhas já extraídas: `Pedidos/26-2-import/` (42 arquivos `.xlsx`)
+Commitado em `docs/importar-26-2/`:
+- `lib/env.js`, `lib/db.js`, `check-db.js` (Task 1 — visibilidade OK: 19 sessões / 3395 pedidos / 40658 peças na coleção 1)
+- `lib/grades.js` (+test), `lib/lojas.js` (+test) — **mapa de lojas CORRIGIDO** (ver decisões)
+- `lib/parse-planilha.js` — parser Formato A (T/Q intercalado) e B (colunas fixas)
+- `report-elite.js`, `report-cobertura.js`, `report-femminart.js` — relatórios read-only
 
-O método de execução escolhido foi **Subagent-Driven Development** (skill `superpowers:subagent-driven-development`) — parado logo no início, antes de despachar o primeiro subagente.
+Artefatos gerados em `docs/importar-26-2/out/` (NÃO versionados): `report-elite.csv`, `report-cobertura.csv`.
+
+---
+
+## 🧠 Decisões desta sessão (não estão óbvias no código)
+
+1. **Coleção 1 = 26/2 confirmado pelas DATAS** (sessões 2026-05/06 batem com as planilhas). Rótulo "27/1" é o equívoco a corrigir (Task 9). Há 1 sessão outlier `2026-09-08`.
+2. **Mapa de lojas: o plano e o handoff antigos erravam 4↔6.** Verdade (tabela `compradores`, com CNPJ): **4=Rafael Filial 2, 5=Rafael Filial 1, 6=Rafael J. Backes.** `importar-elite.js` estava certo. Já corrigido em `lojas.js`.
+3. **Casamento por ref-BASE** (token antes do 1º espaço/underscore). O Bolt sufixa a `referencia` com grade/cor (`1052 EX`, `1200 CHUMBO_PP`) — herança do `importar-elite.js`. Planilha tem ref pura. Comparar por `(comprador_id, ref_base)` reconcilia 100%.
+4. **Estratégia de escrita (revisão do plano):** por fornecedor, planilha vence. Para **GAP_TOTAL é inserção pura** (0 no Bolt, nada a sobrescrever). Para os já-existentes com divergência, o caminho aprovado é **apagar e reinserir o fornecedor inteiro** da planilha (replicando a lógica do `importar-elite.js`: segmentacao por classificacao|tipo_produto|classe|tipo_grade, valor/preço, sufixo `_tipo_grade` em refs multi-grade). Backup + dry-run + rollout 1-a-1 antes.
+5. **Eduardo aprovou começar pelos GAP_TOTAL** e confirmou o vínculo pessoa→loja do Formato B: **Elisangela=Filial 1(5), Alexandre=Filial 2(4), Rafael=J.Backes(6)** ("pode seguir").
+6. **PENDENTE (decidir na retomada): rótulo de tamanho do Formato B.** Sutiãs têm 2 rótulos p/ as mesmas colunas: `P/M/G/GG` (cabeçalho) e `46/48/50/52` (linha acima). Peças idênticas. **DEFAULT adotado se ele não responder: gravar P/M/G/GG (como o parser já faz).** Eduardo não decidiu.
+7. **SEM_CADASTRO:** Eduardo quer que EU investigue primeiro (conferir se nome só diverge vs. realmente falta cadastro; mapear os 3 "Programação" ao fornecedor base) e gere lista; ele decide o cadastro.
+
+---
+
+## 📊 Resultado do relatório de cobertura (read-only) dos 42 arquivos
+
+- **JÁ IMPORTADO (6, peças batem):** Caw, **Elite (3438)**, LZT, Mezul, Olho Fatal, Victor Marcel.
+- **GAP_TOTAL (7, 0 no Bolt → inserir):** Aconchego do Bebê (771), Doce Glamour (4406), **FEMMINART (10654)**, INTIMA FLOR (5458), Lupo (4743), Mormaii (1460), Rakels (1135).
+- **PARCIAL (6, conferir):** Trajadinhos (1723/1534), SCHRAMM (5585/5511), Desayner (1752/1691), Marco Textil (856/853), Tanise (3884/3881), **Urban City (689/691 — Bolt tem +2, quebra "planilha ⊇ Bolt")**.
+- **SEM_CADASTRO (23):** AGGY, BEAVER, Biogás, CHARMS, DOBELLE, DOCE MEL, ESTILO A, FATAL SUL, JEITO FASHION, KANOA, LINDA BEL, LOOK CHIC, PURO MAR, RECOLLETA, ROYACK, SHAPE, SOLRAC, PONTO IGUI, Mormaii Calçados, LZT Programação, Mormaii Programação, FEMMINART PROGRAMACAO, **DECIZAO (0 peças — arquivo vazio/sem fornecedor)**.
+
+FEMMINART validado célula-a-célula: parser bate com a coluna "Quant" em todas as amostras. 7 lojas, 10654 peças.
 
 ---
 
 ## ⏳ Próximos passos (em ordem)
 
-1. **Executar o plano** `docs/superpowers/plans/2026-06-18-importacao-26-2.md` task por task (Task 1 → 10). Pode ser via subagent-driven-development ou inline.
-2. **Task 1 é a porta de entrada e um gate:** roda `node docs/importar-26-2/check-db.js` para provar empiricamente se o **anon key enxerga TODOS os pedidos** da coleção 1. Se não enxergar (RLS), **pedir ao Eduardo a `SUPABASE_SERVICE_ROLE_KEY`** (Supabase → Settings → API) e adicionar ao `.env.local`. Qualquer `--apply` exige essa key.
-3. **Validação de amostra (Task 5) é checkpoint humano obrigatório:** conferir Elite (formato A) + FEMMINART (formato B) célula a célula antes de qualquer escrita.
-4. **Rollout faseado (Task 10):** aplicar **Elite primeiro** (`apply.js --apply --fornecedor="Elite"`), conferir no Bolt, só então o lote.
-5. **Pendência aberta com a equipe:** confirmar se as 7 lojas extras do Formato B (Nilson, Flavia, Clovis, Marcia, Arnoldo, Gambeta, Paulinho) entram. Default = fora de escopo. Mensagem para encaminhar já foi redigida (está no histórico da conversa anterior; se necessário, reescrever a partir da nota no spec).
+1. **Criar `apply.js`** (ainda não existe). Modo dry-run default; `--apply`; `--fornecedor="X"`; exige `usingServiceRole`. Para GAP_TOTAL = só insert. Replicar: ensureSessao (colecao 1, fornecedor_id, data do nome do arquivo), visitas por comprador, segmentacoes (criar se faltar), pedidos (referencia c/ sufixo `_tipo_grade` quando a ref-base repete em grades diferentes p/ o mesmo comprador), pedido_itens. Espelhar `docs/importar-elite.js` e `src/renderer/src/services/pedidos.js` (salvarBatch).
+2. **Criar `backup.js`** (Task 6) e rodar ANTES de qualquer escrita. Rodar também o SQL de backup no Supabase (tabelas `*_backup_2622`).
+3. **FEMMINART:** dry-run → conferir → `--apply --fornecedor="FEMMINART"` → `node report-cobertura.js` deve mostrar FEMMINART = JA_IMPORTADO.
+4. **Demais GAP_TOTAL:** Aconchego, Doce Glamour, INTIMA FLOR, Lupo, Mormaii, Rakels (um a um).
+5. **Investigar SEM_CADASTRO** (nomes + 3 Programação) → lista p/ Eduardo cadastrar.
+6. **Diff item-a-item dos PARCIAL** (especialmente Urban City +2 e Trajadinhos −189) read-only, antes de decidir apagar-e-reinserir.
+7. **Task 9:** `fix-rotulo.js` renomear 27/1 → 26/2 (idempotente, --apply).
 
 ---
 
-## 🧠 Decisões técnicas que não estão no código (afetam o próximo passo)
+## 📁 Arquivos que importam
 
-- **Planilha = fonte de verdade absoluta.** Confirmado: planilha ⊇ Bolt (não existe pedido só no Bolt). Em divergência de quantidade, **a planilha vence** (sobrescreve). Decisão do Eduardo: processo não pode ser cognitivamente pesado — não perguntar item a item.
-- **Coleção alvo = `colecao_id = 1`**, hoje rotulada "27/1", **deve ser renomeada para "26/2"** (Task 9). Não usar o nome da coleção como chave de casamento — o rótulo está deslocado.
-- **8 lojas do Bolt = compradores id 1–8.** Mapa aba→comprador no Formato B usa nomes de pessoa: Elisangela=Filial 1 (5), Alexandre=Filial 2 (6), Rafael=Rafael J. Backes (4). **Esse mapeamento é o maior risco de troca — confirmar na validação de amostra.**
-- **3 formatos de planilha:** A (multi-aba/Elite, 36 arq), B (Pedido/nomes, 5 arq: FEMMINART, FEMMINART PROGRAMACAO, INTIMA FLOR, Lupo, SCHRAMM), C (reduzido, Mormaii Calçados). Parser usa detecção por landmarks, não offsets fixos.
-- **Oráculo de validação:** no Formato A, as abas `SOMA_*` são os totais que a própria planilha calculou — usadas como checksum independente do parser.
-- **Staging = `out/staging.json`** (não tabela no banco — desvio consciente do spec, YAGNI).
-- **Criticidade:** Eduardo enfatizou que a importação não pode dar errado. Por isso o plano embute 8 camadas de segurança (backup, dry-run default, checksum em 3 pontos, validação de amostra, rollout faseado, idempotência, auditoria antes/depois, freio de divergência). Respeitar todos os checkpoints `--apply`.
-
----
-
-## 📁 Arquivos que importam para a próxima tarefa
-
-| Caminho | O que é |
+| Caminho | O quê |
 |---|---|
-| `docs/superpowers/plans/2026-06-18-importacao-26-2.md` | **O plano a executar.** Contém todo o código pronto por task. |
-| `docs/superpowers/specs/2026-06-18-importacao-26-2-design.md` | Spec/design (o "porquê"). |
-| `Pedidos/26-2-import/*.xlsx` | As 42 planilhas extraídas (fonte). |
-| `docs/importar-elite.js` | Referência: GRADE_DEFS e parsing do Formato A. |
-| `docs/importar-historico.js` | Referência: LOJA_MAP (nomes→loja) e os 2 formatos legados. |
-| `docs/importar-fornecedores.js` | Referência: cadastro/nomes de fornecedores (alguns podem faltar). |
-| `src/renderer/src/services/pedidos.js` | `salvarBatch`: padrão upsert `(visita_id, referencia, variante_key)` + replace de itens. O apply replica isso. |
-| `.env.local` | Credenciais Supabase. Hook bloqueia leitura via `cat`; scripts leem direto. Pode faltar `SUPABASE_SERVICE_ROLE_KEY`. |
+| `docs/importar-26-2/lib/parse-planilha.js` | Parser A+B (landmark-based). Formato A: T/Q; B: colunas fixas + oráculo "Quant". |
+| `docs/importar-26-2/report-cobertura.js` + `out/report-cobertura.csv` | Mapa completo dos 42 (status por fornecedor). |
+| `docs/importar-26-2/report-elite.js` / `report-femminart.js` | Validações read-only por fornecedor. |
+| `docs/importar-elite.js` | **Referência canônica** da transformação que gerou o Bolt (grade→segmentacao, sufixo `_tipo_grade`, col23=valor, col27=preço). |
+| `docs/superpowers/plans/2026-06-18-importacao-26-2.md` | Plano original (Tasks 5–10 ainda úteis: backup, diff, apply, fix-rotulo, runbook). Atenção: o apply do plano casa por referencia exata — usar ref-base/estratégia revisada. |
+| `.claude/memory/project_importacao_26_2.md` | Memória com os fatos críticos (escrita em disco; `.claude` está gitignored — não versionada). |
 
-**Supabase:** projeto `bhxpkysueyoblizkvomb`. Schema: `sessoes → visitas → pedidos → pedido_itens`. Constraint: `pedidos(visita_id, referencia, variante_key)` único.
+**Banco:** projeto `bhxpkysueyoblizkvomb`, coleção alvo `colecao_id=1`. `.env.local` tem `SUPABASE_SERVICE_KEY` (db.js já aceita). Constraint: `pedidos(visita_id, referencia, variante_key)` único.
 
-**Ambiente:** Windows, sem `supabase` CLI nem `psql`. Node + `xlsx` + `@supabase/supabase-js` instalados; **sem `dotenv`** (plano inclui loader próprio).
+**Git:** trabalho no branch local `safeguards-perda-dados` (não pushado). `main` foi restaurado para `origin/main`. `.claude/` é gitignored apesar do CLAUDE.md pedir memória versionada — resolver `.gitignore` depois se quiser portabilidade.
