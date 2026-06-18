@@ -3026,6 +3026,23 @@
   font-weight: 600;
 }
 
+.btnFecharSessao {
+  margin-left: auto;
+  padding: 0.34rem 0.9rem;
+  background: var(--text-primary);
+  color: var(--bg-card);
+  border: 1px solid var(--text-primary);
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+.btnFecharSessao:hover:not(:disabled) { opacity: 0.85; }
+.btnFecharSessao:disabled { opacity: 0.4; cursor: not-allowed; }
+
 /* ── Overflow menu ─────────────────────────────────────────────────────────── */
 .btnOverflowMenu {
   padding: 0.28rem 0.6rem;

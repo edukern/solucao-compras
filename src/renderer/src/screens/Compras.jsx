@@ -1384,6 +1384,12 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
           >Preencher grades</button>
         </div>
         <SaveStatus state={saveState} onRetry={saveState === 'error' ? retrySalvarQtds : undefined} />
+        <button
+          className={styles.btnFecharSessao}
+          onClick={handleFechar}
+          disabled={saving || !items.length}
+          title="Fecha a sessão e abre a geração de PDFs"
+        >{saving ? 'Salvando…' : '📄 Fechar sessão e gerar PDFs'}</button>
         <div style={{ position: 'relative' }}>
           <button
             className={styles.btnOverflowMenu}
@@ -1398,13 +1404,6 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                 disabled={salvandoSessao || !items.length}
               >
                 {salvandoSessao ? 'Salvando…' : salvoOk ? '✓ Salvo' : '💾 Salvar sessão'}
-              </button>
-              <button
-                className={styles.overflowMenuItem}
-                onClick={() => { handleFechar(); setShowOverflowMenu(false) }}
-                disabled={saving || !items.length}
-              >
-                {saving ? 'Salvando…' : '📄 Gerar PDFs'}
               </button>
               <div className={styles.overflowMenuSep} />
               <button
