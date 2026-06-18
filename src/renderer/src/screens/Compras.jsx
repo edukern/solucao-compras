@@ -1344,6 +1344,7 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                   try {
                     const novoDesconto = editSessaoForm.desconto_pct || '0'
                     const novoIcms = editSessaoForm.icms_pct || '0'
+                    const novoDescontoPct = parseFloat(novoDesconto.replace(',', '.')) || 0
                     await sessoesService.update(sessao.id, {
                       data_visita:    editSessaoForm.data_visita || null,
                       data_entrega:   editSessaoForm.data_entrega || null,
@@ -1352,9 +1353,13 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                       frete:          editSessaoForm.frete || null,
                       transportadora: editSessaoForm.frete === 'FOB' ? editSessaoForm.transportadora : null,
                       obs:            editSessaoForm.obs || null,
-                      desconto_pct:   parseFloat(novoDesconto.replace(',', '.')) || 0,
+                      desconto_pct:   novoDescontoPct,
                       icms_pct:       parseFloat(novoIcms.replace(',', '.')) || 0,
                     })
+                    const descontoAnterior = parseFloat(String(sessaoDesconto).replace(',', '.')) || 0
+                    if (novoDescontoPct !== descontoAnterior) {
+                      await pedidosService.atualizarDescontoSessao(sessao.id, novoDescontoPct)
+                    }
                     Object.assign(sessao, editSessaoForm)
                     setSessaoDesconto(novoDesconto)
                     setSessaoIcms(novoIcms)

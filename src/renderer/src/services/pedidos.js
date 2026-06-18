@@ -106,6 +106,18 @@ export const pedidos = {
     return this.salvarPedidosVisita(visitaId, updatesAlterados)
   },
 
+  async atualizarDescontoSessao(sessao_id, desconto_pct) {
+    const { data: visitas, error: ve } = await supabase.from('visitas').select('id').eq('sessao_id', sessao_id)
+    if (ve) throw ve
+    const visitaIds = (visitas ?? []).map(v => v.id)
+    if (!visitaIds.length) return
+    const { error } = await supabase
+      .from('pedidos')
+      .update({ desconto_pct })
+      .in('visita_id', visitaIds)
+    if (error) throw error
+  },
+
   async atualizarMarkupSessao(sessao_id, precosMap, idx1Str, idx2Str) {
     const idx1 = parseFloat(String(idx1Str ?? '').replace(',', '.'))
     const idx2 = parseFloat(String(idx2Str ?? '').replace(',', '.'))
