@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { LayoutDashboard, Target, ShoppingBag, TrendingUp, BarChart2, Settings, Sun, Moon, Table2 } from 'lucide-react'
 import { useCollection } from '../contexts/CollectionContext'
 import { useAuth } from '../contexts/AuthContext'
-import { colecoes as colecoesService } from '../services/colecoes'
+import { colecoes as colecoesService, sortColecoes } from '../services/colecoes'
 import ColecaoModal from './ColecaoModal'
 import styles from './Sidebar.module.css'
 
@@ -23,7 +23,7 @@ export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
 
   async function handleCreate(dados) {
     const nova = await colecoesService.create(dados)
-    setCollections(prev => [...prev, nova])
+    setCollections(prev => sortColecoes([...prev, nova]))
     setActiveId(nova.id)
     setShowModal(false)
   }
