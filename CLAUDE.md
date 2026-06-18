@@ -10,6 +10,16 @@ O repositório contém arquivos de configuração do electron-vite mas são resq
 
 > Para rodar localmente: precisa de `.env` com as credenciais do Supabase. Sem isso o app não renderiza (tela preta).
 
+## Revisão de impacto obrigatória (antever quebras)
+
+O deploy vai direto pro ar, sem staging — então a quebra costuma aparecer no uso real. Para evitar isso:
+
+**Antes de implementar qualquer mudança que toque schema/migração, serviços compartilhados (`src/renderer/src/services/`), dados do Supabase, fluxo de pedidos (sessoes/visitas/pedidos/pedido_itens/segmentacoes), ou deploy**, rode primeiro a análise de implicações de 1ª/2ª/3ª ordem (agente `revisor-impacto` em `.claude/agents/`) e **apresente o resultado para aprovação ANTES de mexer**. Não depende do Eduardo pedir — é o passo padrão.
+
+Mudança trivial e isolada (texto, estilo de 1 componente, sem efeito em dados/contratos) não precisa — diga que é trivial e siga.
+
+A análise deve sempre responder: **"como dá pra testar isso ANTES de ir pro ar?"** e, se houver dado existente afetado, qual backup específico fazer antes.
+
 ## Compras.jsx — estrutura (~3600 linhas)
 
 ### Componentes internos (ordem no arquivo)
