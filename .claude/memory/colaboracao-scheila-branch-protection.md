@@ -17,6 +17,10 @@ Eduardo vai dar acesso à **Scheila** (funcionária do CD) para mexer no sistema
 - **`enforce_admins: false`** de propósito: Eduardo (dono/admin) continua podendo `git push` direto na `main` (seu fluxo push→deploy não muda). Só a Scheila (não-admin) fica presa ao PR. Para também prender o Eduardo, ligar `enforce_admins`.
 - Reverter tudo: `gh api -X DELETE repos/{owner}/{repo}/branches/main/protection`.
 
-**Pendências do Eduardo (GitHub, fora do código):** adicionar a Scheila como colaboradora (write); ela clona, instala Claude Code, recebe agente+regras no clone.
+**Repo agora é PRIVADO** (era público; tinha conteúdo pessoal/interno exposto — análise de carreira do Eduardo foi movida pra memória pessoal fora do repo). Visibilidade mudada via `gh repo edit --visibility private` em 19/06.
+
+**A Scheila vai usar a CONTA DA EMPRESA no GitHub (que já existe)** — não cria conta pessoal. Essa conta é que entra como colaboradora (Write) do repo.
+
+**Pendências do Eduardo (GitHub, fora do código):** adicionar a conta-da-empresa como colaboradora (Write) em `edukern/solucao-compras` (Settings ▸ Collaborators); ela clona, instala Claude Code, recebe agente+regras+contexto no clone (guia em `CONTRIBUTING.md`, linguagem simples sem inglês/jargão).
 
 **Cuidado futuro (P3 da revisão):** se algum dia criar o `pr-preview.yml`, NÃO copiar o fallback de credencial de prod (`|| 'https://bhxpkysueyoblizkvomb...'`) — forçar secret de preview, senão cai silenciosamente em produção.
