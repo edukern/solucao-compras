@@ -19,8 +19,13 @@ Eduardo vai dar acesso à **Scheila** (funcionária do CD) para mexer no sistema
 
 **Repo agora é PRIVADO** (era público; tinha conteúdo pessoal/interno exposto — análise de carreira do Eduardo foi movida pra memória pessoal fora do repo). Visibilidade mudada via `gh repo edit --visibility private` em 19/06.
 
-**A Scheila vai usar a CONTA DA EMPRESA no GitHub (que já existe)** — não cria conta pessoal. Essa conta é que entra como colaboradora (Write) do repo.
+**A Scheila usa a CONTA DA EMPRESA no GitHub: `lojaspontoe`** (já existe, e-mail da conta = gptlojaspontoe@gmail.com) — não cria conta pessoal. Implicação: o "autor" dos PRs/commits dela aparece como `lojaspontoe` (empresa), não como "Scheila" — não dá pra rastrear por pessoa pelo histórico. Aceitável por ora; se um dia quiser rastreio por pessoa, cada um precisa do próprio login.
 
-**Pendências do Eduardo (GitHub, fora do código):** adicionar a conta-da-empresa como colaboradora (Write) em `edukern/solucao-compras` (Settings ▸ Collaborators); ela clona, instala Claude Code, recebe agente+regras+contexto no clone (guia em `CONTRIBUTING.md`, linguagem simples sem inglês/jargão).
+**Estado final do acesso (19/06):**
+- Colaboradores do repo: `edukern` (admin, Eduardo) + **`lojaspontoe` (Write, aceito)**. Sem convites pendentes.
+- Um convite solto para `connorfinan95` (Write) foi **cancelado** (Eduardo tinha mandado mas não precisava).
+- **Setup da máquina dela:** prompt pronto em `docs/SETUP-SCHEILA.md` — ela cola no Claude Code dela e ele faz o setup inteiro (confere git/node, login GitHub como `lojaspontoe`, clona, `npm install`, cria `.env.local`, `npm run dev`). Guia de uso diário em `CONTRIBUTING.md` (linguagem simples, sem inglês/jargão).
+
+**Pendência (lado da Scheila):** rodar o setup na máquina dela e abrir o 1º PR. Nada pendente do lado do Eduardo no GitHub.
 
 **Cuidado futuro (P3 da revisão):** se algum dia criar o `pr-preview.yml`, NÃO copiar o fallback de credencial de prod (`|| 'https://bhxpkysueyoblizkvomb...'`) — forçar secret de preview, senão cai silenciosamente em produção.

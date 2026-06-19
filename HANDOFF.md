@@ -7,19 +7,23 @@ Atualizado: 2026-06-19 | Handoff #12
 
 # 🔵 FRENTE ATUAL (sessão 19/06) — Acesso da Scheila (colaboradora do CD)
 
-Scheila vai mexer no sistema via Claude na máquina dela, "sem quebrar nada". Rede de segurança em camadas. Detalhes/reverter em `.claude/memory/colaboracao-scheila-branch-protection.md`.
+Scheila vai mexer no sistema via Claude na máquina dela, "sem quebrar nada". Rede de segurança em camadas. **Setup técnico concluído — só falta ela rodar o setup na máquina dela.** Detalhes/reverter em `.claude/memory/colaboracao-scheila-branch-protection.md`.
 
 ## ✅ Feito nesta sessão
+- **Repo agora PRIVADO** (`gh repo edit --visibility private`) — era público com conteúdo interno/pessoal exposto. Análise de carreira do Eduardo movida pra memória pessoal (fora do repo).
 - **`main` protegida** (via `gh api`): exige PR + check `build` verde + **1 aprovação do Eduardo** + branch up-to-date; sem force-push/delete; `enforce_admins: false` (Eduardo segue com push direto; só a Scheila fica presa ao PR).
-- **Camada 1** (agente revisor viaja no clone) e **Camada 2** (gate de build `pr-check.yml`) já commitadas (`9041443`) — agora *valem de verdade* porque a main está protegida.
+- **Conta da empresa `lojaspontoe` adicionada como colaboradora (Write, aceito).** Convite solto p/ `connorfinan95` cancelado. Sem pendências de acesso no GitHub.
+- **Camada 1** (agente revisor viaja no clone) + **Camada 2** (gate de build `pr-check.yml`) commitadas (`9041443`) e ativas (a proteção da main as tornou efetivas). **`.claude/CLAUDE.md` também passou a viajar** (contexto pro Claude dela).
+- **Guias prontos:** `CONTRIBUTING.md` (uso diário, linguagem simples sem inglês) + `docs/SETUP-SCHEILA.md` (prompt pra ela colar no Claude dela fazer o setup sozinho).
 - **Preview de PR (camada 3) DESCARTADO**: sem staging, bateria no Supabase de produção (revisão deu P0). Scheila valida visual no `npm run dev` local. Só reconsiderar com staging.
 
-## ⏳ Próximos passos (do Eduardo, no GitHub — fora do código)
-1. **Adicionar a Scheila como colaboradora** (write) em `edukern/solucao-compras` → Settings ▸ Collaborators.
-2. Ela: clona, instala Claude Code, abre o projeto (agente + regras vêm no clone), trabalha em branch, abre PR.
+## ⏳ Próximos passos
+1. **Scheila (na máquina dela):** colar o prompt de `docs/SETUP-SCHEILA.md` no Claude Code → setup automático (login GitHub como `lojaspontoe`, clone, `npm install`, `.env.local`, `npm run dev`) → abrir o 1º PR.
+2. **Eduardo:** quando o 1º PR aparecer, revisar/aprovar (Claude guia). Nada pendente antes disso.
 3. (Opcional) Se quiser banco de teste de verdade → criar **Supabase de staging** e então o preview de PR passa a fazer sentido.
 
 ## 🧠 Decisões
+- **Conta usada:** Scheila opera com a conta da empresa `lojaspontoe` (não conta pessoal) → autoria dos PRs aparece como "empresa", sem rastreio por pessoa. Aceitável por ora.
 - O "ambiente de teste antes da produção" que faltava = **`npm run dev` local** (mesmo app, privado, antes do PR). Preview na nuvem só agrega com staging.
 - `enforce_admins: false` é intencional (escape hatch do dono). Para prender o Eduardo também: ligar `enforce_admins`.
 
