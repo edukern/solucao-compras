@@ -44,46 +44,23 @@ App React + Supabase (SPA, sem Electron) para gestão de pedidos de compra em gr
 
 ---
 
-## 🔴 BUG ABERTO — PRIORITÁRIO
+## Estado (atualizado 2026-06-19)
 
-**Erro ao clicar "Editar" em sessão existente (Phase 2 via handleRetomarSessao):**
-`Cannot read properties of undefined (reading 'reduce')`
+- **Bug de retomar sessão (reduce undefined) — RESOLVIDO** (commit "corrige retomar sessão Phase 2"). `handleRetomarSessao` fica em `Compras.jsx` ~l4441 (o ~3399 dos docs antigos está desatualizado).
+- **Migration de compradores** (fantasia/ie/email/telefone/endereco) — **aplicada** (o código já lê esses campos no retomar).
+- **Path do projeto:** `D:\projetos\solucao-compras` (drive D:). O antigo `C:\Users\eduke\Solução Compras` não vale mais.
+- **Git:** commito normalmente (o hook só bloqueia comandos destrutivos, não `git add/commit`).
+- **Sessão fechada (badge `fechada_em`)** e **Agregador consumindo `hist_empresa_grade`** — ambos implementados (jun/2026).
 
-A função `handleRetomarSessao` (Compras.jsx ~linha 3399) chama `itensPorFornecedor` + `byId`, constrói `items`/`qtds`/`visitas` e chama `setPhase(2)`. O componente `RegistrarPedidoSessao` monta e crashea com o erro de reduce. Fix defensivo sugerido no HANDOFF.md.
-
----
-
-## Commits pendentes (código modificado, não commitado)
-
-```bash
-cd "C:\Users\eduke\Solução Compras"
-git add src/renderer/src/screens/Compras.jsx src/renderer/src/services/sessoes.js supabase/migrations/016_compradores_pdf_info.sql HANDOFF.md
-git commit -m "feat: PDF tabular horizontal + corrige retomar sessão (Phase 2)"
-git push
-```
-
----
-
-## Migration pendente no Supabase
-
-```sql
-ALTER TABLE compradores
-  ADD COLUMN IF NOT EXISTS fantasia  TEXT,
-  ADD COLUMN IF NOT EXISTS ie        TEXT,
-  ADD COLUMN IF NOT EXISTS email     TEXT,
-  ADD COLUMN IF NOT EXISTS telefone  TEXT,
-  ADD COLUMN IF NOT EXISTS endereco  TEXT;
-```
+Para o estado vivo de cada frente, ver `HANDOFF.md` na raiz e `HANDOFF-IMPORTACAO-26-2.md`.
 
 ---
 
 ## Arquivos-chave
 
-- `Compras.jsx` — ~3630 linhas, tudo nele: 5 phases + todos os subcomponentes + geração de PDF
-- `Compras.module.css` — ~2400 linhas
+- `Compras.jsx` — ~3600+ linhas: 5 phases + subcomponentes + geração de PDF
+- `Compras.module.css`
 - `services/pedidos.js` — CRUD pedidos, itens, visitas
 - `services/sessoes.js` — CRUD sessões + normalizeVisitas
 - `contexts/AuthContext.jsx` — user, comprador, is_editor
 - `constants/grades.js` — GRADE_DEFINITIONS, tamanhosDeTipoGrade
-
-**Why:** HANDOFF.md no root do projeto tem detalhe completo de cada próximo passo.

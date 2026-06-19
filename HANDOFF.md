@@ -1,5 +1,5 @@
 # HANDOFF — Solução Compras
-Atualizado: 2026-06-18 | Handoff #10
+Atualizado: 2026-06-19 | Handoff #11
 
 > Várias frentes em aberto em paralelo. A mais recente está no topo. Frentes mais antigas (Importação 26/2, Sync Macle) seguem pendentes mais abaixo e **não devem ser perdidas**.
 
@@ -18,14 +18,14 @@ Eduardo quer operar o projeto inteiro pedindo em linguagem simples, tratado como
 - **Ambiente de teste antes da produção** (a falta de staging é o que força acompanhamento próximo; com ele, mais coisa roda hands-off).
 - 1º agente recomendado: **read-only de consulta** ("pergunte ao sistema em português") — valor alto, risco zero. Pergunta aberta a Eduardo: qual parte ele mais quer parar de acompanhar primeiro.
 
-### 3. Feature futura: separar sessões abertas × fechadas no Histórico
-Decisão de produto já tomada: sessão é **fechada quando clica em "Fechar sessão"**; reabrir a edição volta a aberta. Hoje não há campo de status em `sessoes`. Implementar = adicionar flag (ex.: `fechada_em timestamp`) + passar pelo `revisor-impacto` (mexe em schema + fluxo de pedidos).
+### 3. Badge de sessão fechada — ✅ IMPLEMENTADA (19/06, commit `0a7cf6b`)
+Coluna `sessoes.fechada_em` (migração `027`, **aplicar no Supabase**); `handleFechar` carimba (não-bloqueante), `handleRetomarSessao` limpa, badge "Fechada" no Histórico quando `fechada_em != null`. Passou pelo `revisor-impacto` (risco BAIXO). **É status VISUAL — não trava preenchimento de loja nem edição** (congelar de verdade seria outra feature: checagem na escrita/RLS).
 
 ## 🧠 Decisões técnicas que afetam o próximo passo
 - **`colecao_id` só existe em `sessoes`** na cadeia operacional — visitas/pedidos/pedido_itens seguem a sessão. Por isso a migração é nível-de-sessão (só `UPDATE sessoes.colecao_id`).
 - **Identificar coleção pelo campo `nome`** (ex.: '27/1'), nunca por `ano`/`estacao` (inconsistentes; 26/2 aparece como 2026/verao). Ordenação e identificação usam `nome`.
 - **SQL Editor**: "Run and enable RLS" reescreve scripts com `CREATE TABLE` e quebra transações → backup é passo separado. Operações no editor rodam como `postgres` e ignoram RLS.
-- **Deploy**: nada de código pendente; `git status` limpo em `815a7ee` (já no ar). UI desta sessão já publicada: ordenação de sessões, botão "Opções", rodapé invertido, seletor de coleções.
+- **Deploy**: tudo no ar em `0a7cf6b` (19/06). Desde a sessão 18/06: fix desconto, scripts de import na coleção 17, guard anti-duplicado, `saude.js`/Programação, `reimport.js`, badge de sessão fechada. Deploy é Cloudflare Pages no push (GitHub Actions `deploy-web.yml`), não Vercel.
 - **Build**: o script real é `npm run build` (`vite build --config vite.web.config.js` → `dist/web`). Drift do `.claude/CLAUDE.md` (citava `build:web`) corrigido em 18/06.
 
 ## 📁 Arquivos relevantes
@@ -43,18 +43,19 @@ Branch `safeguards-perda-dados` mergeado em `main` e no ar (commit `1a87335`). 4
 
 ---
 
-# 🟡 FRENTE 2 (PENDENTE) — Importação 26/2
-Handoff dedicado: **`HANDOFF-IMPORTACAO-26-2.md`** (raiz). Spec/plano em `docs/superpowers/`.
-Estado: 42 planilhas extraídas em `Pedidos/26-2-import/`, 3 formatos mapeados, plano escrito. **Falta executar o plano.** Trava anti-duplicação de fornecedores pendente (Aconchego/Rakels já existem sob nome variante). Ver arquivo dedicado.
+# 🟡 FRENTE 2 (EM ANDAMENTO) — Importação 26/2
+Handoff dedicado: **`HANDOFF-IMPORTACAO-26-2.md`** (raiz) — tem o estado atual.
+Avançado (19/06): coleção alvo corrigida p/ id 17 (`lib/colecao.js`), guard anti-duplicado blindado, `saude.js` corrigido (Programação não casa com base), diagnóstico das 7 divergências, `reimport.js` (apagar-e-reinserir, dry-run). **Aguardando compradores** (Google Form enviado: fornecedores novos/duplicados, Programação, Lupo, códigos/extras). Cruzamento com banco `controle`: 14 dos 17 sem-cadastro já existem lá. Reimport pronto p/ Desayner/Trajadinhos/Tanise; SCHRAMM bloqueado (abas-pessoa).
 
 ---
 
 # 🟡 FRENTE 3 (PENDENTE) — Sync Macle → Supabase
 
 ## ⏳ Próximos passos (em ordem)
-1. **Conectar Agregador UI ao `hist_empresa_grade`** — `src/renderer/src/screens/Agregador.jsx` ainda não consome a tabela. Ler do Supabase com `tipo_grade`, `colecao_id`, `tamanho`, `qtd_comprada`, `qtd_vendida`, `qtd_estoque`.
-2. **Agendar o sync no servidor** (Windows Task Scheduler), diário: `cd C:\sync-controle && node sync-controle.js >> C:\sync-controle\sync.log 2>&1`
+1. ✅ **Agregador UI já consome `hist_empresa_grade`** (`services/agregador.js`, `screens/Agregador.jsx`). Tabela tem 529 linhas (sync já rodou ao menos 1x, provavelmente manual).
+2. **Agendar o sync no servidor** (Windows Task Scheduler), diário: `cd C:\sync-controle && node sync-controle.js >> C:\sync-controle\sync.log 2>&1`. **Combinado: configurar 20/06 de manhã.**
 3. **Projeto `macle-integrations`** — mover `sync-controle.js` + relatórios para projeto Node.js separado.
+4. **Integração ponto-e-stock** (não começou) — o motor de reposição roda 100% em mocks; falta escrever o provider real (`getStockProvider`/`external/`) lendo `hist_empresa_grade` do Supabase.
 
 ## 🧠 Decisões técnicas (Sync Macle)
 - **`tipo_grade TEXT`** e não `segmentacao_id`: Macle entrega nível de grade (AD, EX, PP, BB = `gradetamanho.descricao`).
