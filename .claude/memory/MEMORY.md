@@ -8,3 +8,4 @@
 - [Importação 26/2 — estado e fatos críticos](project_importacao_26_2.md) — FEMMINART gravado (sessão 40, 10654 pç, AD/46-52); backup *_backup_2622 feito; ACHADO: fornecedores DUPLICADOS (Aconchego/Rakels já no Bolt sob nome variante) — blindar guard antes do próximo apply
 - [Definição de sessão "fechada"](sessao-fechada-definicao.md) — Fechada = clicou em "Fechar sessão"; reabrir edição volta a aberta. Para futura separação aberta/fechada no Histórico (precisa campo de status em sessoes)
 - [Migração 27/1→26/2 (CONCLUÍDA 18/06)](migracao-27-1-para-26-2.md) — 20 sessões movidas da colecao id 1 (27/1) para id 17 (26/2), 27/1 apagada. Verificação 0·21·0. Backup em backup_move_colecao_20260618
+- [Acesso da Scheila — main protegida](colaboracao-scheila-branch-protection.md) — main exige PR+build+1 review; admin (Eduardo) tem bypass; preview de PR descartado (sem staging); falta Eduardo adicionar Scheila como colaboradora
