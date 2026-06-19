@@ -1208,6 +1208,14 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
         (v.pedidos ?? []).map(p => ({ ...p, visita_id: v.id }))
       )
       localStorage.removeItem(RECOVERY_KEY)
+      // Carimba a sessão como fechada (status VISUAL p/ o badge no Histórico).
+      // Não-bloqueante: o trabalho crítico (drenar deltas, ler fresco) já foi feito;
+      // um carimbo cosmético não deve derrubar o fechamento se falhar.
+      try {
+        await sessoesService.update(sessao.id, { fechada_em: new Date().toISOString() })
+      } catch (e) {
+        console.warn('Sessão fechada, mas não consegui salvar o status visual:', e.message)
+      }
       onFechar(pedidosFresh)
     } catch (e) {
       setError(`Erro ao fechar sessão: ${e.message}`)
@@ -3680,6 +3688,7 @@ function Historico({ colId, onNovaSessao, onVisualizar, onPreencherLoja, onRetom
                 <strong className={styles.histFornNome}>{fornNome}</strong>
                 <span className={styles.histSessaoMeta}>
                   <span>{fmtDate(ses.data_visita)}</span>
+                  {ses.fechada_em && <span className={styles.badgeFechada}>Fechada</span>}
                   {ses.vendedor && <><span className={styles.dot}>·</span><span>{ses.vendedor}</span></>}
                   {ses.cond_pag && <><span className={styles.dot}>·</span><span>{ses.cond_pag}</span></>}
                 </span>
@@ -4509,10 +4518,16 @@ export default function Compras() {
       }
 
       const forn = forns.find(f => f.id === ses.fornecedor_id)
-      setSessao({ ...sessaoDb, fornecedor_nome: forn?.nome || sessaoDb.fornecedor?.nome || '' })
+      setSessao({ ...sessaoDb, fornecedor_nome: forn?.nome || sessaoDb.fornecedor?.nome || '', fechada_em: null })
       setVisitas(visitasEnriquecidas)
       setRecoveryInitial({ items, qtds, activeId: items[0]?.localId ?? null, lojaIdx: 0 })
       setPhase(2)
+      // Reabrir a edição volta a sessão para "aberta" (limpa o carimbo). Não-bloqueante;
+      // só grava se estava fechada, p/ não escrever à toa a cada Retomar.
+      if (ses.fechada_em) {
+        sessoesService.update(ses.id, { fechada_em: null })
+          .catch(e => console.warn('Não consegui reabrir o status da sessão:', e.message))
+      }
     } catch (e) {
       alert(`Erro ao retomar sessão: ${e.message}`)
     } finally {
