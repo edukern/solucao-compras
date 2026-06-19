@@ -1,0 +1,27 @@
+name: PR Check
+
+# Roda em todo PR para main. Marque "PR Check / build" como status check
+# OBRIGATÓRIO na proteção de branch da main: PR com build quebrado não mergeia.
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web (mesma config do deploy)
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://bhxpkysueyoblizkvomb.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_Pe-o7iG5jjV0n0qTTKQI-Q_DUZ8-tHm' }}

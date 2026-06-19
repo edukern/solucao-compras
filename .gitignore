@@ -26,6 +26,7 @@ out
 # Claude Code runtime files
 .claude/
 !.claude/memory/
+!.claude/agents/
 .superpowers/
 
 # SQLite database (dados locais, não vão pro repositório)
