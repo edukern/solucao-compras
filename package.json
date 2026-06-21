@@ -1,7 +1,7 @@
 {
   "name": "solucao-compras",
   "version": "1.1.13",
-  "description": "Bolt Compras - Plataforma web de gestão de compras e RH",
+  "description": "Bolt Compras - Plataforma web de gestão de compras",
   "author": "",
   "scripts": {
     "format": "prettier --write .",
