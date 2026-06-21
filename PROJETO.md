@@ -1,7 +1,10 @@
 # Solução Compras — Contexto do Projeto
 
-> Documentação de referência. Ver HANDOFF.md para estado atual de desenvolvimento.
-> Última atualização: 2026-05-18 (sessão 7)
+> Documentação de referência (contexto de negócio, estável). Para stack/convenções
+> técnicas, **CLAUDE.md é a fonte da verdade** — leia-o primeiro. Para o estado
+> atual de desenvolvimento, ver HANDOFF.md.
+> Última atualização: 2026-06-20 (corrigido — este arquivo estava desatualizado
+> desde maio, ainda descrevia a versão Electron/SQLite que foi removida).
 
 ---
 
@@ -25,102 +28,58 @@ Sistema de gestão de compras de moda para substituir ~100 planilhas Excel desco
 
 ## Tecnologia
 
+> Ver `CLAUDE.md` para a versão sempre-atual. Resumo:
+
 | Camada | Stack |
 |--------|-------|
-| Desktop | Electron + React + SQLite (better-sqlite3) |
-| Web demo | Vite + React + React Router (Vercel) |
+| App | SPA web — React 18 + Vite (`vite.web.config.js`) |
+| Banco | Supabase (Postgres), projeto `bhxpkysueyoblizkvomb` |
+| Deploy | Cloudflare Pages (`bolt-compras.pages.dev`), via push |
 | Estilos | CSS Modules + variáveis CSS |
-| Estado global | CollectionContext (React Context API) |
-| API renderer→main | `window.api` via contextBridge (IPC) |
-| Testes | Vitest — 109 testes, 14 arquivos, SQLite in-memory |
-| Auto-update | electron-updater + GitHub Actions |
+| Testes | Vitest |
 
-Demo pública: **https://solucao-compras-demo.vercel.app**
+**NÃO é Electron, não tem versão desktop.** O app já foi Electron+SQLite no passado
+(commit `3e1b464`, "remove Electron scripts", removeu de vez); o repo ainda contém
+configs residuais do `electron-vite` (`electron.vite.config.mjs`, `dist-electron/`,
+pasta `electron/`) — são lixo histórico, ignorar.
 
 ---
 
-## Modelo de dados (tabelas SQLite)
+## Modelo de dados (Supabase Postgres)
+
+Tabelas principais (ver `supabase/migrations/` para o schema exato e completo):
 
 ```
-colecoes          id, nome, estacao(verao|inverno), ano, status
+colecoes          id, nome, estacao, ano, status
 segmentacoes      id, classificacao, tipo_produto, classe, tipo_grade
                   tipo_grade: PP|BB|INF|JUV|AD|EX|AD1|EX1|AD2|EX2|U
-                  UNIQUE(classificacao, tipo_produto, classe, tipo_grade)
 fornecedores      id, nome, contato, categoria
-compradores       id, nome, cnpj, cidade
-sessoes           id, fornecedor_id, colecao_id, data_visita,
-                  vendedor, cond_pag, frete(CIF|FOB), transportadora, obs
+compradores       id, nome, cnpj, cidade, is_editor
+sessoes           id, fornecedor_id, colecao_id, data_visita, vendedor,
+                  cond_pag, frete(CIF|FOB), transportadora, obs, fechada_em
 visitas           id, sessao_id, comprador_id  ← join table
 pedidos           id, visita_id, comprador_id, segmentacao_id,
                   valor_unitario, desconto_pct, referencia, icms_pct, obs
+                  UNIQUE(visita_id, referencia)
 pedido_itens      id, pedido_id, tamanho, qtd
-grade_historica   id, segmentacao_id, colecao_id, tamanho,
-                  qtd_comprada, qtd_vendida, qtd_estoque
 projecoes         id, segmentacao_id, colecao_id, tamanho,
                   qtd_projetada, qtd_ajustada, metodo
+hist_empresa_grade comprador_id, colecao_id, tipo_grade, tamanho,
+                  qtd_comprada, qtd_vendida, qtd_estoque
+                  (alimentada por scripts/sync-controle.js — ver Frente 3 do HANDOFF;
+                  usada hoje só pela tela Agregador, não pela projeção de compra)
+app_config        flags de manutenção/config
 ```
 
 ---
 
-## Contrato window.api (IPC)
+## Serviços (`src/renderer/src/services/`)
 
-```js
-window.api.colecoes.list()
-window.api.colecoes.create({ nome, estacao, ano })
-window.api.colecoes.setStatus(id, status)
-
-window.api.segmentacoes.list()
-window.api.segmentacoes.create(data)
-window.api.segmentacoes.upsert(data)
-window.api.segmentacoes.update(id, data)
-window.api.segmentacoes.remove(id)
-window.api.segmentacoes.findOrCreate(data)
-
-window.api.grades.save(segmentacaoId, colecaoId, rows)
-window.api.grades.get(segmentacaoId, colecaoId)
-window.api.grades.importar(filePath, colecaoId)
-
-window.api.projecoes.calcular(segmentacaoId, colecaoId, metodo)
-window.api.projecoes.salvar(segmentacaoId, colecaoId, rows)
-window.api.projecoes.get(segmentacaoId, colecaoId)
-window.api.projecoes.ajustar(segmentacaoId, colecaoId, tamanho, qtd)
-window.api.projecoes.restaurar(segmentacaoId, colecaoId)
-
-window.api.fornecedores.list()
-window.api.fornecedores.create(data)
-window.api.fornecedores.update(id, data)
-window.api.fornecedores.remove(id)
-window.api.fornecedores.importarArquivo(filePath)
-
-window.api.compradores.list()
-window.api.compradores.create(data)
-window.api.compradores.update(id, data)
-window.api.compradores.remove(id)
-
-window.api.sessoes.create(data, lojaIds)
-window.api.sessoes.list(colecaoId)
-window.api.sessoes.byId(id)
-window.api.sessoes.update(id, data)
-window.api.sessoes.cancelar(id)
-
-window.api.pedidos.salvar(data)
-window.api.pedidos.byVisita(visitaId)
-window.api.pedidos.totaisPorTamanho(visitaId, segmentacaoId)
-window.api.pedidos.totaisPorFornecedor(colecaoId, segmentacaoId?)
-window.api.pedidos.itensPorFornecedor(fornecedorId, colecaoId)
-window.api.pedidos.cancelar(pedidoId)
-window.api.pedidos.salvarBatch(batch)
-
-window.api.dashboard.data(colecaoId)
-
-window.api.backup.export(filePath)
-window.api.backup.import(filePath)
-
-window.api.dialog.openFile(options)
-
-window.api.updater.install()
-window.api.updater.onStatus(callback)
-```
+CRUD e regras de negócio falam direto com o Supabase client (`@supabase/supabase-js`),
+sem camada de IPC — é tudo chamada de browser. Arquivos: `colecoes.js`,
+`segmentacoes.js`, `compradores.js`, `fornecedores.js`, `sessoes.js`, `pedidos.js`,
+`pedidoMerge.js`, `projecoes.js`, `grades.js`, `dashboard.js`, `relatorios.js`,
+`agregador.js`, `historico.js`, `appConfig.js`.
 
 ---
 
@@ -169,10 +128,10 @@ window.api.updater.onStatus(callback)
 
 ## Decisões técnicas relevantes
 
-- **`window.api` é síncrono internamente** (better-sqlite3) mas exposto como Promise para consistência
-- **CollectionContext** envolve todo o renderer — toda tela acessa coleção ativa via `useCollection()`
-- **Demo usa mockApi** com mesmo contrato que o app desktop — telas são reutilizadas sem alteração
-- **Projeção usa N−2 e N−1** (duas coleções equivalentes anteriores): média simples (50/50) ou ponderada (40/60)
-- **`seedInitialData(db)`** separada de `runMigrations(db)` — chamada só em produção (index.js), não nos testes
-- **`sandbox: false` no BrowserWindow** — necessário porque preload usa ESM imports
-- **`xlsx` em dependencies** (não devDependencies) — necessário para build empacotado do Electron
+> Decisões de stack/processo vivas estão em `CLAUDE.md` (ex.: revisão de impacto
+> obrigatória, deploy direto sem staging, convenção de nomenclatura). Aqui só
+> decisões de negócio/domínio que sobrevivem a reescritas de stack:
+
+- **Projeção usa N−2 e N−1** (duas coleções equivalentes anteriores): média simples (50/50) ou ponderada (40/60).
+- **Origem da projeção é manual, não vem do ERP.** O Excel "Análise de Coleção" importado é produzido num processo manual de planilhas do próprio Samuel/equipe — não é uma exportação do Macle. Não confundir com `hist_empresa_grade` (essa sim vem do ERP via `sync-controle.js`, mas alimenta só a tela Agregador, não a projeção de compra).
+- **`classificacao` é derivada de `GRADE_DEFINITIONS[tipo_grade]`** — nunca armazenada diretamente (ver `CLAUDE.md`).
