@@ -28,7 +28,24 @@ async function runSQL(label, sql) {
   return body
 }
 
-const SERVICE_ROLE = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJoeHBreXN1ZXlvYmxpemt2b21iIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTAyNDY0NiwiZXhwIjoyMDk0NjAwNjQ2fQ.AXaUuzmffj3DM8-zpV0CMxTbF3AhRV9NTQIckBpIAnE'
+// service_role/secret key vem do ambiente — NUNCA hardcoded.
+// Defina SUPABASE_SERVICE_KEY no .env.local (Settings → API Keys → secret key sb_secret_...).
+try {
+  for (const line of readFileSync(join(ROOT, '.env.local'), 'utf8').split('\n')) {
+    const t = line.trim()
+    if (!t || t.startsWith('#')) continue
+    const eq = t.indexOf('=')
+    if (eq !== -1 && !(t.slice(0, eq).trim() in process.env)) {
+      process.env[t.slice(0, eq).trim()] = t.slice(eq + 1).trim()
+    }
+  }
+} catch { /* sem .env.local — usa env do shell */ }
+
+const SERVICE_ROLE = process.env.SUPABASE_SERVICE_KEY
+if (!SERVICE_ROLE) {
+  console.error('❌ SUPABASE_SERVICE_KEY ausente. Defina no .env.local (Settings → API Keys → secret key).')
+  process.exit(1)
+}
 
 async function createUser(email, password, nome) {
   console.log(`  → ${nome} <${email}>`)
