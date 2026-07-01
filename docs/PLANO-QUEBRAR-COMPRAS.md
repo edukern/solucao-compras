@@ -16,6 +16,8 @@ src/renderer/src/screens/
   HistoricoSessoes.jsx           # Phase 0 / listagem (~400 linhas) — NÃO "Historico.jsx": já existe
                                   # screens/Historico.jsx (tela de Grade/Tendências/Projeções, em App.jsx)
   PreencherMinhaLoja.jsx         # Phase 5 (~250 linhas)
+  IniciarSessao.jsx              # Phase 1 (~530 linhas) — não estava no plano original, ver passo 9
+  MarkupSessao.jsx               # Modal de markup (~200 linhas), usado por 2 telas
 
 src/renderer/src/lib/
   pdfHelpers.js                  # gerarHTMLOrdem, wrapDoc, gerarPDFSessao, PDF_STYLES (~250 linhas)
@@ -87,6 +89,11 @@ src/renderer/src/lib/
   handlers de navegação (handleStart, handleRetomarSessao, handleVisualizar, handlePreencherLoja),
   e o JSX de roteamento entre phases
 - ~350 linhas
+- **Achado na execução:** o plano não listava a Phase 1 (`IniciarSessao` — formulário de nova
+  sessão por teclado, ~530 linhas com `TutorialOverlay`/`DoneLabel`/`UpcomingLabel`) como arquivo
+  próprio, mas deixá-la dentro do orchestrator inflava `Compras.jsx` para ~1050 linhas — não batia
+  com a meta declarada. Extraída também para `screens/IniciarSessao.jsx`, seguindo o mesmo padrão
+  das outras phases. Resultado real: `Compras.jsx` 473 linhas.
 
 ---
 
