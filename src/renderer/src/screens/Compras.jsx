@@ -18,12 +18,7 @@ import SaveStatus from '../components/SaveStatus'
 import { useBeforeUnload } from '../hooks/useBeforeUnload'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-
-const fmt = n => (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const fmtDate = iso => { if (!iso) return ''; const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}` }
-const PLUS_SIZE_DEFAULT = 4
-const today = () => new Date().toISOString().slice(0, 10)
-const esc = s => (s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+import { fmt, fmtDate, PLUS_SIZE_DEFAULT, today, esc } from '../lib/format'
 
 // ─── Tutorial overlay ─────────────────────────────────────────────────────
 
