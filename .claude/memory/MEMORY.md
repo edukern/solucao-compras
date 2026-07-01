@@ -8,3 +8,4 @@
 - [Definição de sessão "fechada"](sessao-fechada-definicao.md) — Fechada = clicou em "Fechar sessão"; reabrir edição volta a aberta. Para futura separação aberta/fechada no Histórico (precisa campo de status em sessoes)
 - [Migração 27/1→26/2 (CONCLUÍDA 18/06)](migracao-27-1-para-26-2.md) — 20 sessões movidas da colecao id 1 (27/1) para id 17 (26/2), 27/1 apagada. Verificação 0·21·0. Backup em backup_move_colecao_20260618
 - [Acesso da Scheila — main protegida](colaboracao-scheila-branch-protection.md) — repo PRIVADO; main exige PR+build+1 review (admin tem bypass); Scheila usa conta da empresa `lojaspontoe` (Write, aceito); setup em docs/SETUP-SCHEILA.md; preview de PR descartado (sem staging)
+- [Bolt RH é repositório separado](project_bolt_rh_repositorio_separado.md) — RH real roda no projeto Vercel `hr-solution` (bolt-rh.vercel.app), não no `api/` deste repo; `.claude/CLAUDE.md` está desatualizado nesse ponto
