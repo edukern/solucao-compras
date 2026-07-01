@@ -13,7 +13,8 @@ src/renderer/src/screens/
   RegistrarPedidoSessao.jsx      # Phase 2 (~1.300 linhas)
   FecharSessao.jsx               # Phase 3 (~300 linhas)
   VisualizarSessao.jsx           # Phase 4 (~200 linhas)
-  Historico.jsx                  # Phase 0 / listagem (~400 linhas)
+  HistoricoSessoes.jsx           # Phase 0 / listagem (~400 linhas) — NÃO "Historico.jsx": já existe
+                                  # screens/Historico.jsx (tela de Grade/Tendências/Projeções, em App.jsx)
   PreencherMinhaLoja.jsx         # Phase 5 (~250 linhas)
 
 src/renderer/src/lib/
@@ -42,7 +43,7 @@ src/renderer/src/lib/
 - Mover TODO o bloco ~l2345–2932: `PDF_STYLES`, `MESES_PT`, `fmtEntrega`, `fmtV`, `wrapDoc`,
   `gerarHTMLOrdem`, `gerarPDFSessao`, `FICHA_STYLES`, `gerarHTMLFichaLoja`, `gerarFichasLojas`,
   `fmtDataPDF`, gerador via `jsPDF`/`jspdf-autotable` (com os respectivos imports de pacote)
-- Importar em `FecharSessao` e `Historico` (que chama reimprimir)
+- Importar em `FecharSessao` e `HistoricoSessoes` (que chama reimprimir)
 - Testar: botão "Gerar PDF de Ordem" **e** "Gerar Fichas das Lojas" (são caminhos diferentes) + "Reimprimir" no Histórico
 
 ### 2. Extrair `MarkupSessao.jsx` (usado em 2 lugares — não estava no plano original)
@@ -50,10 +51,12 @@ src/renderer/src/lib/
 - É usado dentro de `VisualizarSessao` (modal de markup) E dentro do orchestrator `Compras` — importar nos dois
 - Testar: abrir o modal de Markup a partir do Histórico e a partir de Visualizar Sessão
 
-### 4. Extrair `Historico.jsx`
-- Mover o componente `Historico` (~l2490–2900)
+### 4. Extrair `HistoricoSessoes.jsx` (concluído — nome corrigido de "Historico" p/ evitar colisão)
+- Mover o componente `Historico` (~l2490–2900) para `HistoricoSessoes.jsx`/`HistoricoSessoes`
+  — já existe `screens/Historico.jsx` (tela de Grade/Tendências/Projeções, `export default`,
+  importada em `App.jsx`); usar o mesmo nome quebraria essa tela.
 - Importa: `supabase`, `sessoesService`, `pedidosService`, `pdfHelpers`, `useAuth`, `styles`
-- Compras.jsx importa `Historico` de `./Historico`
+- Compras.jsx importa `HistoricoSessoes` de `./HistoricoSessoes`
 - Testar: listagem, botões Editar/Visualizar/Preencher/Reimprimir
 
 ### 5. Extrair `VisualizarSessao.jsx`
