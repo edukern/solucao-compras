@@ -118,6 +118,19 @@ export const pedidos = {
     if (error) throw error
   },
 
+  async atualizarValorItem(sessao_id, referencia, valor_unitario) {
+    const { data: visitas, error: ve } = await supabase.from('visitas').select('id').eq('sessao_id', sessao_id)
+    if (ve) throw ve
+    const visitaIds = (visitas ?? []).map(v => v.id)
+    if (!visitaIds.length) return
+    const { error } = await supabase
+      .from('pedidos')
+      .update({ valor_unitario })
+      .in('visita_id', visitaIds)
+      .eq('referencia', referencia)
+    if (error) throw error
+  },
+
   async atualizarMarkupSessao(sessao_id, precosMap, idx1Str, idx2Str) {
     const idx1 = parseFloat(String(idx1Str ?? '').replace(',', '.'))
     const idx2 = parseFloat(String(idx2Str ?? '').replace(',', '.'))
