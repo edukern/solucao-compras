@@ -72,6 +72,20 @@ export const sessoes = {
     if (error) throw error
   },
 
+  async addVisita(sessaoId, compradorId) {
+    const { error } = await supabase
+      .from('visitas')
+      .insert({ sessao_id: sessaoId, comprador_id: compradorId })
+    if (error) throw error
+    const { data: vis } = await supabase
+      .from('visitas')
+      .select('id, comprador_id, comprador:compradores(nome,cnpj,cidade,fantasia,ie,email,telefone,endereco)')
+      .eq('sessao_id', sessaoId)
+      .eq('comprador_id', compradorId)
+      .single()
+    return normalizeVisitas([vis])[0]
+  },
+
   // Loads piece count + order value totals for a set of sessao_ids in one query
   async statsPorSessoes(sessaoIds) {
     if (!sessaoIds.length) return []

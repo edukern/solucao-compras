@@ -601,7 +601,8 @@ function IniciarSessao({ forns, compradores, colId, onStart }) {
 
 // ─── Phase 2: Tabela de itens ─────────────────────────────────────────────
 
-function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, onRemoveVisita, onCancelarSessao, segs = [],
+function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, onRemoveVisita, onAddVisita, onCancelarSessao, segs = [],
+  compradores = [],
   initialItems = [], initialQtds = {}, initialActiveId = null, initialLojaIdx = 0, initialCorDetalhe = false,
   manutencaoAtiva = false }) {
   console.log('PHASE2 MOUNT', { visitas, items: initialItems })
@@ -656,6 +657,9 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
   const [liberadoInfo,   setLiberadoInfo]   = useState(null) // { count } after liberar
   const [salvandoSessao, setSalvandoSessao] = useState(false)
   const [salvoOk,        setSalvoOk]        = useState(false)
+  const [showAddLoja,    setShowAddLoja]    = useState(false)
+  const [addLojaId,      setAddLojaId]      = useState('')
+  const [addLojaLoading, setAddLojaLoading] = useState(false)
 
   const activeItem = items.find(it => it.localId === activeId) ?? null
   const displayItems = workMode === 'add' ? [...items].reverse() : items
@@ -1004,6 +1008,12 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     if (gradeChanged) {
       setQtds(prev => { const n = { ...prev }; delete n[editingId]; return n })
     }
+    // Se o custo mudou, propaga para todos os pedidos desta referência na sessão
+    const valorMudou = original && editForm.valor !== original.valor
+    if (valorMudou && original?.ref && sessao?.id) {
+      const novoValor = parseFloat((editForm.valor ?? '').replace(',', '.')) || 0
+      pedidosService.atualizarValorItem(sessao.id, original.ref, novoValor).catch(() => {})
+    }
     setEditingId(null)
     setEditForm(null)
   }
@@ -1067,6 +1077,23 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     try { await pedidosService.deleteVisita(visId) } catch {}
     // Notify parent to trim its state
     onRemoveVisita?.(visId)
+  }
+
+  async function handleAddLoja() {
+    if (!addLojaId) return
+    setAddLojaLoading(true)
+    try {
+      const raw = await sessoesService.addVisita(sessao.id, Number(addLojaId))
+      const novaVisita = { ...raw, id: raw.visita_id }
+      onAddVisita?.(novaVisita)
+      setLojaIdx(visitas.length) // foca na nova loja
+      setShowAddLoja(false)
+      setAddLojaId('')
+    } catch (e) {
+      alert('Erro ao adicionar empresa: ' + e.message)
+    } finally {
+      setAddLojaLoading(false)
+    }
   }
 
   function findSegId(item) {
@@ -1674,6 +1701,32 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                 </button>
               )
             })}
+            {(() => {
+              const jaIncluidas = new Set(visitas.map(v => v.comprador_id))
+              const disponiveis = compradores.filter(c => !jaIncluidas.has(c.id))
+              if (disponiveis.length === 0) return null
+              return showAddLoja ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.25rem 0.5rem' }}>
+                  <select value={addLojaId} onChange={e => setAddLojaId(e.target.value)} style={{ fontSize: '0.82rem' }}>
+                    <option value="">Selecionar empresa...</option>
+                    {disponiveis.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                  </select>
+                  <button onClick={handleAddLoja} disabled={!addLojaId || addLojaLoading} className={styles.btnPrimary} style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem' }}>
+                    {addLojaLoading ? '…' : 'Adicionar'}
+                  </button>
+                  <button onClick={() => { setShowAddLoja(false); setAddLojaId('') }} className={styles.btnSecondary} style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem' }}>
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <button
+                  className={styles.btnSecondary}
+                  style={{ fontSize: '0.8rem', padding: '0.2rem 0.7rem', alignSelf: 'center' }}
+                  onClick={() => setShowAddLoja(true)}
+                  title="Adicionar empresa à sessão"
+                >+ Empresa</button>
+              )
+            })()}
           </div>
           <div className={styles.porLojaItemsList}>
             {(() => {
@@ -2289,6 +2342,33 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
           </tbody>
         </table>
           </>
+        )
+      })()}
+
+      {/* ── Adicionar empresa (modo por referência) ── */}
+      {fillMode === 'ref' && (() => {
+        const jaIncluidas = new Set(visitas.map(v => v.comprador_id))
+        const disponiveis = compradores.filter(c => !jaIncluidas.has(c.id))
+        if (disponiveis.length === 0) return null
+        return showAddLoja ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.5rem 0' }}>
+            <select value={addLojaId} onChange={e => setAddLojaId(e.target.value)} style={{ fontSize: '0.82rem' }}>
+              <option value="">Selecionar empresa...</option>
+              {disponiveis.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+            <button onClick={handleAddLoja} disabled={!addLojaId || addLojaLoading} className={styles.btnPrimary} style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem' }}>
+              {addLojaLoading ? '…' : 'Adicionar'}
+            </button>
+            <button onClick={() => { setShowAddLoja(false); setAddLojaId('') }} className={styles.btnSecondary} style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem' }}>
+              Cancelar
+            </button>
+          </div>
+        ) : (
+          <button
+            className={styles.btnSecondary}
+            style={{ fontSize: '0.85rem', margin: '0.5rem 0' }}
+            onClick={() => setShowAddLoja(true)}
+          >+ Adicionar empresa à sessão</button>
         )
       })()}
 
@@ -4737,6 +4817,8 @@ export default function Compras() {
             setPhase(0)
           }}
           onRemoveVisita={(visId) => setVisitas(prev => prev.filter(v => v.id !== visId))}
+          onAddVisita={(novaVisita) => setVisitas(prev => [...prev, novaVisita])}
+          compradores={compradores}
           initialItems={recoveryInitial?.items ?? []}
           initialQtds={recoveryInitial?.qtds ?? {}}
           initialActiveId={recoveryInitial?.activeId ?? null}
