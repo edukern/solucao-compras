@@ -1686,8 +1686,8 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                       <div className={styles.porLojaItemHeader}>
                         <span className={styles.porLojaItemRef}>
                           {it.ref}
-                          {(it.cor || it.detalhe) && (
-                            <span className={styles.itemRefDetail}>{[it.cor, it.detalhe].filter(Boolean).join(' · ')}</span>
+                          {(it.cor || it.detalhe || it.obs) && (
+                            <span className={styles.itemRefDetail}>{[it.cor, it.detalhe, it.obs].filter(Boolean).join(' · ')}</span>
                           )}
                         </span>
                         <span className={styles.porLojaItemMeta}>{it.tipo_produto} · {it.tipo_grade} · {it.classe}</span>
@@ -1982,9 +1982,9 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
                     >
                       <td>
                         {it.ref || <span className={styles.itemDot}>—</span>}
-                        {!showCorDetalhe && (it.cor || it.detalhe) && (
+                        {!showCorDetalhe && (it.cor || it.detalhe || it.obs) && (
                           <span className={styles.itemRefDetail}>
-                            {[it.cor, it.detalhe].filter(Boolean).join(' · ')}
+                            {[it.cor, it.detalhe, it.obs].filter(Boolean).join(' · ')}
                           </span>
                         )}
                       </td>
@@ -2375,7 +2375,7 @@ const PDF_STYLES = `
   .pt .cic { width:24px; font-size:8px; }
   .pt .crl { width:46px; }
   .pt .cvnd { width:46px; color:#1a7a3a; font-weight:bold; }
-  .pt .cref { text-align:left; width:100px; font-size:9px; white-space:normal; overflow:visible; }
+  .pt .cref { text-align:left; width:100px; font-size:9px; white-space:normal; overflow:visible; word-break:break-word; }
   .pt tbody tr { page-break-inside: avoid; break-inside: avoid; }
   .pt tfoot { page-break-inside: avoid; break-inside: avoid; }
   .pt tfoot td { font-weight:bold; background:#f0f0f0; border-top:1.5px solid #777; }
@@ -2460,7 +2460,7 @@ function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
     const totalQ = itens.reduce((s, i) => s + i.qtd, 0)
     const totalV = totalQ * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100)
 
-    const refLabel = [p.referencia, p.cor, p.detalhe].filter(Boolean).join(' ')
+    const refLabel = [p.referencia, p.cor, p.detalhe, p.obs].filter(Boolean).join(' ')
     const classeLabel = [tipo_produto, p.classe ?? p.segmentacao?.classe ?? ''].filter(Boolean).join(' ')
     return `<tr>
       <td class="cref">${esc(refLabel)}</td>
@@ -2599,7 +2599,7 @@ const FICHA_STYLES = `
   .ft-table th { background:#e0e0e0; font-weight:bold; font-size:8px; padding:3px; }
   .ft-table tbody tr { page-break-inside: avoid; break-inside: avoid; }
   .ft-table tfoot td { font-weight:bold; background:#f0f0f0; border-top:1.5px solid #777; }
-  .fref { text-align:left; width:100px; font-size:9px; white-space:normal; overflow:visible; }
+  .fref { text-align:left; width:100px; font-size:9px; white-space:normal; overflow:visible; word-break:break-word; }
   .fprod { text-align:left; width:90px; font-size:9px; white-space:normal; }
   .ft { width:22px; background:#f5f5f5; color:#555; font-size:8px; }
   .fq { width:24px; }
@@ -2628,7 +2628,7 @@ function gerarHTMLFichaLoja(sessao, vis, visPedidos, isLast = true) {
   const prodRows = visPedidos.map(p => {
     const qtdMap = Object.fromEntries((p.itens ?? []).map(i => [i.tamanho, i.qtd]))
     const totalQ = (p.itens ?? []).reduce((s, i) => s + i.qtd, 0)
-    const refLabel = [p.referencia, p.cor, p.detalhe].filter(Boolean).join(' ')
+    const refLabel = [p.referencia, p.cor, p.detalhe, p.obs].filter(Boolean).join(' ')
     const prodLabel = [p.tipo_produto ?? '', p.classe ?? ''].filter(Boolean).join(' ')
     const cells = activeSizes.map(tam => {
       const q = qtdMap[tam] ?? 0
@@ -2823,7 +2823,7 @@ async function salvarPDFVisita(sessao, vis, visPedidos, sessaoOverride = {}) {
         const tipo_produto = p.tipo_produto ?? p.segmentacao?.tipo_produto ?? ''
         const classe       = p.classe ?? p.segmentacao?.classe ?? ''
         return [
-          [p.referencia, p.cor, p.detalhe].filter(Boolean).join(' '),
+          [p.referencia, p.cor, p.detalhe, p.obs].filter(Boolean).join('\n'),
           [tipo_produto, classe].filter(Boolean).join(' '),
           ...activeSizes.map(t => (qtdMap[t] ?? 0) || '—'),
           totalQ || '—',
@@ -2849,7 +2849,7 @@ async function salvarPDFVisita(sessao, vis, visPedidos, sessaoOverride = {}) {
         styles: { fontSize: 8, cellPadding: 1.5, overflow: 'hidden', halign: 'center' },
         headStyles: { fillColor: [220, 220, 220], textColor: 0, fontStyle: 'bold', fontSize: 7.5 },
         columnStyles: {
-          0: { halign: 'left', cellWidth: W_REF },
+          0: { halign: 'left', cellWidth: W_REF, overflow: 'linebreak' },
           1: { halign: 'left', cellWidth: W_PROD },
           ...Object.fromEntries(activeSizes.map((_, i) => [
             2 + i, { cellWidth: wSZ, fontStyle: 'bold', fontSize: 9 },
