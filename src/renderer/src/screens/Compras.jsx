@@ -940,6 +940,21 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
       return next
     })
     setQtds(prev => ({ ...prev, [newId]: {} })) // grade zerada
+    // Persiste o clone imediatamente para não perder a variante se a sessão for abandonada
+    const orgVisita = visitas.find(v => v.comprador_id === myComprador?.id) ?? visitas[0]
+    if (orgVisita && copy._segId) {
+      const num = s => parseFloat((s ?? '').replace(',', '.')) || 0
+      pedidosService.salvarRascunho(orgVisita.id, [{
+        comprador_id: orgVisita.comprador_id,
+        segmentacao_id: copy._segId,
+        valor_unitario: num(copy.valor),
+        desconto_pct: num(sessaoDesconto ?? '0'),
+        referencia: copy.ref, variante_key: newVarianteKey,
+        icms_pct: num(copy.icms_pct), markup_pct: num(copy.markup_pct),
+        preco_venda: num(copy.preco_venda),
+        cor: '', detalhe: '', obs: copy.obs || '',
+      }]).catch(e => console.warn('Falha ao persistir clone:', e.message))
+    }
     setActiveId(newId)
     setEditingId(newId)
     // Destaca o item duplicado para alertar sobre cor/detalhe
@@ -1196,6 +1211,26 @@ function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, o
     setSaving(true)
     setError(null)
     try {
+      // 0. Persiste metadados de TODOS os itens (incluindo clones com quantidade zero)
+      //    para garantir que variantes sem quantidade não se percam ao reabrir a sessão.
+      const orgVisita = visitas.find(v => v.comprador_id === myComprador?.id) ?? visitas[0]
+      if (orgVisita && items.length) {
+        await resolverSegIds(items)
+        const num = s => parseFloat((s ?? '').replace(',', '.')) || 0
+        const pedidoRows = items
+          .filter(it => it._segId)
+          .map(it => ({
+            comprador_id: orgVisita.comprador_id,
+            segmentacao_id: it._segId,
+            valor_unitario: num(it.valor),
+            desconto_pct: num(sessaoDesconto ?? '0'),
+            referencia: it.ref, variante_key: it.variante_key ?? '',
+            icms_pct: num(it.icms_pct), markup_pct: num(it.markup_pct),
+            preco_venda: num(it.preco_venda),
+            cor: it.cor || '', detalhe: it.detalhe || '', obs: it.obs || '',
+          }))
+        if (pedidoRows.length) await pedidosService.salvarRascunho(orgVisita.id, pedidoRows)
+      }
       // 1. Garante que todo delta pendente foi gravado: cancela o timer, espera um flush
       //    em andamento terminar e drena o que restou contra o estado fresco.
       if (qtdSaveTimerRef.current) clearTimeout(qtdSaveTimerRef.current)
