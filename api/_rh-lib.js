@@ -11,14 +11,21 @@ function checkRateLimit(ip) {
   return true
 }
 
-const SECRET = process.env.RH_JWT_SECRET || 'dev-secret-set-RH_JWT_SECRET-in-prod'
 const SB_URL = process.env.SUPABASE_URL
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY
+
+// Fail-closed: só aceita o segredo fraco de teste em dev local explícito.
+// Qualquer outro valor de NODE_ENV (production, test, undefined) exige RH_JWT_SECRET real.
+function getSecret() {
+  if (process.env.RH_JWT_SECRET) return process.env.RH_JWT_SECRET
+  if (process.env.NODE_ENV === 'development') return 'dev-secret-set-RH_JWT_SECRET-in-prod'
+  throw new Error('Configuração ausente: defina RH_JWT_SECRET no ambiente antes de assinar/verificar sessões de RH.')
+}
 
 function signToken(payload) {
   const data = JSON.stringify({ ...payload, exp: Date.now() + 86_400_000 })
   const b64  = Buffer.from(data).toString('base64url')
-  const sig  = crypto.createHmac('sha256', SECRET).update(b64).digest('hex')
+  const sig  = crypto.createHmac('sha256', getSecret()).update(b64).digest('hex')
   return `${b64}.${sig}`
 }
 
@@ -28,7 +35,7 @@ function verifyToken(token) {
   if (dot < 0) return null
   const b64 = token.slice(0, dot)
   const sig  = token.slice(dot + 1)
-  const expected = crypto.createHmac('sha256', SECRET).update(b64).digest('hex')
+  const expected = crypto.createHmac('sha256', getSecret()).update(b64).digest('hex')
   if (sig !== expected) return null
   try {
     const payload = JSON.parse(Buffer.from(b64, 'base64url').toString())

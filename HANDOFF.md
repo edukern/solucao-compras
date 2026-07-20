@@ -1,7 +1,28 @@
 # HANDOFF — Solução Compras
-Atualizado: 2026-06-19 | Handoff #12
+Atualizado: 2026-06-21 | Handoff #13
 
 > Várias frentes em aberto em paralelo. A mais recente está no topo. Frentes mais antigas (Importação 26/2, Sync Macle) seguem pendentes mais abaixo e **não devem ser perdidas**.
+
+---
+
+# 🔵 FRENTE ATUAL (sessão 21/06) — Camada compartilhada de leitura do ERP (`macle-integrations`)
+
+> Sessão conduzida a partir do `ponto-e-stock`, mas com impacto direto aqui. A antiga **Frente 3 (Sync Macle → Supabase)** ganhou um projeto dedicado: **`macle-integrations`** (`D:\projetos\macle-integrations`, repo privado `github.com/edukern/macle-integrations`). Em vez de cada app (este + ponto-e-stock) ler o `controle` por conta própria, uma camada única lê o ERP e grava numa tabela compartilhada no **Supabase deste projeto**.
+
+## O que muda para o solucao-compras
+- A tabela nova `hist_segmento_loja` (loja × nivel2/3/4 = TIPO/CLASSE/CLASSIFICACAO — "segmento" é nome legado, ver macle `macle-taxonomia-produto` — × tamanho, com qtd **e valor**) **já está no Supabase `bhxpkysueyoblizkvomb` (criada e populada 21/06, RLS habilitado, anon key bloqueada).** Fase 1 = só a camada; ninguém consome ainda. O `sync-controle.js`/`hist_empresa_grade` daqui continuam intactos.
+- Intenção de médio prazo: migrar o `sync-controle.js` daqui para o `macle-integrations` e, num 2º spec, **substituir o import manual de Excel** da projeção de compra por essa tabela.
+- Continuação detalhada está em `D:\projetos\macle-integrations\HANDOFF.md` (**sync em produção e validado; falta só agendar no servidor**).
+
+## ⚠️ Achados desta sessão que afetam ESTE repo
+1. **SEGURANÇA — service_role key vazada.** `scripts/migrate.mjs:31` tem a **service_role key hardcoded e commitada** (JWT válido até 2036). Ela ignora RLS → lê/escreve tudo. **Rotacionar no Supabase + mover para env.** (A anon key pública no `deploy-web.yml` é normal — a proteção dela é o RLS; mas por isso toda tabela nova com dado sensível PRECISA de RLS habilitado.)
+2. **Coleção errada no sync-config.** `scripts/sync-config.example.json` usa `codcolecao 20000014` (coleção ANTIGA). A ativa é **20000015** (2026/2). Conferir se o `sync-config.json` real do servidor já está em 20000015 — senão o sync puxa coleção errada.
+3. **Colunas de valor do ERP confirmadas ao vivo:** não existe `valortotal`. Valor bruto = venda `(qtd − qtddevolv) × precoun`, compra `qtd × vlrunit`; `estoque` sem valor. Útil se o `sync-controle.js` daqui (hoje só qtd) for estendido para valor.
+
+## 📝 Mudanças no working tree (NÃO commitadas — main é protegida, precisam de PR)
+- `PROJETO.md` — **corrigido**: descrevia versão Electron/SQLite que não existe mais; agora reflete a stack real (React/Vite/Supabase). `CLAUDE.md` declarado como fonte de verdade da stack.
+- `package.json` — descrição não cita mais "RH" (módulo já removido).
+- `.claude/memory/` — `project_ponto_e_stock_integracao.md` e `MEMORY.md` atualizados (macle-integrations criado, achados do ERP).
 
 ---
 
@@ -68,8 +89,73 @@ Branch `safeguards-perda-dados` mergeado em `main` e no ar (commit `1a87335`). 4
 ---
 
 # 🟡 FRENTE 2 (EM ANDAMENTO) — Importação 26/2
-Handoff dedicado: **`HANDOFF-IMPORTACAO-26-2.md`** (raiz) — tem o estado atual.
-Avançado (19/06): coleção alvo corrigida p/ id 17 (`lib/colecao.js`), guard anti-duplicado blindado, `saude.js` corrigido (Programação não casa com base), diagnóstico das 7 divergências, `reimport.js` (apagar-e-reinserir, dry-run). **Aguardando compradores** (Google Form enviado: fornecedores novos/duplicados, Programação, Lupo, códigos/extras). Cruzamento com banco `controle`: 14 dos 17 sem-cadastro já existem lá. Reimport pronto p/ Desayner/Trajadinhos/Tanise; SCHRAMM bloqueado (abas-pessoa).
+
+## Estado atual (20/06 — saúde pós-sessão)
+
+```
+OK: ~24  |  OK_MAS_DUP: 6  |  DIVERGE: 8  |  FALTA_CADASTRO: 5  |  NAO_IMPORTADO: 0
+Bolt total: ~86.700 peças  |  Planilha: 84.382 peças
+```
+
+Rodar `node docs/importar-26-2/saude.js` para confirmar números exatos.
+
+## ✅ Concluído nesta sessão (20/06)
+- **19 fornecedores novos** criados via `seed-fornecedores.js` (IDs #762–#780, incluindo BEAVER x2, CHARMS, LOOK CHIC, PURO MAR).
+- **ÍNTIMA FLOR #737** (com acento, duplicado) apagado + FKs limpas. Import realizado sob #405 (5.458pç).
+- **Mormaii Calçados** importado sob #724 (382pç). Arquivo renomeado de `Calcacados` → `Calcados` (typo corrigido). #775 "MORMAII CALCADOS" ficou vazio — pode apagar.
+- **Todos os 24 fornecedores "simples"** importados com OK.
+
+## ⏳ Pendências que precisam de confirmação
+
+### 1. Arquivos "Programação" — importar ou ignorar?
+Form respondeu "faz parte do pedido principal" — ainda não claro se significa:
+
+**A) Ignorar** — peças já estão contadas na planilha principal. Saude.js mostra FALTA_CADASTRO para esses arquivos; intencional.
+
+**B) Importar como segunda sessão** do fornecedor pai — requer `--fornecedor-id=N` no apply.js e desativar GAP_TOTAL para reimports explícitos.
+
+| Arquivo | Peças | Fornecedor pai |
+|---|---|---|
+| FEMMINART PROGRAMACAO | 734 | FEMMINART #690 |
+| LZT Programação | 318 | LZT (verificar id) |
+| Mormaii Programação | 1.095 | MORMAII #342 |
+
+**Quem confirma:** Samuel (foi quem mencionou Programação no form).
+
+### 2. DIVERGE pequenos — reimportar ou aceitar?
+Form confirmou Aconchego +2 e Urban City +2 → bolt correto, ignorar.  
+Os demais precisam de decisão:
+
+| Fornecedor | Planilha | Bolt | Diff |
+|---|---|---|---|
+| Desayner | 1.752 | 1.691 | -61 |
+| Marco Textil | 856 | 853 | -3 |
+| SCHRAMM | 5.585 | 5.511 | -74 |
+| Tanise | 3.884 | 3.881 | -3 |
+| Trajadinhos | 1.723 | 1.534 | -189 |
+
+`reimport.js` (apagar-e-reinserir) já está pronto para Desayner/Tanise/Trajadinhos. SCHRAMM bloqueado (abas-pessoa no xlsx, precisa parsear).
+
+### 3. Mormaii DIVERGE +1.751
+Bolt=3.211 vs planilha=1.460. Provavelmente veio de importação anterior de outra coleção misturada aqui. Investigar se há sessões de coleção errada vinculadas ao MORMAII #342.
+
+### 4. OK_MAS_DUP — limpar cadastros duplicados (baixa urgência)
+| Fornecedor | Ação |
+|---|---|
+| Rakels | Manter RAKEL'S #587, apagar #642 |
+| Aconchego | Manter #9, apagar os outros |
+| BEAVER | Dois CNPJs legítimos — manter ambos |
+| Biogás, Elite, Lupo, LZT | Confirmar qual manter |
+
+### 5. MORMAII CALCADOS #775 — apagar
+Sobra do seed (import foi pro #724). Remover FK de `hist_fornecedor` e `hist_comprador_fornecedor` antes de apagar (mesmo procedimento do ÍNTIMA FLOR #737).
+
+## Arquivos relevantes
+- `docs/importar-26-2/apply.js` — import principal
+- `docs/importar-26-2/saude.js` — relatório de cobertura
+- `docs/importar-26-2/seed-fornecedores.js` — 19 fornecedores criados
+- `docs/importar-26-2/reimport.js` — apagar-e-reinserir (dry-run por padrão)
+- `Pedidos/26-2-import/` — xlsx de origem (42 arquivos)
 
 ---
 
@@ -88,3 +174,9 @@ Avançado (19/06): coleção alvo corrigida p/ id 17 (`lib/colecao.js`), guard a
 
 ## 📁 Arquivos (Sync Macle)
 - `scripts/sync-controle.js` (pronto, falta config no servidor) · `scripts/sync-config.example.json` · `supabase/migrations/020_hist_empresa_grade_v2.sql` (aplicada) · `C:\sync-controle\` (servidor).
+
+---
+
+## 📋 Backlog técnico (auditoria jun/2026)
+
+Melhorias de qualidade/segurança em [`docs/BACKLOG.md`](docs/BACKLOG.md). Destaque 🔴: remover fallback de dev do `RH_JWT_SECRET` (`api/_rh-lib.js`) e quebrar o `Compras.jsx` (plano em `docs/PLANO-QUEBRAR-COMPRAS.md`). Nenhum bloqueia produção.

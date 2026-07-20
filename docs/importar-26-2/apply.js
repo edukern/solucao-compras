@@ -15,9 +15,25 @@
 
 const fs = require('fs')
 const path = require('path')
+const readline = require('readline')
 const { makeClient } = require('./lib/db')
 const { parsePlanilha, fornecedorDoArquivo } = require('./lib/parse-planilha')
 const { COLECAO_ID } = require('./lib/colecao')
+
+// pergunta(msg, opcoes) → índice escolhido (0-based). Mostra a lista, pede número.
+function pergunta(msg, opcoes) {
+  return new Promise(resolve => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+    console.log('\n' + msg)
+    opcoes.forEach((o, i) => console.log(`  ${i + 1}. ${o}`))
+    rl.question(`\nDigite o número (1–${opcoes.length}): `, ans => {
+      rl.close()
+      const n = parseInt(ans, 10)
+      if (n >= 1 && n <= opcoes.length) { resolve(n - 1) }
+      else { console.error('Número inválido.'); process.exitCode = 1; resolve(null) }
+    })
+  })
+}
 
 // Erro-sentinela: aborto controlado (mensagem já impressa). Top-level só seta exitCode.
 class Abort extends Error {}
@@ -176,12 +192,19 @@ async function main() {
   const cands = candidatos(parsed.fornecedor_nome, forns)
   if (!cands.length) { console.error(`Fornecedor "${parsed.fornecedor_nome}" não está cadastrado (SEM_CADASTRO). Abortando.`); throw new Abort() }
 
-  // alvo da inserção: exige match exato (strip) único; senão é ambíguo → aborta (não chuta)
+  // alvo da inserção: match exato (strip) único preferido; se ambíguo, pergunta qual usar.
   const exatos = cands.filter(c => strip(c.nome) === strip(parsed.fornecedor_nome))
-  const alvo = exatos.length === 1 ? exatos[0] : (cands.length === 1 ? cands[0] : null)
+  let alvo = exatos.length === 1 ? exatos[0] : (cands.length === 1 ? cands[0] : null)
   if (!alvo) {
-    console.error(`AMBÍGUO: "${parsed.fornecedor_nome}" casa com ${cands.length} cadastros: ${cands.map(c => `${c.nome}#${c.id}`).join(' | ')}. Defina qual usar (renomeie/funda no cadastro) antes de gravar.`)
-    throw new Abort()
+    console.log(`\nAMBÍGUO: "${parsed.fornecedor_nome}" casa com ${cands.length} cadastros no sistema.`)
+    const opcoes = [...cands.map(c => `${c.nome}  (id ${c.id})`), 'Pular — deixar para depois']
+    const idx = await pergunta('Qual usar para esta importação?', opcoes)
+    if (idx === null || idx === cands.length) {
+      console.log('→ Pulado. Nada gravado.')
+      return
+    }
+    alvo = cands[idx]
+    console.log(`→ Usando: ${alvo.nome} (id ${alvo.id})`)
   }
   const fid = alvo.id
 
