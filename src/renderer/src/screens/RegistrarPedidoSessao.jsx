@@ -13,7 +13,8 @@ import SaveStatus from '../components/SaveStatus'
 import { useBeforeUnload } from '../hooks/useBeforeUnload'
 import { fmtDate, PLUS_SIZE_DEFAULT } from '../lib/format'
 
-export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, onRemoveVisita, onCancelarSessao, segs = [],
+export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFechar, onRemoveVisita, onAddVisita, onCancelarSessao, segs = [],
+  compradores = [],
   initialItems = [], initialQtds = {}, initialActiveId = null, initialLojaIdx = 0, initialCorDetalhe = false,
   manutencaoAtiva = false }) {
   console.log('PHASE2 MOUNT', { visitas, items: initialItems })
@@ -56,6 +57,9 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
   const [fillMode, setFillMode] = useState('ref') // 'ref' | 'loja'
   const [workMode, setWorkMode] = useState(initialItems.length > 0 ? 'fill' : 'add') // 'add' | 'fill'
   const [showOverflowMenu, setShowOverflowMenu] = useState(false)
+  const [showAddLoja,    setShowAddLoja]    = useState(false)
+  const [addLojaId,      setAddLojaId]      = useState('')
+  const [addLojaLoading, setAddLojaLoading] = useState(false)
   function toggleCorDetalhe() { setShowCorDetalhe(prev => !prev) }
   const addFormFirstRef = useRef(null)
   const [editingId,      setEditingId]      = useState(null)
@@ -352,6 +356,22 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
       return next
     })
     setQtds(prev => ({ ...prev, [newId]: {} })) // grade zerada
+    // Persiste o clone imediatamente para não perder a variante se a sessão for abandonada
+    // sem fechar (clone com qtd zero nunca passaria pelo delta de quantidades).
+    const orgVisita = visitas.find(v => v.comprador_id === myComprador?.id) ?? visitas[0]
+    if (orgVisita && item._segId) {
+      const num = s => parseFloat((s ?? '').replace(',', '.')) || 0
+      pedidosService.salvarRascunho(orgVisita.id, [{
+        comprador_id: orgVisita.comprador_id,
+        segmentacao_id: item._segId,
+        valor_unitario: num(item.valor),
+        desconto_pct: num(sessaoDesconto ?? '0'),
+        referencia: item.ref, variante_key: newVarianteKey,
+        icms_pct: num(item.icms_pct), markup_pct: num(item.markup_pct),
+        preco_venda: num(item.preco_venda),
+        cor: '', detalhe: '', obs: item.obs || '',
+      }]).catch(e => console.warn('Falha ao persistir clone:', e.message))
+    }
     setActiveId(newId)
     setEditingId(newId)
     // Destaca o item duplicado para alertar sobre cor/detalhe
@@ -392,7 +412,7 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
     setActiveId(null)
   }
 
-  function confirmEdit() {
+  async function confirmEdit() {
     const original = items.find(it => it.localId === editingId)
     const gradeChanged = original && editForm.tipo_grade !== original.tipo_grade
     setItems(prev => prev.map(it =>
@@ -400,6 +420,17 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
     ))
     if (gradeChanged) {
       setQtds(prev => { const n = { ...prev }; delete n[editingId]; return n })
+    }
+    // Se o custo mudou, propaga para todos os pedidos desta referência na sessão
+    // (mesmo custo em todas as lojas e variantes, por decisão de negócio confirmada).
+    const valorMudou = original && editForm.valor !== original.valor
+    if (valorMudou && original?.ref && sessao?.id) {
+      const novoValor = parseFloat((editForm.valor ?? '').replace(',', '.')) || 0
+      try {
+        await pedidosService.atualizarValorItem(sessao.id, original.ref, novoValor)
+      } catch (e) {
+        setError(`Custo atualizado na tela, mas falhou ao salvar no banco: ${e.message}. Tente editar de novo.`)
+      }
     }
     setEditingId(null)
     setEditForm(null)
@@ -464,6 +495,29 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
     try { await pedidosService.deleteVisita(visId) } catch {}
     // Notify parent to trim its state
     onRemoveVisita?.(visId)
+  }
+
+  async function handleAddLoja() {
+    if (!addLojaId) return
+    // Reconfere na hora, caso outro dispositivo já tenha adicionado essa mesma
+    // empresa nesse meio-tempo (não há trava de unicidade no banco).
+    if (visitas.some(v => v.comprador_id === Number(addLojaId))) {
+      setShowAddLoja(false); setAddLojaId('')
+      return
+    }
+    setAddLojaLoading(true)
+    try {
+      const raw = await sessoesService.addVisita(sessao.id, Number(addLojaId))
+      const novaVisita = { ...raw, id: raw.visita_id }
+      onAddVisita?.(novaVisita)
+      setLojaIdx(visitas.length) // foca na nova loja
+      setShowAddLoja(false)
+      setAddLojaId('')
+    } catch (e) {
+      alert('Erro ao adicionar empresa: ' + e.message)
+    } finally {
+      setAddLojaLoading(false)
+    }
   }
 
   function findSegId(item) {
@@ -608,6 +662,26 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
     setSaving(true)
     setError(null)
     try {
+      // 0. Persiste metadados de TODOS os itens (incluindo clones com quantidade zero)
+      //    para garantir que variantes sem quantidade não se percam ao reabrir a sessão.
+      const orgVisita = visitas.find(v => v.comprador_id === myComprador?.id) ?? visitas[0]
+      if (orgVisita && items.length) {
+        await resolverSegIds(items)
+        const num = s => parseFloat((s ?? '').replace(',', '.')) || 0
+        const pedidoRows = items
+          .filter(it => it._segId)
+          .map(it => ({
+            comprador_id: orgVisita.comprador_id,
+            segmentacao_id: it._segId,
+            valor_unitario: num(it.valor),
+            desconto_pct: num(sessaoDesconto ?? '0'),
+            referencia: it.ref, variante_key: it.variante_key ?? '',
+            icms_pct: num(it.icms_pct), markup_pct: num(it.markup_pct),
+            preco_venda: num(it.preco_venda),
+            cor: it.cor || '', detalhe: it.detalhe || '', obs: it.obs || '',
+          }))
+        if (pedidoRows.length) await pedidosService.salvarRascunho(orgVisita.id, pedidoRows)
+      }
       // 1. Garante que todo delta pendente foi gravado: cancela o timer, espera um flush
       //    em andamento terminar e drena o que restou contra o estado fresco.
       if (qtdSaveTimerRef.current) clearTimeout(qtdSaveTimerRef.current)
@@ -1051,6 +1125,32 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
                 </button>
               )
             })}
+            {(() => {
+              const jaIncluidas = new Set(visitas.map(v => v.comprador_id))
+              const disponiveis = compradores.filter(c => !jaIncluidas.has(c.id))
+              if (disponiveis.length === 0) return null
+              return showAddLoja ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.25rem 0.5rem' }}>
+                  <select value={addLojaId} onChange={e => setAddLojaId(e.target.value)} style={{ fontSize: '0.82rem' }}>
+                    <option value="">Selecionar empresa...</option>
+                    {disponiveis.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                  </select>
+                  <button onClick={handleAddLoja} disabled={!addLojaId || addLojaLoading} className={styles.btnPrimary} style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem' }}>
+                    {addLojaLoading ? '…' : 'Adicionar'}
+                  </button>
+                  <button onClick={() => { setShowAddLoja(false); setAddLojaId('') }} className={styles.btnSecondary} style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem' }}>
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <button
+                  className={styles.btnSecondary}
+                  style={{ fontSize: '0.8rem', padding: '0.2rem 0.7rem', alignSelf: 'center' }}
+                  onClick={() => setShowAddLoja(true)}
+                  title="Adicionar empresa à sessão"
+                >+ Empresa</button>
+              )
+            })()}
           </div>
           <div className={styles.porLojaItemsList}>
             {(() => {
@@ -1098,8 +1198,8 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
                       <div className={styles.porLojaItemHeader}>
                         <span className={styles.porLojaItemRef}>
                           {it.ref}
-                          {(it.cor || it.detalhe) && (
-                            <span className={styles.itemRefDetail}>{[it.cor, it.detalhe].filter(Boolean).join(' · ')}</span>
+                          {(it.cor || it.detalhe || it.obs) && (
+                            <span className={styles.itemRefDetail}>{[it.cor, it.detalhe, it.obs].filter(Boolean).join(' · ')}</span>
                           )}
                         </span>
                         <span className={styles.porLojaItemMeta}>{it.tipo_produto} · {it.tipo_grade} · {it.classe}</span>
@@ -1394,9 +1494,9 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
                     >
                       <td>
                         {it.ref || <span className={styles.itemDot}>—</span>}
-                        {!showCorDetalhe && (it.cor || it.detalhe) && (
+                        {!showCorDetalhe && (it.cor || it.detalhe || it.obs) && (
                           <span className={styles.itemRefDetail}>
-                            {[it.cor, it.detalhe].filter(Boolean).join(' · ')}
+                            {[it.cor, it.detalhe, it.obs].filter(Boolean).join(' · ')}
                           </span>
                         )}
                       </td>
@@ -1666,6 +1766,33 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
           </tbody>
         </table>
           </>
+        )
+      })()}
+
+      {/* ── Adicionar empresa (modo por referência) ── */}
+      {fillMode === 'ref' && (() => {
+        const jaIncluidas = new Set(visitas.map(v => v.comprador_id))
+        const disponiveis = compradores.filter(c => !jaIncluidas.has(c.id))
+        if (disponiveis.length === 0) return null
+        return showAddLoja ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.5rem 0' }}>
+            <select value={addLojaId} onChange={e => setAddLojaId(e.target.value)} style={{ fontSize: '0.82rem' }}>
+              <option value="">Selecionar empresa...</option>
+              {disponiveis.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+            <button onClick={handleAddLoja} disabled={!addLojaId || addLojaLoading} className={styles.btnPrimary} style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem' }}>
+              {addLojaLoading ? '…' : 'Adicionar'}
+            </button>
+            <button onClick={() => { setShowAddLoja(false); setAddLojaId('') }} className={styles.btnSecondary} style={{ fontSize: '0.8rem', padding: '0.2rem 0.6rem' }}>
+              Cancelar
+            </button>
+          </div>
+        ) : (
+          <button
+            className={styles.btnSecondary}
+            style={{ fontSize: '0.85rem', margin: '0.5rem 0' }}
+            onClick={() => setShowAddLoja(true)}
+          >+ Adicionar empresa à sessão</button>
         )
       })()}
 

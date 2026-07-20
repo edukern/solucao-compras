@@ -36,7 +36,7 @@ export const PDF_STYLES = `
   .pt .cic { width:24px; font-size:8px; }
   .pt .crl { width:46px; }
   .pt .cvnd { width:46px; color:#1a7a3a; font-weight:bold; }
-  .pt .cref { text-align:left; width:100px; font-size:9px; white-space:normal; overflow:visible; }
+  .pt .cref { text-align:left; width:100px; font-size:9px; white-space:normal; overflow:visible; word-break:break-word; }
   .pt tbody tr { page-break-inside: avoid; break-inside: avoid; }
   .pt tfoot { page-break-inside: avoid; break-inside: avoid; }
   .pt tfoot td { font-weight:bold; background:#f0f0f0; border-top:1.5px solid #777; }
@@ -71,7 +71,10 @@ export const fmtEntrega = iso => {
 export const fmtV = n => (n ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 
-export function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
+export function gerarHTMLOrdem(sessao, vis, visPedidosRaw, isLast = true) {
+  // Referências sem quantidade em nenhum tamanho (ex.: clone reservado mas não comprado
+  // nesta loja) não entram no pedido impresso pro fornecedor.
+  const visPedidos = visPedidosRaw.filter(p => (p.itens ?? []).reduce((s, i) => s + i.qtd, 0) > 0)
   if (!visPedidos.length) return ''
 
   // ── totals ───────────────────────────────────────────────────────────────
@@ -121,7 +124,7 @@ export function gerarHTMLOrdem(sessao, vis, visPedidos, isLast = true) {
     const totalQ = itens.reduce((s, i) => s + i.qtd, 0)
     const totalV = totalQ * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100)
 
-    const refLabel = [p.referencia, p.cor, p.detalhe].filter(Boolean).join(' ')
+    const refLabel = [p.referencia, p.cor, p.detalhe, p.obs].filter(Boolean).join(' ')
     const classeLabel = [tipo_produto, p.classe ?? p.segmentacao?.classe ?? ''].filter(Boolean).join(' ')
     return `<tr>
       <td class="cref">${esc(refLabel)}</td>
@@ -260,7 +263,7 @@ export const FICHA_STYLES = `
   .ft-table th { background:#e0e0e0; font-weight:bold; font-size:8px; padding:3px; }
   .ft-table tbody tr { page-break-inside: avoid; break-inside: avoid; }
   .ft-table tfoot td { font-weight:bold; background:#f0f0f0; border-top:1.5px solid #777; }
-  .fref { text-align:left; width:100px; font-size:9px; white-space:normal; overflow:visible; }
+  .fref { text-align:left; width:100px; font-size:9px; white-space:normal; overflow:visible; word-break:break-word; }
   .fprod { text-align:left; width:90px; font-size:9px; white-space:normal; }
   .ft { width:22px; background:#f5f5f5; color:#555; font-size:8px; }
   .fq { width:24px; }
@@ -269,7 +272,10 @@ export const FICHA_STYLES = `
   .tl { text-align:right; font-size:9px; }
   @media print { @page { margin:10mm; size:A4 portrait; } }`
 
-export function gerarHTMLFichaLoja(sessao, vis, visPedidos, isLast = true) {
+export function gerarHTMLFichaLoja(sessao, vis, visPedidosRaw, isLast = true) {
+  // Referências sem quantidade em nenhum tamanho (ex.: clone reservado mas não comprado
+  // nesta loja) não entram na ficha impressa.
+  const visPedidos = visPedidosRaw.filter(p => (p.itens ?? []).reduce((s, i) => s + i.qtd, 0) > 0)
   if (!visPedidos.length) return ''
 
   const sizeOrder = [], sizeSet = new Set(), sizeHasQty = new Set()
@@ -289,7 +295,7 @@ export function gerarHTMLFichaLoja(sessao, vis, visPedidos, isLast = true) {
   const prodRows = visPedidos.map(p => {
     const qtdMap = Object.fromEntries((p.itens ?? []).map(i => [i.tamanho, i.qtd]))
     const totalQ = (p.itens ?? []).reduce((s, i) => s + i.qtd, 0)
-    const refLabel = [p.referencia, p.cor, p.detalhe].filter(Boolean).join(' ')
+    const refLabel = [p.referencia, p.cor, p.detalhe, p.obs].filter(Boolean).join(' ')
     const prodLabel = [p.tipo_produto ?? '', p.classe ?? ''].filter(Boolean).join(' ')
     const cells = activeSizes.map(tam => {
       const q = qtdMap[tam] ?? 0
@@ -359,7 +365,10 @@ export function gerarFichasLojas(sessao, visitas, pedidosPorVisita) {
 // DD-MM-AA a partir de YYYY-MM-DD
 export const fmtDataPDF = iso => { const [y,m,d] = iso.split('-'); return `${d}-${m}-${y.slice(2)}` }
 
-export async function salvarPDFVisita(sessao, vis, visPedidos, sessaoOverride = {}) {
+export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride = {}) {
+  // Referências sem quantidade em nenhum tamanho (ex.: clone reservado mas não comprado
+  // nesta loja) não entram no PDF salvo.
+  const visPedidos = visPedidosRaw.filter(p => (p.itens ?? []).reduce((s, i) => s + i.qtd, 0) > 0)
   if (!visPedidos.length) return { ok: false }
   const sessaoFinal = Object.keys(sessaoOverride).length ? { ...sessao, ...sessaoOverride } : sessao
 
@@ -484,7 +493,7 @@ export async function salvarPDFVisita(sessao, vis, visPedidos, sessaoOverride = 
         const tipo_produto = p.tipo_produto ?? p.segmentacao?.tipo_produto ?? ''
         const classe       = p.classe ?? p.segmentacao?.classe ?? ''
         return [
-          [p.referencia, p.cor, p.detalhe].filter(Boolean).join(' '),
+          [p.referencia, p.cor, p.detalhe, p.obs].filter(Boolean).join('\n'),
           [tipo_produto, classe].filter(Boolean).join(' '),
           ...activeSizes.map(t => (qtdMap[t] ?? 0) || '—'),
           totalQ || '—',
@@ -510,7 +519,7 @@ export async function salvarPDFVisita(sessao, vis, visPedidos, sessaoOverride = 
         styles: { fontSize: 8, cellPadding: 1.5, overflow: 'hidden', halign: 'center' },
         headStyles: { fillColor: [220, 220, 220], textColor: 0, fontStyle: 'bold', fontSize: 7.5 },
         columnStyles: {
-          0: { halign: 'left', cellWidth: W_REF },
+          0: { halign: 'left', cellWidth: W_REF, overflow: 'linebreak' },
           1: { halign: 'left', cellWidth: W_PROD },
           ...Object.fromEntries(activeSizes.map((_, i) => [
             2 + i, { cellWidth: wSZ, fontStyle: 'bold', fontSize: 9 },
