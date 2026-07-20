@@ -24,16 +24,12 @@ Gestão de pedidos, planejamento e histórico de compras por loja.
 - Screens: `Dashboard`, `Compras`, `Planejamento`, `Historico`, `Relatorios`, `Configuracoes`
 - Auth: Supabase Auth + tabela `compradores` (vínculo usuário ↔ loja)
 
-### Bolt RH
-Recrutamento e seleção. Módulo embutido no mesmo app.
-- Screens: `RhApp`, `RhConsulta`, `screens/rh/`
-- API própria: `/api/vagas.js`, `/api/candidatos.js`, `/api/candidaturas.js`, `/api/auth-rh.js`
-- Schema separado: `/api/_schema-rh.sql`
+> **Bolt RH foi migrado** para o projeto separado `rh-pontoe` (Next.js, `github.com/lojaspontoe/ponto-e-hr-solution`), já em produção lá. O módulo embutido (`RhApp`, `RhConsulta`, endpoints `/api/vagas.js`, `/api/candidatos.js`, `/api/candidaturas.js`, `/api/auth-rh.js`, `/api/rh-apagar-candidato.js`, `/api/rh-setup.js`, `/api/consultar-rh.js`, `/api/consultar-rh-batch.js`) foi removido deste repo.
 
 ### Portal Público de Candidatura (pontoevagas)
-Formulário público para candidatos, sem autenticação.
-- Screen: `CandidaturaApp`
+Formulário público para candidatos, sem autenticação. Continua neste repo (não migrado).
 - Endpoint: `/api/candidatura-publica.js`, `/api/vaga-publica.js`
+- Dependem de `/api/_rh-lib.js`, `/api/_rh-crypto.js`, `/api/_rh-bureaus.js` (mantidos por causa desses dois endpoints)
 
 ## Estrutura de pastas
 
