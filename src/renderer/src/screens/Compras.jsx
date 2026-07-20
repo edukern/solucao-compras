@@ -430,6 +430,8 @@ export default function Compras() {
             setPhase(0)
           }}
           onRemoveVisita={(visId) => setVisitas(prev => prev.filter(v => v.id !== visId))}
+          onAddVisita={(novaVisita) => setVisitas(prev => [...prev, novaVisita])}
+          compradores={compradores}
           initialItems={recoveryInitial?.items ?? []}
           initialQtds={recoveryInitial?.qtds ?? {}}
           initialActiveId={recoveryInitial?.activeId ?? null}
