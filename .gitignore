@@ -27,6 +27,7 @@ out
 .claude/
 !.claude/memory/
 !.claude/agents/
+!.claude/settings.json
 .superpowers/
 
 # SQLite database (dados locais, não vão pro repositório)

@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "git fetch origin main --quiet 2>/dev/null; MB=$(git merge-base HEAD origin/main 2>/dev/null); if [ -n \"$MB\" ]; then AHEAD=$(git rev-list --count \"$MB\"..origin/main 2>/dev/null || echo 0); if [ \"$AHEAD\" -gt 0 ]; then printf \"{\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"SessionStart\\\",\\\"additionalContext\\\":\\\"A branch atual esta %s commit(s) atras de origin/main (fetch feito agora). Antes de abrir ou atualizar um Pull Request, sincronize com origin/main (fetch + rebase) para evitar conflito estrutural - checklist em .claude/CLAUDE.md.\\\"}}\" \"$AHEAD\"; fi; fi",
+            "timeout": 20,
+            "statusMessage": "Verificando se a branch está atualizada com origin/main..."
+          }
+        ]
+      }
+    ]
+  }
+}
