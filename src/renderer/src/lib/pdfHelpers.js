@@ -362,6 +362,67 @@ export function gerarFichasLojas(sessao, visitas, pedidosPorVisita) {
   win.addEventListener('load', () => { win.print(); URL.revokeObjectURL(url) })
 }
 
+export const PRECOS_STYLES = `
+  body { font-family: Arial, sans-serif; font-size: 10px; color: #000; margin: 0; }
+  .pv-page { padding: 12px 14px; page-break-after: always; }
+  .pv-page:last-child { page-break-after: avoid; }
+  .pv-title { font-size:11px; font-weight:bold; color:#a00; text-transform:uppercase; margin-bottom:8px; }
+  .pv-store { font-size:14px; font-weight:bold; margin-bottom:4px; }
+  .pv-forn { font-size:10px; color:#555; margin-bottom:8px; }
+  .pv-table { width:100%; border-collapse:collapse; font-size:9px; }
+  .pv-table th, .pv-table td { border:0.5px solid #bbb; padding:3px 5px; text-align:left; }
+  .pv-table th { background:#e0e0e0; font-weight:bold; font-size:8px; }
+  .pv-table td.num { text-align:right; }
+  .pv-table td.venda { font-weight:bold; color:#1a7a3a; }
+  @media print { @page { margin:10mm; size:A4 portrait; } }`
+
+// Documento SÓ INTERNO com os preços de venda sugeridos por loja — nunca deve ser
+// enviado ao fornecedor (não confundir com gerarHTMLOrdem/salvarPDFVisita, que geram
+// o pedido que o fornecedor recebe).
+export function gerarPDFPrecosVenda(sessao, visitas, pedidosPorVisita) {
+  const visitasComPreco = visitas.filter(v => (pedidosPorVisita[v.id] ?? []).some(p => (p.preco_venda ?? 0) > 0))
+  if (!visitasComPreco.length) { alert('Nenhum preço de venda preenchido para gerar o PDF.'); return }
+
+  const fornNome = esc(sessao.fornecedor_nome ?? sessao.fornecedor?.nome ?? '')
+  const pagesHtml = visitasComPreco.map(vis => {
+    const visPedidos = (pedidosPorVisita[vis.id] ?? [])
+      .filter(p => (p.preco_venda ?? 0) > 0)
+      .filter(p => (p.itens ?? []).reduce((s, i) => s + i.qtd, 0) > 0)
+    if (!visPedidos.length) return ''
+
+    const rows = visPedidos.map(p => {
+      const label = [p.referencia, p.cor, p.detalhe].filter(Boolean).join(' · ')
+      const classe = [p.tipo_produto ?? p.segmentacao?.tipo_produto ?? '', p.classe ?? p.segmentacao?.classe ?? ''].filter(Boolean).join(' · ')
+      const totalQ = (p.itens ?? []).reduce((s, i) => s + i.qtd, 0)
+      return `<tr>
+        <td>${esc(label)}</td>
+        <td>${esc(classe)}</td>
+        <td class="num">${totalQ}</td>
+        <td class="num">R$ ${fmtV(p.valor_unitario ?? 0)}</td>
+        <td class="num venda">R$ ${fmtV(p.preco_venda)}</td>
+      </tr>`
+    }).join('')
+
+    return `
+      <div class="pv-page">
+        <div class="pv-title">Uso interno — não enviar ao fornecedor</div>
+        <div class="pv-store">${esc(vis.comprador?.nome ?? vis.comprador_nome ?? '')}</div>
+        <div class="pv-forn">${fornNome} — ${fmtDate(sessao.data_visita)}</div>
+        <table class="pv-table">
+          <thead><tr><th>Referência</th><th>Produto</th><th>Qtd</th><th>R$ Custo</th><th>R$ Venda</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`
+  }).join('')
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Preços de venda (interno) — ${fornNome} — ${fmtDate(sessao.data_visita)}</title><style>${PRECOS_STYLES}</style></head><body>${pagesHtml}</body></html>`
+  const blob = new Blob([html], { type: 'text/html' })
+  const url = URL.createObjectURL(blob)
+  const win = window.open(url, '_blank')
+  if (!win) { URL.revokeObjectURL(url); alert('Bloqueador de pop-ups ativo. Permita pop-ups para este site.'); return }
+  win.addEventListener('load', () => { win.print(); URL.revokeObjectURL(url) })
+}
+
 // DD-MM-AA a partir de YYYY-MM-DD
 export const fmtDataPDF = iso => { const [y,m,d] = iso.split('-'); return `${d}-${m}-${y.slice(2)}` }
 

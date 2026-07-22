@@ -2,21 +2,28 @@ import { useState, useEffect } from 'react'
 import styles from './Compras.module.css'
 import { pedidos as pedidosService } from '../services/pedidos'
 import { fmtDate } from '../lib/format'
-import { fmtV } from '../lib/pdfHelpers'
+import { fmtV, gerarPDFPrecosVenda } from '../lib/pdfHelpers'
 
 export function MarkupSessao({ sessao, onClose }) {
   const [index1,     setIndex1]     = useState(sessao.markup_index1 ? String(sessao.markup_index1) : '')
   const [index2,     setIndex2]     = useState(sessao.markup_index2 ? String(sessao.markup_index2) : '')
+  const [visitas,    setVisitas]    = useState([])
+  const [selecionadas, setSelecionadas] = useState(new Set())
   const [items,      setItems]      = useState([])
   const [precos,     setPrecos]     = useState({})
   const [loading,    setLoading]    = useState(true)
   const [saving,     setSaving]     = useState(false)
+  const [baixandoPDF, setBaixandoPDF] = useState(false)
   const [editingRef, setEditingRef] = useState(null)
 
   useEffect(() => {
     pedidosService.itensPorFornecedor(sessao.id).then(visitasData => {
+      const comItens = (visitasData ?? []).filter(vis => (vis.pedidos ?? []).length > 0)
+      setVisitas(comItens)
+      setSelecionadas(new Set(comItens.map(v => v.id)))
+
       const seen = new Map()
-      for (const vis of visitasData ?? []) {
+      for (const vis of comItens) {
         for (const ped of vis.pedidos ?? []) {
           if (!seen.has(ped.referencia)) {
             seen.set(ped.referencia, {
@@ -39,6 +46,19 @@ export function MarkupSessao({ sessao, onClose }) {
       setLoading(false)
     })
   }, [sessao.id])
+
+  function toggleLoja(visId) {
+    setSelecionadas(prev => {
+      const next = new Set(prev)
+      if (next.has(visId)) next.delete(visId)
+      else next.add(visId)
+      return next
+    })
+  }
+
+  function toggleTodasLojas() {
+    setSelecionadas(prev => prev.size === visitas.length ? new Set() : new Set(visitas.map(v => v.id)))
+  }
 
   function calcBase(item) {
     const v = item.valor_unitario
@@ -74,12 +94,29 @@ export function MarkupSessao({ sessao, onClose }) {
   async function handleSalvar() {
     setSaving(true)
     try {
-      await pedidosService.atualizarMarkupSessao(sessao.id, precos, index1, index2)
+      await pedidosService.atualizarMarkupSessao(sessao.id, precos, index1, index2, [...selecionadas])
       onClose()
     } catch (e) {
       alert(`Erro ao salvar: ${e.message}`)
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleBaixarPDF() {
+    setBaixandoPDF(true)
+    try {
+      await pedidosService.atualizarMarkupSessao(sessao.id, precos, index1, index2, [...selecionadas])
+      const visitasSelecionadas = visitas.filter(v => selecionadas.has(v.id))
+      const pedidosPorVisita = Object.fromEntries(visitasSelecionadas.map(v => [
+        v.id,
+        (v.pedidos ?? []).map(p => ({ ...p, preco_venda: precos[p.referencia] ? parseFloat(String(precos[p.referencia]).replace(',', '.')) : (p.preco_venda ?? 0) })),
+      ]))
+      gerarPDFPrecosVenda(sessao, visitasSelecionadas, pedidosPorVisita)
+    } catch (e) {
+      alert(`Erro ao salvar/gerar PDF: ${e.message}`)
+    } finally {
+      setBaixandoPDF(false)
     }
   }
 
@@ -96,6 +133,25 @@ export function MarkupSessao({ sessao, onClose }) {
           </div>
           <button className={styles.btnBack} onClick={onClose}>✕ Fechar</button>
         </div>
+
+        {visitas.length > 0 && (
+          <div className={styles.presentesSection}>
+            <span className={styles.label}>
+              Aplicar em quais lojas ({selecionadas.size}/{visitas.length})
+              <button className={styles.btnMarkupCalc} style={{ marginLeft: '0.6rem' }} onClick={toggleTodasLojas}>
+                {selecionadas.size === visitas.length ? 'Limpar seleção' : 'Selecionar todas'}
+              </button>
+            </span>
+            <div className={styles.checkGrid}>
+              {visitas.map(v => (
+                <label key={v.id} className={styles.checkItem}>
+                  <input type="checkbox" checked={selecionadas.has(v.id)} onChange={() => toggleLoja(v.id)} />
+                  {v.comprador?.nome ?? v.comprador_nome ?? '—'}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className={styles.markupIndices}>
           <div className={styles.field}>
@@ -186,8 +242,11 @@ export function MarkupSessao({ sessao, onClose }) {
               </table>
             </div>
             <div className={styles.markupModalFooter}>
-              <button className={styles.btnPrimary} onClick={handleSalvar} disabled={saving}>
-                {saving ? 'Salvando…' : 'Salvar preços sugeridos'}
+              <button className={styles.btnPrimary} onClick={handleSalvar} disabled={saving || selecionadas.size === 0}>
+                {saving ? 'Salvando…' : `Salvar preços (${selecionadas.size} loja${selecionadas.size === 1 ? '' : 's'})`}
+              </button>
+              <button className={styles.btnSecondary} onClick={handleBaixarPDF} disabled={baixandoPDF || selecionadas.size === 0}>
+                {baixandoPDF ? 'Gerando…' : '📄 PDF de preços (interno)'}
               </button>
               <button className={styles.btnSecondary} onClick={onClose}>Cancelar</button>
             </div>

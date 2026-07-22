@@ -131,7 +131,9 @@ export const pedidos = {
     if (error) throw error
   },
 
-  async atualizarMarkupSessao(sessao_id, precosMap, idx1Str, idx2Str) {
+  // visitaIdsAlvo: se informado, restringe a gravação dos preços a essas lojas
+  // (permite aplicar índices diferentes a subconjuntos de lojas da mesma sessão).
+  async atualizarMarkupSessao(sessao_id, precosMap, idx1Str, idx2Str, visitaIdsAlvo = null) {
     const idx1 = parseFloat(String(idx1Str ?? '').replace(',', '.'))
     const idx2 = parseFloat(String(idx2Str ?? '').replace(',', '.'))
     const { error: se } = await supabase.from('sessoes').update({
@@ -140,9 +142,12 @@ export const pedidos = {
     }).eq('id', sessao_id)
     if (se) throw se
 
-    const { data: visitas, error: ve } = await supabase.from('visitas').select('id').eq('sessao_id', sessao_id)
-    if (ve) throw ve
-    const visitaIds = (visitas ?? []).map(v => v.id)
+    let visitaIds = visitaIdsAlvo
+    if (!visitaIds) {
+      const { data: visitas, error: ve } = await supabase.from('visitas').select('id').eq('sessao_id', sessao_id)
+      if (ve) throw ve
+      visitaIds = (visitas ?? []).map(v => v.id)
+    }
     if (!visitaIds.length) return
 
     for (const [referencia, precoStr] of Object.entries(precosMap)) {
