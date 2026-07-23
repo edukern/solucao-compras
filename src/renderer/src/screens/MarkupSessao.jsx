@@ -12,11 +12,15 @@ export function MarkupSessao({ sessao, onClose }) {
   const [items,      setItems]      = useState([])
   const [precos,     setPrecos]     = useState({})
   const [loading,    setLoading]    = useState(true)
+  const [erroItens,  setErroItens]  = useState(null)
+  const [retryKey,   setRetryKey]   = useState(0)
   const [saving,     setSaving]     = useState(false)
   const [baixandoPDF, setBaixandoPDF] = useState(false)
   const [editingRef, setEditingRef] = useState(null)
 
   useEffect(() => {
+    setLoading(true)
+    setErroItens(null)
     pedidosService.itensPorFornecedor(sessao.id).then(visitasData => {
       const comItens = (visitasData ?? []).filter(vis => (vis.pedidos ?? []).length > 0)
       setVisitas(comItens)
@@ -44,8 +48,11 @@ export function MarkupSessao({ sessao, onClose }) {
       setItems(list)
       setPrecos(Object.fromEntries(list.map(it => [it.referencia, it.preco_venda ? String(it.preco_venda) : ''])))
       setLoading(false)
+    }).catch(e => {
+      setErroItens(e.message || 'Erro ao carregar itens da sessão.')
+      setLoading(false)
     })
-  }, [sessao.id])
+  }, [sessao.id, retryKey])
 
   function toggleLoja(visId) {
     setSelecionadas(prev => {
@@ -171,8 +178,17 @@ export function MarkupSessao({ sessao, onClose }) {
         </div>
 
         {loading && <p className={styles.muted}>Carregando itens…</p>}
-        {!loading && items.length === 0 && <p className={styles.muted}>Nenhum item encontrado nesta sessão.</p>}
-        {!loading && items.length > 0 && (
+        {!loading && erroItens && (
+          <div className={styles.errorBanner}>
+            {erroItens}
+            {' '}
+            <button className={styles.btnSecondary} onClick={() => setRetryKey(k => k + 1)} style={{ marginLeft: '0.5rem' }}>
+              Tentar de novo
+            </button>
+          </div>
+        )}
+        {!loading && !erroItens && items.length === 0 && <p className={styles.muted}>Nenhum item encontrado nesta sessão.</p>}
+        {!loading && !erroItens && items.length > 0 && (
           <>
             <div style={{ overflowX: 'auto' }}>
               <table className={styles.itemsTable}>
