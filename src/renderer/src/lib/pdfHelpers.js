@@ -445,7 +445,8 @@ export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride
     const ML = 8, MR = 8, MT = 8
     const PW = 210 - ML - MR  // 194mm usable width
     const temICMS = visPedidos.some(p => (p.icms_pct ?? 0) > 0) || (sessaoFinal.icms_credito_pct != null && sessaoFinal.icms_credito_pct !== '')
-    const temVenda = visPedidos.some(p => (p.preco_venda ?? 0) > 0)
+    // preco_venda é markup interno — nunca deve ir no pedido impresso que o fornecedor recebe
+    // (o PDF interno dedicado é gerarPDFPrecosVenda).
 
     // ── HEADER ────────────────────────────────────────────────────────────
     let y = MT
@@ -508,8 +509,8 @@ export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride
 
     // ── TABLE — agrupado por tipo_grade, uma coluna por tamanho ──────────
     const W_REF  = 24, W_PROD = 22, W_SZ = 11
-    const W_QTOT = 10, W_PREC = 16, W_TOT = 18, W_RLIQ = 16, W_VEND = 16, W_ICMS = 10
-    const fixedCols = W_REF + W_PROD + W_QTOT + W_PREC + W_TOT + W_RLIQ + (temVenda ? W_VEND : 0) + (temICMS ? W_ICMS : 0)
+    const W_QTOT = 10, W_PREC = 16, W_TOT = 18, W_RLIQ = 16, W_ICMS = 10
+    const fixedCols = W_REF + W_PROD + W_QTOT + W_PREC + W_TOT + W_RLIQ + (temICMS ? W_ICMS : 0)
     const availForSizes = PW - fixedCols
 
     // Agrupar pedidos por tipo_grade e ordenar cada grupo por produto (alfabética),
@@ -551,7 +552,6 @@ export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride
         'Referência', 'Produto',
         ...activeSizes,
         'Qtd', 'R$ un.', 'Total', 'R$ Liq',
-        ...(temVenda ? ['R$ Venda'] : []),
         ...(temICMS ? ['ICMS%'] : []),
       ]]
 
@@ -570,7 +570,6 @@ export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride
           fmtV(p.valor_unitario ?? 0),
           totalV > 0 ? fmtV(totalV) : '—',
           fmtV((p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100)),
-          ...(temVenda ? [(p.preco_venda ?? 0) > 0 ? fmtV(p.preco_venda) : '—'] : []),
           ...(temICMS ? [(p.icms_pct ?? 0) > 0 ? `${p.icms_pct}%` : '—'] : []),
         ]
       })
@@ -598,8 +597,7 @@ export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride
           [iTotal + 1]: { cellWidth: W_PREC, halign: 'right' },
           [iTotal + 2]: { cellWidth: W_TOT,  halign: 'right', fontStyle: 'bold' },
           [iTotal + 3]: { cellWidth: W_RLIQ, halign: 'right' },
-          ...(temVenda ? { [iTotal + 4]: { cellWidth: W_VEND, halign: 'right', textColor: [26, 122, 58] } } : {}),
-          ...(temICMS ? { [iTotal + (temVenda ? 5 : 4)]: { cellWidth: W_ICMS } } : {}),
+          ...(temICMS ? { [iTotal + 4]: { cellWidth: W_ICMS } } : {}),
         },
       })
       return { totalBruto, totalLiquido, totalPecas }
