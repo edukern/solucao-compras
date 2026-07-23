@@ -84,7 +84,7 @@ export function MarkupSessao({ sessao, onClose }) {
   function r99(val) {
     const n = parseFloat(val)
     if (!val || isNaN(n) || n <= 0) return val
-    return (Math.floor(n) + 0.99).toFixed(2)
+    return (Math.floor(n / 10) * 10 + 9.99).toFixed(2)
   }
 
   function applyIdxAll(idxStr) {
@@ -97,6 +97,22 @@ export function MarkupSessao({ sessao, onClose }) {
       return next
     })
   }
+
+  // Preenche automaticamente o preço sugerido (arredondado) pra quem ainda não tem
+  // preço salvo nem editado manualmente — evita depender de clicar em "Aplicar em todos".
+  useEffect(() => {
+    if (!items.length || !index1.trim()) return
+    setPrecos(prev => {
+      let changed = false
+      const next = { ...prev }
+      for (const it of items) {
+        if (next[it.referencia]) continue
+        const c1 = calcIdx(it, index1)
+        if (c1) { next[it.referencia] = r99(c1); changed = true }
+      }
+      return changed ? next : prev
+    })
+  }, [items, index1])
 
   async function handleSalvar() {
     setSaving(true)

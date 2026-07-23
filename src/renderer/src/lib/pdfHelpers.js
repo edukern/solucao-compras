@@ -512,13 +512,22 @@ export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride
     const fixedCols = W_REF + W_PROD + W_QTOT + W_PREC + W_TOT + W_RLIQ + (temVenda ? W_VEND : 0) + (temICMS ? W_ICMS : 0)
     const availForSizes = PW - fixedCols
 
-    // Agrupar pedidos por tipo_grade preservando a ordem de entrada
+    // Agrupar pedidos por tipo_grade e ordenar cada grupo por produto (alfabética),
+    // pra não intercalar produtos diferentes dentro da mesma grade (ex.: boxer, meia
+    // calça, boxer de novo) — mais fácil de conferir no pedido impresso.
     const gradeOrder = []
     const gradeGroups = {}
     for (const p of visPedidos) {
       const tg = p.tipo_grade ?? p.segmentacao?.tipo_grade ?? 'AD'
       if (!gradeGroups[tg]) { gradeGroups[tg] = []; gradeOrder.push(tg) }
       gradeGroups[tg].push(p)
+    }
+    for (const tg of gradeOrder) {
+      gradeGroups[tg].sort((a, b) => {
+        const prodA = [a.tipo_produto ?? a.segmentacao?.tipo_produto ?? '', a.classe ?? a.segmentacao?.classe ?? ''].filter(Boolean).join(' ')
+        const prodB = [b.tipo_produto ?? b.segmentacao?.tipo_produto ?? '', b.classe ?? b.segmentacao?.classe ?? ''].filter(Boolean).join(' ')
+        return prodA.localeCompare(prodB, 'pt-BR') || String(a.referencia ?? '').localeCompare(String(b.referencia ?? ''), 'pt-BR')
+      })
     }
 
     function renderGrupo(grupoPedidos, startY) {
