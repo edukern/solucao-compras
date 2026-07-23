@@ -49,7 +49,14 @@ A análise deve sempre responder: **"como dá pra testar isso ANTES de ir pro ar
 ## Banco (Supabase bhxpkysueyoblizkvomb)
 sessoes → visitas → pedidos → pedido_itens
 compradores(is_editor boolean), fornecedores, segmentacoes, colecoes, projecoes
-constraint: pedidos(visita_id, referencia) UNIQUE
+constraint: pedidos(visita_id, referencia, variante_key) UNIQUE
+
+**Migração criada ≠ migração aplicada.** Um arquivo em `supabase/migrations/` só existir no repo não
+significa que a coluna/tabela existe no banco de produção — aplicar é um passo manual (via MCP do
+Supabase ou dashboard), não automático no deploy. Já causou pelo menos dois bugs silenciosos em
+produção (colunas de markup em `sessoes` e de cond_pag/frete/transportadora em `visitas`, ambas
+mescladas mas nunca aplicadas). Ao mesclar um PR que inclui migração nova, aplicar no banco de
+produção **no mesmo momento do merge**, não deixar para depois.
 
 ## Convenções
 - `referencia` = código do produto (string), não `ref` (palavra reservada JS)

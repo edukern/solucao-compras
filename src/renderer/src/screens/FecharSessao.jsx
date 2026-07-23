@@ -115,7 +115,13 @@ export function FecharSessao({ sessao, visitas, segs, pedidos: pedidosProp, onNo
       const ovr = buildVisitaOverride(vis.id)
       const result = await salvarPDFVisita(sessao, vis, visPedidos, ovr)
       if (result?.ok) {
-        if (Object.keys(ovr).length) pedidosService.updateVisita(vis.id, ovr).catch(() => {})
+        if (Object.keys(ovr).length) {
+          try {
+            await pedidosService.updateVisita(vis.id, ovr)
+          } catch {
+            setErroPDF(`PDF de ${vis.comprador_nome} gerado, mas as condições da loja não foram salvas. Tente novamente.`)
+          }
+        }
         setSalvos(prev => new Set([...prev, vis.id]))
       } else {
         setErroPDF(`Erro ao salvar PDF de ${vis.comprador_nome}.`)
@@ -136,11 +142,15 @@ export function FecharSessao({ sessao, visitas, segs, pedidos: pedidosProp, onNo
       const ovr = buildVisitaOverride(vis.id)
       try {
         const result = await salvarPDFVisita(sessao, vis, visPedidos, ovr)
-        if (result?.ok) {
-          if (Object.keys(ovr).length) pedidosService.updateVisita(vis.id, ovr).catch(() => {})
-          return { visId: vis.id, ok: true }
+        if (!result?.ok) return { visId: vis.id, ok: false, nome: vis.comprador_nome }
+        if (Object.keys(ovr).length) {
+          try {
+            await pedidosService.updateVisita(vis.id, ovr)
+          } catch {
+            return { visId: vis.id, ok: false, nome: `${vis.comprador_nome} (condições da loja não salvas)` }
+          }
         }
-        return { visId: vis.id, ok: false, nome: vis.comprador_nome }
+        return { visId: vis.id, ok: true }
       } catch {
         return { visId: vis.id, ok: false, nome: vis.comprador_nome }
       }
