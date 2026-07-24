@@ -26,22 +26,25 @@ export function MarkupSessao({ sessao, onClose }) {
       setVisitas(comItens)
       setSelecionadas(new Set(comItens.map(v => v.id)))
 
+      // Cada referência pode ter um pedido por loja — como o preço de venda é salvo só
+      // nas lojas selecionadas ao clicar "Salvar", uma loja não tocada ainda fica com
+      // preco_venda zerado. Prioriza a loja que já tem preço salvo, senão a primeira.
       const seen = new Map()
       for (const vis of comItens) {
         for (const ped of vis.pedidos ?? []) {
-          if (!seen.has(ped.referencia)) {
-            seen.set(ped.referencia, {
-              referencia:     ped.referencia,
-              tipo_produto:   ped.tipo_produto ?? ped.segmentacao?.tipo_produto ?? '',
-              classe:         ped.classe ?? ped.segmentacao?.classe ?? '',
-              valor_unitario: ped.valor_unitario ?? 0,
-              icms_pct:       ped.icms_pct ?? 0,
-              desconto_pct:   ped.desconto_pct ?? 0,
-              preco_venda:    ped.preco_venda ?? '',
-              cor:            ped.cor ?? '',
-              detalhe:        ped.detalhe ?? '',
-            })
-          }
+          const existing = seen.get(ped.referencia)
+          if (existing && (existing.preco_venda || !ped.preco_venda)) continue
+          seen.set(ped.referencia, {
+            referencia:     ped.referencia,
+            tipo_produto:   ped.tipo_produto ?? ped.segmentacao?.tipo_produto ?? '',
+            classe:         ped.classe ?? ped.segmentacao?.classe ?? '',
+            valor_unitario: ped.valor_unitario ?? 0,
+            icms_pct:       ped.icms_pct ?? 0,
+            desconto_pct:   ped.desconto_pct ?? 0,
+            preco_venda:    ped.preco_venda ?? '',
+            cor:            ped.cor ?? '',
+            detalhe:        ped.detalhe ?? '',
+          })
         }
       }
       const list = [...seen.values()]
@@ -100,19 +103,26 @@ export function MarkupSessao({ sessao, onClose }) {
 
   // Preenche automaticamente o preço sugerido (arredondado) pra quem ainda não tem
   // preço salvo nem editado manualmente — evita depender de clicar em "Aplicar em todos".
-  useEffect(() => {
-    if (!items.length || !index1.trim()) return
+  // Só roda ao carregar os itens e ao sair do campo de índice (não a cada tecla digitada,
+  // senão trava o preço calculado com um índice ainda incompleto, ex.: "1" no meio de "1,2").
+  function autoFillPrecos(idxStr) {
+    if (!items.length || !idxStr.trim()) return
     setPrecos(prev => {
       let changed = false
       const next = { ...prev }
       for (const it of items) {
         if (next[it.referencia]) continue
-        const c1 = calcIdx(it, index1)
+        const c1 = calcIdx(it, idxStr)
         if (c1) { next[it.referencia] = r99(c1); changed = true }
       }
       return changed ? next : prev
     })
-  }, [items, index1])
+  }
+
+  useEffect(() => {
+    autoFillPrecos(index1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items])
 
   async function handleSalvar() {
     setSaving(true)
@@ -180,7 +190,7 @@ export function MarkupSessao({ sessao, onClose }) {
           <div className={styles.field}>
             <span className={styles.label}>Índice 1</span>
             <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-              <input type="text" className={styles.addItemMarkup} placeholder="ex: 1.5" value={index1} onChange={e => setIndex1(e.target.value)} />
+              <input type="text" className={styles.addItemMarkup} placeholder="ex: 1.5" value={index1} onChange={e => setIndex1(e.target.value)} onBlur={() => autoFillPrecos(index1)} />
               <button className={styles.btnSecondary} onClick={() => applyIdxAll(index1)} disabled={!index1.trim()}>Aplicar em todos</button>
             </div>
           </div>
