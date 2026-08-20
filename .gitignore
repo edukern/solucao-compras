@@ -24,7 +24,10 @@ out
 *.sw?
 
 # Claude Code runtime files
-.claude/
+# Nota: excluir por conteúdo (.claude/*), não a pasta inteira (.claude/) — git não aplica
+# negação (!) a arquivos dentro de um diretório já totalmente ignorado, então novos
+# arquivos em .claude/memory/ ficavam exigindo `git add -f` pra entrar no repo.
+.claude/*
 !.claude/memory/
 !.claude/agents/
 !.claude/settings.json

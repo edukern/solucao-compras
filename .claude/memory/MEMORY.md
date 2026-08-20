@@ -9,3 +9,5 @@
 - [Migração 27/1→26/2 (CONCLUÍDA 18/06)](migracao-27-1-para-26-2.md) — 20 sessões movidas da colecao id 1 (27/1) para id 17 (26/2), 27/1 apagada. Verificação 0·21·0. Backup em backup_move_colecao_20260618
 - [Acesso da Scheila — main protegida](colaboracao-scheila-branch-protection.md) — repo PRIVADO; main exige PR+build+1 review (admin tem bypass); Scheila usa conta da empresa `lojaspontoe` (Write, aceito); setup em docs/SETUP-SCHEILA.md; preview de PR descartado (sem staging)
 - [Bolt RH é repositório separado](project_bolt_rh_repositorio_separado.md) — RH real roda no projeto Vercel `hr-solution` (bolt-rh.vercel.app), não no `api/` deste repo; `.claude/CLAUDE.md` está desatualizado nesse ponto
+- [Dev local usa banco de produção](dev-local-usa-banco-producao.md) — não existe staging; `npm run dev` grava no Supabase real. Testar com sessão descartável, nunca numa sessão real
+- [pedido_itens.tamanho é texto livre](pedido-itens-tamanho-texto-livre.md) — sem constraint no banco; grade canônica é só trava do front-end. Já existe dado real fora da grade e linhas duplicadas em pedido_itens (task de investigação separada aberta)
