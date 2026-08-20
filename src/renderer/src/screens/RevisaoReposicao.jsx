@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { ArrowLeft, Check, X } from 'lucide-react'
+import { ArrowLeft, Check, X, ChevronRight } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { reposicao as reposicaoService } from '../services/reposicao'
 import styles from './RevisaoReposicao.module.css'
@@ -18,10 +18,12 @@ function fmtDateTime(iso) {
 // ─── Lista ──────────────────────────────────────────────────────────────────
 
 function ListaRascunhos({ onAbrir }) {
-  const [abaStatus, setAbaStatus] = useState('rascunho')
-  const [lista,     setLista]     = useState([])
-  const [loading,   setLoading]   = useState(true)
-  const [erro,      setErro]      = useState(null)
+  const { comprador, user } = useAuth()
+  const [abaStatus,    setAbaStatus]    = useState('rascunho')
+  const [lista,        setLista]        = useState([])
+  const [loading,      setLoading]      = useState(true)
+  const [erro,         setErro]         = useState(null)
+  const [descartandoId, setDescartandoId] = useState(null)
 
   const carregar = useCallback(() => {
     setLoading(true)
@@ -33,6 +35,21 @@ function ListaRascunhos({ onAbrir }) {
   }, [abaStatus])
 
   useEffect(() => { carregar() }, [carregar])
+
+  async function handleDescartar(e, id) {
+    e.stopPropagation()
+    if (!window.confirm('Descartar este rascunho? Ele sai da aba "Rascunho" e não tem desfazer pela tela.')) return
+    const revisadoPor = comprador?.nome ?? user?.email ?? 'desconhecido'
+    setDescartandoId(id)
+    try {
+      await reposicaoService.marcarStatus(id, 'descartado', revisadoPor)
+      carregar()
+    } catch (err) {
+      alert(`Erro ao descartar: ${err.message}`)
+    } finally {
+      setDescartandoId(null)
+    }
+  }
 
   return (
     <div className={styles.page}>
@@ -65,13 +82,21 @@ function ListaRascunhos({ onAbrir }) {
       {!loading && lista.length > 0 && (
         <div className={styles.lista}>
           {lista.map(r => (
-            <button key={r.id} className={styles.cardLista} onClick={() => onAbrir(r.id)}>
+            <div
+              key={r.id}
+              className={styles.cardLista}
+              role="button"
+              tabIndex={0}
+              onClick={() => onAbrir(r.id)}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir(r.id) } }}
+            >
               <div className={styles.cardListaTopo}>
                 <span className={styles.cardListaMarca}>{r.marca}</span>
                 <span className={`${styles.badge} ${styles['badge_' + r.status]}`}>{STATUS_LABEL[r.status]}</span>
               </div>
               <div className={styles.cardListaMeta}>
                 <span>Janela: {r.janela_dias} dias</span>
+                <span>{r.qtd_referencias ?? 0} ref. · {r.qtd_total ?? 0} un.</span>
                 <span>Gerado por: {r.gerado_por || '—'}</span>
                 <span>{fmtDateTime(r.gerado_em)}</span>
               </div>
@@ -80,7 +105,20 @@ function ListaRascunhos({ onAbrir }) {
                   {STATUS_LABEL[r.status]} por {r.revisado_por || '—'} em {fmtDateTime(r.revisado_em)}
                 </div>
               )}
-            </button>
+              {r.status === 'rascunho' && (
+                <div className={styles.cardListaRodape}>
+                  <button
+                    type="button"
+                    className={styles.btnDescartarLista}
+                    disabled={descartandoId === r.id}
+                    onClick={e => handleDescartar(e, r.id)}
+                  >
+                    <X size={12} strokeWidth={1.8} /> Descartar
+                  </button>
+                </div>
+              )}
+              <ChevronRight className={styles.cardListaChevron} size={18} strokeWidth={1.8} />
+            </div>
           ))}
         </div>
       )}
