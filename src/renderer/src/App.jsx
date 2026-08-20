@@ -6,6 +6,7 @@ import Sidebar from './components/Sidebar'
 import Dashboard from './screens/Dashboard'
 import Planejamento from './screens/Planejamento'
 import Compras from './screens/Compras'
+import RevisaoReposicao from './screens/RevisaoReposicao'
 import Relatorios from './screens/Relatorios'
 import Historico from './screens/Historico'
 import Configuracoes from './screens/Configuracoes'
@@ -17,6 +18,7 @@ const SCREENS = {
   dashboard:     (nav) => <Dashboard onNavigate={nav} />,
   planejamento:  () => <Planejamento />,
   compras:       () => <Compras />,
+  reposicao:     () => <RevisaoReposicao />,
   historico:     () => <Historico />,
   relatorios:    () => <Relatorios />,
   agregador:     () => <Agregador />,
