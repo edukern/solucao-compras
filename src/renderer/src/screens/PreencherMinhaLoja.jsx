@@ -99,10 +99,7 @@ export function PreencherMinhaLoja({ sessaoId, visitaId, compradorNome, colEstac
     try {
       const updates = pedidos
         .filter(ped => ped.segmentacao_id && ped.referencia)
-        .map(ped => {
-          const tipoGrade = ped.segmentacao?.tipo_grade || ped.tipo_grade || ''
-          const tams = tamanhosDeTipoGrade(tipoGrade)
-          return {
+        .map(ped => ({
             segmentacao_id: ped.segmentacao_id,
             valor_unitario: ped.valor_unitario ?? 0,
             desconto_pct:   ped.desconto_pct   ?? 0,
@@ -113,11 +110,13 @@ export function PreencherMinhaLoja({ sessaoId, visitaId, compradorNome, colEstac
             cor:            ped.cor             || '',
             detalhe:        ped.detalhe         || '',
             obs:            ped.obs             || '',
-            itens: tams
-              .map(t => ({ tamanho: t, qtd: parseInt(qtds[ped.id]?.[t]) || 0 }))
+            // Salva TODAS as chaves com qtd>0 do estado local, não só as da grade canônica —
+            // se o coordenador adicionou um tamanho extra pontual nesta sessão (fora da grade
+            // padrão), filtrar por tams aqui apagaria essa quantidade ao salvar.
+            itens: Object.entries(qtds[ped.id] ?? {})
+              .map(([t, v]) => ({ tamanho: t, qtd: parseInt(v) || 0 }))
               .filter(i => i.qtd > 0),
-          }
-        })
+          }))
       await pedidosService.salvarPedidosVisita(visitaId, updates)
       setSaved(true)
     } catch (e) {
@@ -127,15 +126,13 @@ export function PreencherMinhaLoja({ sessaoId, visitaId, compradorNome, colEstac
     }
   }
 
-  const totalPcs   = pedidos.reduce((s, ped) => {
-    const tams = tamanhosDeTipoGrade(ped.segmentacao?.tipo_grade || '')
-    return s + tams.reduce((a, t) => a + (parseInt(qtds[ped.id]?.[t]) || 0), 0)
-  }, 0)
-  const totalValor = pedidos.reduce((s, ped) => {
-    const tams = tamanhosDeTipoGrade(ped.segmentacao?.tipo_grade || '')
-    const pcs  = tams.reduce((a, t) => a + (parseInt(qtds[ped.id]?.[t]) || 0), 0)
-    return s + pcs * (ped.valor_unitario || 0)
-  }, 0)
+  // Soma por todas as chaves realmente lançadas (não só a grade canônica), senão um
+  // tamanho extra fica fora do total mostrado embora já esteja salvo/lançado.
+  function totalPedido(pedId) {
+    return Object.values(qtds[pedId] ?? {}).reduce((a, v) => a + (parseInt(v) || 0), 0)
+  }
+  const totalPcs   = pedidos.reduce((s, ped) => s + totalPedido(ped.id), 0)
+  const totalValor = pedidos.reduce((s, ped) => s + totalPedido(ped.id) * (ped.valor_unitario || 0), 0)
 
   return (
     <div className={styles.phase}>
@@ -181,10 +178,14 @@ export function PreencherMinhaLoja({ sessaoId, visitaId, compradorNome, colEstac
       {pedidos.map((ped, pedIdx) => {
         const tipoGrade = ped.segmentacao?.tipo_grade || ped.tipo_grade || ''
         const tams = tamanhosDeTipoGrade(tipoGrade)
-        const total = tams.reduce((s, t) => s + (parseInt(qtds[ped.id]?.[t]) || 0), 0)
+        const total = totalPedido(ped.id)
         const valor = parseFloat(ped.valor_unitario) || 0
         const maxIdx5 = tams.length > PLUS_SIZE_DEFAULT ? (visibleUpTo[ped.id] ?? PLUS_SIZE_DEFAULT - 1) : tams.length - 1
-        const visibleTams5 = tams.slice(0, maxIdx5 + 1)
+        // Tamanho(s) fora da grade canônica com qtd>0 já salva (ex.: extra adicionado pelo
+        // coordenador em RegistrarPedidoSessao) — sempre visíveis, senão a loja não consegue
+        // nem ver nem editar essa quantidade aqui.
+        const extrasPed = Object.keys(qtds[ped.id] ?? {}).filter(t => !tams.includes(t))
+        const visibleTams5 = [...tams.slice(0, maxIdx5 + 1), ...extrasPed]
         const nextTam5 = maxIdx5 + 1 < tams.length ? tams[maxIdx5 + 1] : null
         return (
           <div key={ped.id} className={`${styles.porLojaItemBlock} ${total > 0 ? styles.porLojaItemBlockFilled : ''}`}>

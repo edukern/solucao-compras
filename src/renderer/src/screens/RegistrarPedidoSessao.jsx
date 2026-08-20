@@ -25,7 +25,7 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
   const [qtds,          setQtds]          = useState(initialQtds)
   const [saving,        setSaving]        = useState(false)
   const [error,         setError]         = useState(null)
-  const [form,          setForm]          = useState({ ref: '', tipo_produto: '', tipo_grade: 'AD', classe: 'FEM', icms_pct: '', valor: '', cor: '', detalhe: '' })
+  const [form,          setForm]          = useState({ ref: '', tipo_produto: '', tipo_grade: 'AD', classe: 'FEM', icms_pct: '', valor: '', cor: '', detalhe: '', obs: '' })
   const [showIcms,      setShowIcms]      = useState(false)
   const [sessaoDesconto, setSessaoDesconto] = useState(
     () => String(sessao.desconto_pct ?? '0')
@@ -67,6 +67,8 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
   const [gradeExtremes,     setGradeExtremes]     = useState({})
   const [gradeGroupExpand,  setGradeGroupExpand]  = useState({})
   const [showItemFields, setShowItemFields] = useState({})
+  const [addingSize,     setAddingSize]     = useState(null)  // localId do item com o input de "+ tamanho" aberto
+  const [newSizeLabel,   setNewSizeLabel]   = useState('')
   const [otherDevices,   setOtherDevices]   = useState(0)
   const [liberando,      setLiberando]      = useState(false)
   const [liberadoInfo,   setLiberadoInfo]   = useState(null) // { count } after liberar
@@ -131,8 +133,11 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
   // qtdsSrc permite usar o estado fresco (qtdsRef) em vez do closure no flush assíncrono.
   function buildUpdateParaVisita(item, visitaId, qtdsSrc = qtds) {
     const lojaTams = qtdsSrc[item.localId]?.[visitaId] ?? {}
-    const itens = tamanhosDeTipoGrade(item.tipo_grade)
-      .map(tam => ({ tamanho: tam, qtd: parseInt(lojaTams[tam]) || 0 }))
+    // Salva TODAS as chaves com qtd>0 do mapa da loja, não só as da grade canônica do
+    // tipo_grade — um tamanho extra (ver item.tamanhosExtras) só existe nesse mapa, então
+    // filtrar pela grade aqui apagaria silenciosamente qualquer quantidade lançada nele.
+    const itens = Object.entries(lojaTams)
+      .map(([tam, qty]) => ({ tamanho: tam, qtd: parseInt(qty) || 0 }))
       .filter(i => i.qtd > 0)
     const num = s => parseFloat((s ?? '').replace(',', '.')) || 0
     return {
@@ -294,6 +299,50 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
     })
   }
 
+  // Adiciona um tamanho pontual a este item só nesta sessão (sem criar grade nova em
+  // GRADE_DEFINITIONS). Não duplica se o rótulo já existir na grade canônica ou já tiver
+  // sido adicionado antes.
+  function confirmAddTamanho(item) {
+    const label = newSizeLabel.trim().toUpperCase()
+    setAddingSize(null)
+    setNewSizeLabel('')
+    if (!label) return
+    const canonico = tamanhosDeTipoGrade(item.tipo_grade).map(t => t.toUpperCase())
+    if (canonico.includes(label)) return
+    // O dedup contra tamanhosExtras roda dentro do updater (sobre o estado mais fresco),
+    // não sobre item.tamanhosExtras (pode estar desatualizado) — confirmAddTamanho pode
+    // disparar 2x pro mesmo Enter (o próprio onKeyDown + o onBlur do input sumindo da
+    // tela), e sem isso a segunda chamada duplicaria o tamanho na lista.
+    setItems(prev => prev.map(x => {
+      if (x.localId !== item.localId) return x
+      const jaExtra = (x.tamanhosExtras ?? []).map(t => t.toUpperCase())
+      if (jaExtra.includes(label)) return x
+      return { ...x, tamanhosExtras: [...(x.tamanhosExtras ?? []), label] }
+    }))
+  }
+
+  // Remove um tamanho extra. Se já tiver quantidade lançada em alguma loja, confirma antes
+  // (ação destrutiva — perde a quantidade lançada nele em todas as lojas da sessão).
+  function removeTamanhoExtra(localId, tam) {
+    const temDado = visitas.some(v => (parseInt(qtds[localId]?.[v.id]?.[tam]) || 0) > 0)
+    if (temDado && !window.confirm(`O tamanho "${tam}" já tem quantidade lançada em alguma loja.\n\nRemover mesmo assim? As quantidades lançadas nele serão perdidas.`)) return
+    setItems(prev => prev.map(x => x.localId === localId
+      ? { ...x, tamanhosExtras: (x.tamanhosExtras ?? []).filter(t => t !== tam) }
+      : x))
+    if (temDado) {
+      setQtds(prev => {
+        const next = { ...prev, [localId]: { ...prev[localId] } }
+        for (const v of visitas) {
+          if (next[localId][v.id]) {
+            const { [tam]: _removed, ...rest } = next[localId][v.id]
+            next[localId][v.id] = rest
+          }
+        }
+        return next
+      })
+    }
+  }
+
   const TABELA_PRECOS = [4.99, 9.99, 14.99, 19.99, 24.99, 29.99, 34.99, 39.99,
     49.99, 59.99, 69.99, 79.99, 89.99, 99.99, 119.99, 129.99, 149.99, 169.99,
     199.99, 219.99, 229.99, 249.99, 299.99]
@@ -313,7 +362,7 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
 
 
   function addItem() {
-    const { ref, tipo_produto, tipo_grade, classe, icms_pct, valor, cor, detalhe } = form
+    const { ref, tipo_produto, tipo_grade, classe, icms_pct, valor, cor, detalhe, obs } = form
     if (!ref.trim() || !tipo_produto.trim() || !tipo_grade || !valor.trim()) return
     const localId = `item_${Date.now()}_${Math.random()}`
     const novoItem = {
@@ -329,10 +378,11 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
       preco_venda: '',
       cor: cor || '',
       detalhe: detalhe || '',
-      obs: '',
+      obs: obs || '',
+      tamanhosExtras: [],
     }
     setItems(prev => [...prev, novoItem])
-    setForm(prev => ({ ...prev, ref: '', valor: '', cor: '', detalhe: '' }))
+    setForm(prev => ({ ...prev, ref: '', valor: '', cor: '', detalhe: '', obs: '' }))
     requestAnimationFrame(() => addFormFirstRef.current?.focus())
   }
 
@@ -564,6 +614,8 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
     if (!segId) { setError('Sem projeção: segmentação não encontrada para esta coleção.'); return }
     const projRows = await getProjecao(segId)
     if (!projRows?.length) { setError('Sem projeção salva para esta segmentação. Calcule a projeção em Planejamento primeiro.'); return }
+    // Distribuição usa só a grade canônica — a projeção histórica não conhece tamanhos
+    // extras adicionados nesta sessão, então eles ficam de fora do cálculo.
     const tams = tamanhosDeTipoGrade(item.tipo_grade)
     const projFiltered = projRows.filter(r => tams.includes(r.tamanho))
     const distribuicao = distribuirProporcionalmente(total, projFiltered)
@@ -572,7 +624,10 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
       ...prev,
       [localId]: {
         ...prev[localId],
-        [visitaId]: Object.fromEntries(tams.map(tam => [tam, distribuicao[tam] ?? 0]))
+        [visitaId]: {
+          ...prev[localId]?.[visitaId],   // preserva tamanhos extras já lançados p/ esta loja
+          ...Object.fromEntries(tams.map(tam => [tam, distribuicao[tam] ?? 0])),
+        }
       }
     }))
     setError(null)
@@ -1016,6 +1071,20 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
             </div>
           </div>
         )}
+        {showCorDetalhe && (
+          <div className={styles.field}>
+            <span className={styles.label}>Obs.</span>
+            <input
+              type="text"
+              className={styles.addItemCor}
+              style={{ width: 160 }}
+              placeholder="Observação do item"
+              value={form.obs}
+              onChange={e => setForm(p => ({ ...p, obs: e.target.value }))}
+              onKeyDown={e => { if (e.key === 'Enter') addItem() }}
+            />
+          </div>
+        )}
         <div className={styles.field}>
           <span className={styles.label}>Produto</span>
           <input
@@ -1165,10 +1234,16 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
                 const oG2 = GRADE_DEFINITIONS[it.tipo_grade]?.ocultoMaiores ?? 0
                 const showM2 = gradeGroupExpand[it.tipo_grade]?.showMenores
                 const showG2 = gradeGroupExpand[it.tipo_grade]?.showMaiores
+                // tams = grade canônica (usada p/ esconder extremos/plus-size); os tamanhos
+                // extras da sessão (it.tamanhosExtras) entram só em vTams, sempre visíveis,
+                // sem participar do cálculo de "esconder 1º/último" (senão um extra no fim
+                // vira o "último tamanho" e passa a esconder o tamanho real).
                 const tams = tamanhosDeTipoGrade(it.tipo_grade)
-                const vTams = getVisibleTams(it.localId, tams, it.tipo_grade)
-                const hideFirst = vTams[0] !== tams[0]
-                const hideLast  = vTams[vTams.length - 1] !== tams[tams.length - 1]
+                const extras2 = it.tamanhosExtras ?? []
+                const vTamsCanon2 = getVisibleTams(it.localId, tams, it.tipo_grade)
+                const vTams = [...vTamsCanon2, ...extras2.filter(t => !tams.includes(t))]
+                const hideFirst = vTamsCanon2[0] !== tams[0]
+                const hideLast  = vTamsCanon2[vTamsCanon2.length - 1] !== tams[tams.length - 1]
                 const maxVisible2 = gradeExtremes[it.localId]?.maxVisible ?? PLUS_SIZE_DEFAULT - 1
                 const nextExpIdx2 = maxVisible2 + 1
                 const hideMiddle2 = !isCalcado && tams.length > PLUS_SIZE_DEFAULT && nextExpIdx2 <= tams.length - 2
@@ -1359,10 +1434,18 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
               const oGR = GRADE_DEFINITIONS[it.tipo_grade]?.ocultoMaiores ?? 0
               const showMR = gradeGroupExpand[it.tipo_grade]?.showMenores
               const showGR = gradeGroupExpand[it.tipo_grade]?.showMaiores
+              // Mesmo raciocínio do modo "Por loja": tams fica só com a grade canônica p/
+              // não bagunçar o esconder-extremos; os extras entram já mesclados em vTams.
               const tams = tamanhosDeTipoGrade(it.tipo_grade)
-              const vTams = getVisibleTams(it.localId, tams, it.tipo_grade)
-              const hideFirst = vTams[0] !== tams[0]
-              const hideLast  = vTams[vTams.length - 1] !== tams[tams.length - 1]
+              // extras já filtrado (sem duplicar um tamanho que virou canônico depois de
+              // trocarem a grade do item) — usado tanto pra montar vTams quanto pra decidir
+              // se mostra o botão de remover; se os dois usassem listas diferentes, o botão
+              // podia aparecer numa coluna canônica e apagar quantidade real ao clicar.
+              const extras = (it.tamanhosExtras ?? []).filter(t => !tams.includes(t))
+              const vTamsCanon = getVisibleTams(it.localId, tams, it.tipo_grade)
+              const vTams = [...vTamsCanon, ...extras]
+              const hideFirst = vTamsCanon[0] !== tams[0]
+              const hideLast  = vTamsCanon[vTamsCanon.length - 1] !== tams[tams.length - 1]
               const maxVisibleRef = gradeExtremes[it.localId]?.maxVisible ?? PLUS_SIZE_DEFAULT - 1
               const nextExpIdxRef = maxVisibleRef + 1
               const hideMiddleRef = !isCalcado && tams.length > PLUS_SIZE_DEFAULT && nextExpIdxRef <= tams.length - 2
@@ -1651,7 +1734,16 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
                               >−{tams[0]}</button>
                             ) : null)}
                             {vTams.map(t => (
-                              <div key={t} className={styles.gradeInlineSize}>{t}</div>
+                              <div key={t} className={styles.gradeInlineSize}>
+                                {t}
+                                {extras.includes(t) && (
+                                  <button
+                                    className={styles.btnRemoveTamanhoExtra}
+                                    onClick={() => removeTamanhoExtra(it.localId, t)}
+                                    title={`Remover tamanho extra "${t}"`}
+                                  >×</button>
+                                )}
+                              </div>
                             ))}
                             {hideMiddleRef && (
                               <button
@@ -1673,6 +1765,28 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
                                 title={`Ocultar ${tams[tams.length - 1]}`}
                               >−{tams[tams.length - 1]}</button>
                             ) : null)}
+                            {addingSize === it.localId ? (
+                              <input
+                                type="text"
+                                autoFocus
+                                className={styles.addTamanhoInput}
+                                placeholder="Ex: 50"
+                                value={newSizeLabel}
+                                onChange={e => setNewSizeLabel(e.target.value)}
+                                onClick={e => e.stopPropagation()}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') { e.stopPropagation(); confirmAddTamanho(it) }
+                                  if (e.key === 'Escape') { e.stopPropagation(); setAddingSize(null); setNewSizeLabel('') }
+                                }}
+                                onBlur={() => confirmAddTamanho(it)}
+                              />
+                            ) : (
+                              <button
+                                className={styles.btnExpandSize}
+                                onClick={e => { e.stopPropagation(); setAddingSize(it.localId); setNewSizeLabel('') }}
+                                title="Adicionar um tamanho pontual a este item, só nesta sessão"
+                              >+ tam.</button>
+                            )}
                             <div className={styles.gradeInlineTotalReadonly}>Total</div>
                           </div>
                           {visitas.map((v, i) => {

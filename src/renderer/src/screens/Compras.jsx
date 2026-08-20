@@ -17,6 +17,7 @@ import { fornecedores as fornecedoresService } from '../services/fornecedores'
 import { compradores as compradoresService } from '../services/compradores'
 import { appConfig as appConfigService } from '../services/appConfig'
 import { fmtDate } from '../lib/format'
+import { tamanhosDeTipoGrade } from '../constants/grades'
 
 // ─── Orchestrator ─────────────────────────────────────────────────────────
 
@@ -231,18 +232,29 @@ export default function Compras() {
 
       // Load ALL stores' qtds (Phase 5 fills + Phase 2 organizer fills)
       const qtds = {}
+      const tamanhosVistos = {} // lId -> Set de tamanhos com qtd>0 em qualquer loja
       for (const visita of visitasComPedidos) {
         for (const ped of visita.pedidos ?? []) {
           const lId = `${ped.referencia}|${ped.variante_key ?? ''}`
           if (!qtds[lId]) qtds[lId] = {}
           const visitaQtds = {}
           for (const it of ped.itens ?? []) {
-            if (it.qtd > 0) visitaQtds[it.tamanho] = it.qtd
+            if (it.qtd > 0) {
+              visitaQtds[it.tamanho] = it.qtd
+              ;(tamanhosVistos[lId] ??= new Set()).add(it.tamanho)
+            }
           }
           if (Object.keys(visitaQtds).length) {
             qtds[lId][visita.id] = visitaQtds
           }
         }
+      }
+      // Tamanhos extras = já persistidos no banco mas fora da grade canônica do tipo_grade.
+      // O dado salvo é a fonte da verdade — não precisa de coluna nova pra "lembrar" isso.
+      for (const item of items) {
+        const canonicos = new Set(tamanhosDeTipoGrade(item.tipo_grade))
+        const vistos = tamanhosVistos[item.localId] ?? new Set()
+        item.tamanhosExtras = [...vistos].filter(t => !canonicos.has(t))
       }
 
       const forn = forns.find(f => f.id === ses.fornecedor_id)

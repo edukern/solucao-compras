@@ -90,12 +90,17 @@ export function gerarHTMLOrdem(sessao, vis, visPedidosRaw, isLast = true) {
   }, 0)
   const totalPecas = visPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0), 0)
   const temDesconto = visPedidos.some(p => (p.desconto_pct ?? 0) > 0)
-  const temICMS = pedidosOrdenados.some(p => (p.icms_pct ?? 0) > 0) || (sessao.icms_credito_pct != null && sessao.icms_credito_pct !== '')
-  const temVenda = pedidosOrdenados.some(p => (p.preco_venda ?? 0) > 0)
 
   const pedidosOrdenados = visPedidos
 
-  // ── active sizes: union of sizes that have qty > 0 in any product ────────
+  const temICMS = pedidosOrdenados.some(p => (p.icms_pct ?? 0) > 0) || (sessao.icms_credito_pct != null && sessao.icms_credito_pct !== '')
+  const temVenda = pedidosOrdenados.some(p => (p.preco_venda ?? 0) > 0)
+
+  // ── active sizes: união entre a grade canônica e qualquer tamanho realmente salvo
+  // com qtd>0 (mesmo fora da grade — ex.: tamanho extra pontual adicionado na sessão, ou
+  // dado antigo/importado com tamanho fora do padrão). Se um pedido tem peças lançadas
+  // num tamanho, ele tem que aparecer no PDF — senão a peça "some" da coluna mas continua
+  // contando no total, e o fornecedor não sabe o que produzir.
   const sizeOrder = []
   const sizeSet   = new Set()
   const sizeHasQty = new Set()
@@ -106,6 +111,9 @@ export function gerarHTMLOrdem(sessao, vis, visPedidosRaw, isLast = true) {
     for (const tam of gradeTams) {
       if (!sizeSet.has(tam)) { sizeSet.add(tam); sizeOrder.push(tam) }
       if ((qtdMap[tam] ?? 0) > 0) sizeHasQty.add(tam)
+    }
+    for (const it of p.itens ?? []) {
+      if (it.qtd > 0 && !sizeSet.has(it.tamanho)) { sizeSet.add(it.tamanho); sizeOrder.push(it.tamanho); sizeHasQty.add(it.tamanho) }
     }
   }
   const activeSizes = sizeOrder.filter(t => sizeHasQty.has(t))
@@ -263,7 +271,9 @@ export const FICHA_STYLES = `
   .ft-table th { background:#e0e0e0; font-weight:bold; font-size:8px; padding:3px; }
   .ft-table tbody tr { page-break-inside: avoid; break-inside: avoid; }
   .ft-table tfoot td { font-weight:bold; background:#f0f0f0; border-top:1.5px solid #777; }
-  .fref { text-align:left; width:100px; font-size:9px; white-space:normal; overflow:visible; word-break:break-word; }
+  .fref { text-align:left; width:70px; font-size:9px; white-space:normal; overflow:visible; word-break:break-word; }
+  .fcordet { text-align:left; width:64px; font-size:8px; white-space:normal; overflow:visible; word-break:break-word; color:#333; }
+  .fobs { text-align:left; width:64px; font-size:8px; white-space:normal; overflow:visible; word-break:break-word; color:#333; font-style:italic; }
   .fprod { text-align:left; width:90px; font-size:9px; white-space:normal; }
   .ft { width:22px; background:#f5f5f5; color:#555; font-size:8px; }
   .fq { width:24px; }
@@ -278,6 +288,8 @@ export function gerarHTMLFichaLoja(sessao, vis, visPedidosRaw, isLast = true) {
   const visPedidos = visPedidosRaw.filter(p => (p.itens ?? []).reduce((s, i) => s + i.qtd, 0) > 0)
   if (!visPedidos.length) return ''
 
+  // União entre grade canônica e tamanhos realmente salvos com qtd>0 — ver comentário
+  // equivalente em gerarHTMLOrdem.
   const sizeOrder = [], sizeSet = new Set(), sizeHasQty = new Set()
   for (const p of visPedidos) {
     const gradeTams = GRADE_DEFINITIONS[p.tipo_grade ?? 'AD']?.tamanhos ?? []
@@ -286,16 +298,29 @@ export function gerarHTMLFichaLoja(sessao, vis, visPedidosRaw, isLast = true) {
       if (!sizeSet.has(tam)) { sizeSet.add(tam); sizeOrder.push(tam) }
       if ((qtdMap[tam] ?? 0) > 0) sizeHasQty.add(tam)
     }
+    for (const it of p.itens ?? []) {
+      if (it.qtd > 0 && !sizeSet.has(it.tamanho)) { sizeSet.add(it.tamanho); sizeOrder.push(it.tamanho); sizeHasQty.add(it.tamanho) }
+    }
   }
   const activeSizes = sizeOrder.filter(t => sizeHasQty.has(t))
 
   const fornNome = sessao.fornecedor_nome ?? sessao.fornecedor?.nome ?? ''
   const totalPecas = visPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0), 0)
 
+  // Cor/Detalhe e Obs só ganham coluna própria quando a grade não é muito larga (poucos
+  // tamanhos ativos) — senão a ficha fica espremida e os números dos tamanhos podem cortar.
+  // Nesse caso volta a concatenar tudo em Referência, como era antes.
+  const fichaColunasLargas = activeSizes.length > 6
+  const showCorDetF = fichaColunasLargas ? false : visPedidos.some(p => p.cor || p.detalhe)
+  const showObsF    = fichaColunasLargas ? false : visPedidos.some(p => p.obs)
+
   const prodRows = visPedidos.map(p => {
     const qtdMap = Object.fromEntries((p.itens ?? []).map(i => [i.tamanho, i.qtd]))
     const totalQ = (p.itens ?? []).reduce((s, i) => s + i.qtd, 0)
-    const refLabel = [p.referencia, p.cor, p.detalhe, p.obs].filter(Boolean).join(' ')
+    const refLabel = (showCorDetF || showObsF)
+      ? (p.referencia || '')
+      : [p.referencia, p.cor, p.detalhe, p.obs].filter(Boolean).join(' ')
+    const corDetLabel = [p.cor, p.detalhe].filter(Boolean).join(' ')
     const prodLabel = [p.tipo_produto ?? '', p.classe ?? ''].filter(Boolean).join(' ')
     const cells = activeSizes.map(tam => {
       const q = qtdMap[tam] ?? 0
@@ -303,6 +328,8 @@ export function gerarHTMLFichaLoja(sessao, vis, visPedidosRaw, isLast = true) {
     })
     return `<tr>
       <td class="fref">${esc(refLabel)}</td>
+      ${showCorDetF ? `<td class="fcordet">${esc(corDetLabel)}</td>` : ''}
+      ${showObsF ? `<td class="fobs">${esc(p.obs || '')}</td>` : ''}
       <td class="fprod">${esc(prodLabel)}</td>
       ${cells.join('')}
       <td class="fqt">${totalQ || '—'}</td>
@@ -310,7 +337,7 @@ export function gerarHTMLFichaLoja(sessao, vis, visPedidosRaw, isLast = true) {
   }).join('')
 
   const headerPairs = activeSizes.map(() => '<th>T</th><th>Q</th>').join('')
-  const footerCols = 2 + activeSizes.length * 2
+  const footerCols = 2 + (showCorDetF ? 1 : 0) + (showObsF ? 1 : 0) + activeSizes.length * 2
 
   return `
     <div class="ficha"${isLast ? ' style="page-break-after:avoid;"' : ''}>
@@ -330,6 +357,8 @@ export function gerarHTMLFichaLoja(sessao, vis, visPedidosRaw, isLast = true) {
         <thead>
           <tr>
             <th class="fref">Referência</th>
+            ${showCorDetF ? '<th class="fcordet">Cor/Detalhe</th>' : ''}
+            ${showObsF ? '<th class="fobs">Obs</th>' : ''}
             <th class="fprod">Produto</th>
             ${headerPairs}
             <th class="fqt">Total</th>
@@ -508,10 +537,11 @@ export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride
     const tableStart = headerBottom + 3
 
     // ── TABLE — agrupado por tipo_grade, uma coluna por tamanho ──────────
-    const W_REF  = 24, W_PROD = 22, W_SZ = 11
+    const W_REF  = 22, W_PROD = 22, W_SZ = 11, W_CORDET = 24, W_OBS = 24
     const W_QTOT = 10, W_PREC = 16, W_TOT = 18, W_RLIQ = 16, W_ICMS = 10
-    const fixedCols = W_REF + W_PROD + W_QTOT + W_PREC + W_TOT + W_RLIQ + (temICMS ? W_ICMS : 0)
-    const availForSizes = PW - fixedCols
+    const MIN_SZ = 7 // abaixo disso o número do tamanho fica ilegível/cortado
+    const temCorDetalhe = visPedidos.some(p => p.cor || p.detalhe)
+    const temObsCol     = visPedidos.some(p => p.obs)
 
     // Agrupar pedidos por tipo_grade e ordenar cada grupo por produto (alfabética),
     // pra não intercalar produtos diferentes dentro da mesma grade (ex.: boxer, meia
@@ -532,24 +562,60 @@ export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride
     }
 
     function renderGrupo(grupoPedidos, startY) {
-      // Tamanhos ativos só deste grupo
+      // Tamanhos ativos só deste grupo — união entre a grade canônica e qualquer tamanho
+      // realmente salvo com qtd>0 (mesmo fora da grade — tamanho extra pontual ou dado
+      // antigo fora do padrão). Sem isso a peça soma no total mas a coluna some.
       const sizeOrder = [], sizeSet = new Set(), sizeHasQty = new Set()
       for (const p of grupoPedidos) {
         const tg = p.tipo_grade ?? p.segmentacao?.tipo_grade ?? 'AD'
+        const qtdMap = Object.fromEntries((p.itens ?? []).map(i => [i.tamanho, i.qtd]))
         for (const tam of GRADE_DEFINITIONS[tg]?.tamanhos ?? []) {
           if (!sizeSet.has(tam)) { sizeSet.add(tam); sizeOrder.push(tam) }
-          const qtdMap = Object.fromEntries((p.itens ?? []).map(i => [i.tamanho, i.qtd]))
           if ((qtdMap[tam] ?? 0) > 0) sizeHasQty.add(tam)
+        }
+        for (const it of p.itens ?? []) {
+          if (it.qtd > 0 && !sizeSet.has(it.tamanho)) { sizeSet.add(it.tamanho); sizeOrder.push(it.tamanho); sizeHasQty.add(it.tamanho) }
         }
       }
       const activeSizes = sizeOrder.filter(t => sizeHasQty.has(t))
-      // Uma coluna por tamanho; comprimir se não couber
-      const idealSz = activeSizes.length * W_SZ
-      const wSZ = idealSz > availForSizes ? availForSizes / activeSizes.length : W_SZ
 
-      // Cabeçalho: tamanho como nome da coluna
+      // Cor/Detalhe e Obs só viram coluna própria se sobrar espaço legível pros tamanhos —
+      // senão a grade fica ilegível (número cortado é pior que o texto quebrar linha), e
+      // volta a concatenar tudo na coluna Referência, como era antes.
+      let showCorDetCol = temCorDetalhe, showObsCol = temObsCol
+      const larguraDisponivel = extra => PW - (W_REF + extra + W_PROD + W_QTOT + W_PREC + W_TOT + W_RLIQ + (temICMS ? W_ICMS : 0))
+      let extraWidth = (showCorDetCol ? W_CORDET : 0) + (showObsCol ? W_OBS : 0)
+      let avail = larguraDisponivel(extraWidth)
+      if (activeSizes.length && avail / activeSizes.length < MIN_SZ) {
+        showObsCol = false
+        extraWidth = showCorDetCol ? W_CORDET : 0
+        avail = larguraDisponivel(extraWidth)
+      }
+      if (activeSizes.length && avail / activeSizes.length < MIN_SZ) {
+        showCorDetCol = false
+        extraWidth = 0
+        avail = larguraDisponivel(0)
+      }
+      // Uma coluna por tamanho; comprimir só se necessário pra caber
+      const wSZ = activeSizes.length
+        ? Math.min(W_SZ, avail / activeSizes.length)
+        : W_SZ
+
+      let col = 0
+      const colRef = col++
+      const colCorDet = showCorDetCol ? col++ : -1
+      const colObs    = showObsCol    ? col++ : -1
+      const colProd = col++
+      const colFirstSize = col
+      col += activeSizes.length
+      const iTotal = col
+
+      // Cabeçalho
       const head = [[
-        'Referência', 'Produto',
+        'Referência',
+        ...(showCorDetCol ? ['Cor/Detalhe'] : []),
+        ...(showObsCol ? ['Obs'] : []),
+        'Produto',
         ...activeSizes,
         'Qtd', 'R$ un.', 'Total', 'R$ Liq',
         ...(temICMS ? ['ICMS%'] : []),
@@ -562,8 +628,14 @@ export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride
         const totalV = totalQ * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100)
         const tipo_produto = p.tipo_produto ?? p.segmentacao?.tipo_produto ?? ''
         const classe       = p.classe ?? p.segmentacao?.classe ?? ''
+        // Sem colunas próprias: mantém o formato antigo (tudo junto, uma linha por campo).
+        const refLabel = (showCorDetCol || showObsCol)
+          ? (p.referencia || '')
+          : [p.referencia, p.cor, p.detalhe, p.obs].filter(Boolean).join('\n')
         return [
-          [p.referencia, p.cor, p.detalhe, p.obs].filter(Boolean).join('\n'),
+          refLabel,
+          ...(showCorDetCol ? [[p.cor, p.detalhe].filter(Boolean).join(' ')] : []),
+          ...(showObsCol ? [p.obs || ''] : []),
           [tipo_produto, classe].filter(Boolean).join(' '),
           ...activeSizes.map(t => (qtdMap[t] ?? 0) || '—'),
           totalQ || '—',
@@ -577,7 +649,6 @@ export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride
       const totalBruto   = grupoPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0) * (p.valor_unitario ?? 0), 0)
       const totalLiquido = grupoPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0) * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100), 0)
       const totalPecas   = grupoPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0), 0)
-      const iTotal = 2 + activeSizes.length
 
       autoTable(doc, {
         startY,
@@ -588,10 +659,12 @@ export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride
         styles: { fontSize: 8, cellPadding: 1.5, overflow: 'hidden', halign: 'center' },
         headStyles: { fillColor: [220, 220, 220], textColor: 0, fontStyle: 'bold', fontSize: 7.5 },
         columnStyles: {
-          0: { halign: 'left', cellWidth: W_REF, overflow: 'linebreak' },
-          1: { halign: 'left', cellWidth: W_PROD },
+          [colRef]: { halign: 'left', cellWidth: W_REF, overflow: 'linebreak' },
+          ...(showCorDetCol ? { [colCorDet]: { halign: 'left', cellWidth: W_CORDET, overflow: 'linebreak', fontSize: 7 } } : {}),
+          ...(showObsCol ? { [colObs]: { halign: 'left', cellWidth: W_OBS, overflow: 'linebreak', fontSize: 7 } } : {}),
+          [colProd]: { halign: 'left', cellWidth: W_PROD },
           ...Object.fromEntries(activeSizes.map((_, i) => [
-            2 + i, { cellWidth: wSZ, fontStyle: 'bold', fontSize: 9 },
+            colFirstSize + i, { cellWidth: wSZ, fontStyle: 'bold', fontSize: 9 },
           ])),
           [iTotal]:     { cellWidth: W_QTOT, fontStyle: 'bold' },
           [iTotal + 1]: { cellWidth: W_PREC, halign: 'right' },

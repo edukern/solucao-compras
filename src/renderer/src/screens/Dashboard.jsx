@@ -46,6 +46,11 @@ function gerarHTMLColaborador(sessao, visita, pedidos) {
       if (!sizeSet.has(tam)) { sizeSet.add(tam); sizeOrder.push(tam) }
       if ((qtdMap[tam] ?? 0) > 0) sizeHasQty.add(tam)
     }
+    // União com tamanhos realmente salvos fora da grade canônica (extra pontual ou dado
+    // antigo fora do padrão) — senão a peça soma no total mas a coluna do tamanho some.
+    for (const it of p.pedido_itens ?? []) {
+      if (it.qtd > 0 && !sizeSet.has(it.tamanho)) { sizeSet.add(it.tamanho); sizeOrder.push(it.tamanho); sizeHasQty.add(it.tamanho) }
+    }
   }
   const activeSizes = sizeOrder.filter(t => sizeHasQty.has(t))
   const headerPairs = activeSizes.map(t => `<th class="ct">${esc(t)}</th><th class="cq">Q</th>`).join('')
