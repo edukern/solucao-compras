@@ -1523,6 +1523,41 @@
   min-width: 40px;
 }
 
+.btnRemoveTamanhoExtra {
+  padding: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  line-height: 1;
+  cursor: pointer;
+  margin-left: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btnRemoveTamanhoExtra:hover { background: rgba(239,68,68,0.15); color: #ef4444; }
+
+.addTamanhoInput {
+  width: 52px;
+  min-width: 52px;
+  text-align: center;
+  background: var(--input-bg);
+  border: 1px dashed var(--accent);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 4px;
+  align-self: center;
+  text-transform: uppercase;
+}
+.addTamanhoInput:focus { outline: none; border-style: solid; }
+.addTamanhoInput::placeholder { color: var(--text-muted); font-weight: 400; text-transform: none; }
+
 /* â”€â”€ Keyboard-first session form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .kbForm {
   display: flex;
