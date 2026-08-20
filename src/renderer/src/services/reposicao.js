@@ -4,12 +4,15 @@ import { supabase } from '../lib/supabase'
 // pelo ponto-e-stock via RPC salvar_pedido_reposicao (migração 030). Esta tela só
 // LÊ e faz a transição de status — a gravação em si é sempre pela RPC, não daqui.
 // Fonte da verdade: tabelas pedidos_reposicao / pedido_reposicao_itens no Supabase.
+// list() lê da view pedidos_reposicao_lista (migração 031), que só agrega
+// qtd_referencias/qtd_total por pedido para a lista não precisar de uma query
+// por card — byId/marcarStatus continuam nas tabelas base.
 
 export const reposicao = {
   async list(status = null) {
     let query = supabase
-      .from('pedidos_reposicao')
-      .select('id, marca, janela_dias, status, gerado_por, gerado_em, revisado_por, revisado_em')
+      .from('pedidos_reposicao_lista')
+      .select('id, marca, janela_dias, status, gerado_por, gerado_em, revisado_por, revisado_em, qtd_referencias, qtd_total')
       .order('gerado_em', { ascending: false })
     if (status) query = query.eq('status', status)
     const { data, error } = await query
