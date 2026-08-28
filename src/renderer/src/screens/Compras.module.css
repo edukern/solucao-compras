@@ -1523,6 +1523,24 @@
   min-width: 40px;
 }
 
+/* Barra "Ocultos" — traz de volta um tamanho canônico que o comprador escondeu da grade */
+.gradeHiddenBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: 140px;
+  padding: 4px 0 2px;
+}
+.gradeHiddenBarLabel {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-right: 2px;
+}
+
 .btnRemoveTamanhoExtra {
   padding: 0;
   width: 12px;

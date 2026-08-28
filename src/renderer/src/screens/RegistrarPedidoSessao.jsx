@@ -66,6 +66,11 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
   const [editForm,       setEditForm]       = useState(null)
   const [gradeExtremes,     setGradeExtremes]     = useState({})
   const [gradeGroupExpand,  setGradeGroupExpand]  = useState({})
+  // { [localId]: string[] } — tamanhos canônicos que o comprador ocultou da grade nesta
+  // sessão pra encurtar o pedido (ex.: chinelo de uma marca que só usa 37–41). É só
+  // visual e não persiste: recarregar / retomar a sessão volta a grade cheia. O PDF não
+  // muda (ele já lista só tamanho com quantidade).
+  const [hiddenSizes,       setHiddenSizes]       = useState({})
   const [showItemFields, setShowItemFields] = useState({})
   const [addingSize,     setAddingSize]     = useState(null)  // localId do item com o input de "+ tamanho" aberto
   const [newSizeLabel,   setNewSizeLabel]   = useState('')
@@ -274,7 +279,17 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
     return visitas.some(v => (parseInt(qtds[localId]?.[v.id]?.[tam]) || 0) > 0)
   }
 
+  // Aplica, por cima do cálculo de extremos/plus-size, os tamanhos que o comprador
+  // ocultou manualmente (hiddenSizes). Um tamanho oculto que ganhou quantidade (ex.: via
+  // "distribuir total", que espalha na grade canônica inteira) volta a aparecer sozinho —
+  // nunca some peça lançada da tela.
   function getVisibleTams(localId, allTams, tipoGrade) {
+    const ocultos = hiddenSizes[localId] ?? []
+    return getVisibleTamsBase(localId, allTams, tipoGrade)
+      .filter(t => !ocultos.includes(t) || hasExtremeData(localId, t))
+  }
+
+  function getVisibleTamsBase(localId, allTams, tipoGrade) {
     const oM = GRADE_DEFINITIONS[tipoGrade]?.ocultoMenores ?? 0
     const oG = GRADE_DEFINITIONS[tipoGrade]?.ocultoMaiores ?? 0
     if (oM > 0 || oG > 0) {
@@ -341,6 +356,19 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
         return next
       })
     }
+  }
+
+  // Oculta / reexibe um tamanho canônico da grade na tela (só nesta sessão). O × só
+  // aparece em tamanho sem quantidade em nenhuma loja, então ocultar nunca perde dado;
+  // pra trazer de volta, os chips "+tam" na barra "Ocultos" abaixo da grade.
+  function hideSize(localId, tam) {
+    setHiddenSizes(prev => {
+      const atual = prev[localId] ?? []
+      return atual.includes(tam) ? prev : { ...prev, [localId]: [...atual, tam] }
+    })
+  }
+  function restoreSize(localId, tam) {
+    setHiddenSizes(prev => ({ ...prev, [localId]: (prev[localId] ?? []).filter(t => t !== tam) }))
   }
 
   const TABELA_PRECOS = [4.99, 9.99, 14.99, 19.99, 24.99, 29.99, 34.99, 39.99,
@@ -1736,11 +1764,17 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
                             {vTams.map(t => (
                               <div key={t} className={styles.gradeInlineSize}>
                                 {t}
-                                {extras.includes(t) && (
+                                {extras.includes(t) ? (
                                   <button
                                     className={styles.btnRemoveTamanhoExtra}
                                     onClick={() => removeTamanhoExtra(it.localId, t)}
                                     title={`Remover tamanho extra "${t}"`}
+                                  >×</button>
+                                ) : !hasExtremeData(it.localId, t) && (
+                                  <button
+                                    className={styles.btnRemoveTamanhoExtra}
+                                    onClick={() => hideSize(it.localId, t)}
+                                    title={`Ocultar tamanho "${t}" desta grade`}
                                   >×</button>
                                 )}
                               </div>
@@ -1789,6 +1823,19 @@ export function RegistrarPedidoSessao({ sessao, visitas, colId, colEstacao, onFe
                             )}
                             <div className={styles.gradeInlineTotalReadonly}>Total</div>
                           </div>
+                          {tams.some(t => (hiddenSizes[it.localId] ?? []).includes(t)) && (
+                            <div className={styles.gradeHiddenBar}>
+                              <span className={styles.gradeHiddenBarLabel}>Ocultos</span>
+                              {tams.filter(t => (hiddenSizes[it.localId] ?? []).includes(t)).map(t => (
+                                <button
+                                  key={`show-${t}`}
+                                  className={styles.btnShowExtreme}
+                                  onClick={() => restoreSize(it.localId, t)}
+                                  title={`Mostrar tamanho "${t}" de novo`}
+                                >+{t}</button>
+                              ))}
+                            </div>
+                          )}
                           {visitas.map((v, i) => {
                             const targetKey = `${it.localId}__${v.id}`
                             const targetEditing = distribTargets[targetKey]
