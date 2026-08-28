@@ -328,9 +328,9 @@ export function gerarHTMLFichaLoja(sessao, vis, visPedidosRaw, isLast = true) {
     })
     return `<tr>
       <td class="fref">${esc(refLabel)}</td>
+      <td class="fprod">${esc(prodLabel)}</td>
       ${showCorDetF ? `<td class="fcordet">${esc(corDetLabel)}</td>` : ''}
       ${showObsF ? `<td class="fobs">${esc(p.obs || '')}</td>` : ''}
-      <td class="fprod">${esc(prodLabel)}</td>
       ${cells.join('')}
       <td class="fqt">${totalQ || '—'}</td>
     </tr>`
@@ -357,9 +357,9 @@ export function gerarHTMLFichaLoja(sessao, vis, visPedidosRaw, isLast = true) {
         <thead>
           <tr>
             <th class="fref">Referência</th>
+            <th class="fprod">Produto</th>
             ${showCorDetF ? '<th class="fcordet">Cor/Detalhe</th>' : ''}
             ${showObsF ? '<th class="fobs">Obs</th>' : ''}
-            <th class="fprod">Produto</th>
             ${headerPairs}
             <th class="fqt">Total</th>
           </tr>
@@ -671,9 +671,9 @@ export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride
 
       let col = 0
       const colRef = col++
+      const colProd = col++
       const colCorDet = showCorDetCol ? col++ : -1
       const colObs    = showObsCol    ? col++ : -1
-      const colProd = col++
       const colFirstSize = col
       col += activeSizes.length
       const iTotal = col
@@ -681,9 +681,9 @@ export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride
       // Cabeçalho
       const head = [[
         'Referência',
+        'Produto',
         ...(showCorDetCol ? ['Cor/Detalhe'] : []),
         ...(showObsCol ? ['Obs'] : []),
-        'Produto',
         ...activeSizes,
         'Qtd', 'R$ un.', 'Total', 'R$ Liq',
         ...(temICMS ? ['ICMS%'] : []),
@@ -702,9 +702,9 @@ export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride
           : [p.referencia, p.cor, p.detalhe, p.obs].filter(Boolean).join('\n')
         return [
           refLabel,
+          [tipo_produto, classe].filter(Boolean).join(' '),
           ...(showCorDetCol ? [[p.cor, p.detalhe].filter(Boolean).join(' ')] : []),
           ...(showObsCol ? [p.obs || ''] : []),
-          [tipo_produto, classe].filter(Boolean).join(' '),
           ...activeSizes.map(t => (qtdMap[t] ?? 0) || '—'),
           totalQ || '—',
           fmtV(p.valor_unitario ?? 0),
@@ -728,9 +728,9 @@ export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride
         headStyles: { fillColor: [220, 220, 220], textColor: 0, fontStyle: 'bold', fontSize: 7.5 },
         columnStyles: {
           [colRef]: { halign: 'left', cellWidth: W_REF, overflow: 'linebreak' },
+          [colProd]: { halign: 'left', cellWidth: W_PROD },
           ...(showCorDetCol ? { [colCorDet]: { halign: 'left', cellWidth: W_CORDET, overflow: 'linebreak', fontSize: 7 } } : {}),
           ...(showObsCol ? { [colObs]: { halign: 'left', cellWidth: W_OBS, overflow: 'linebreak', fontSize: 7 } } : {}),
-          [colProd]: { halign: 'left', cellWidth: W_PROD },
           ...Object.fromEntries(activeSizes.map((_, i) => [
             colFirstSize + i, { cellWidth: wSZ, fontStyle: 'bold', fontSize: 9 },
           ])),
