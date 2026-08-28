@@ -397,13 +397,23 @@ export const PRECOS_STYLES = `
   .pv-page:last-child { page-break-after: avoid; }
   .pv-title { font-size:11px; font-weight:bold; color:#a00; text-transform:uppercase; margin-bottom:8px; }
   .pv-store { font-size:14px; font-weight:bold; margin-bottom:4px; }
-  .pv-forn { font-size:10px; color:#555; margin-bottom:8px; }
-  .pv-table { width:100%; border-collapse:collapse; font-size:9px; }
-  .pv-table th, .pv-table td { border:0.5px solid #bbb; padding:3px 5px; text-align:left; }
+  .pv-forn { font-size:10px; color:#555; margin-bottom:10px; }
+  .pv-grade { font-size:9px; font-weight:bold; color:#555; margin:10px 0 3px; text-transform:uppercase; letter-spacing:.04em; }
+  .pv-table { width:100%; border-collapse:collapse; font-size:9px; table-layout:fixed; margin-bottom:6px; }
+  .pv-table th, .pv-table td { border:0.5px solid #bbb; padding:2px 4px; text-align:center; overflow:hidden; white-space:nowrap; }
   .pv-table th { background:#e0e0e0; font-weight:bold; font-size:8px; }
-  .pv-table td.num { text-align:right; }
-  .pv-table td.venda { font-weight:bold; color:#1a7a3a; }
-  @media print { @page { margin:10mm; size:A4 portrait; } }`
+  .pv-table .ref { text-align:left; width:120px; white-space:normal; word-break:break-word; }
+  .pv-table .prod { text-align:left; width:88px; white-space:normal; }
+  .pv-table .pv-t { width:20px; background:#f5f5f5; color:#555; font-size:8px; }
+  .pv-table .pv-q { width:22px; }
+  .pv-table .pv-q0 { color:#ccc; }
+  .pv-table .pv-qt { width:30px; font-weight:bold; }
+  .pv-table .pv-num { width:52px; }
+  .pv-table td.pv-num { text-align:right; }
+  .pv-table .pv-venda { width:52px; color:#1a7a3a; font-weight:bold; }
+  .pv-table td.pv-venda { text-align:right; }
+  .pv-table tbody tr { page-break-inside: avoid; break-inside: avoid; }
+  @media print { @page { margin:10mm; size:A4 landscape; } }`
 
 // Documento SÓ INTERNO com os preços de venda sugeridos por loja — nunca deve ser
 // enviado ao fornecedor (não confundir com gerarHTMLOrdem/salvarPDFVisita, que geram
@@ -419,17 +429,78 @@ export function gerarPDFPrecosVenda(sessao, visitas, pedidosPorVisita) {
       .filter(p => (p.itens ?? []).reduce((s, i) => s + i.qtd, 0) > 0)
     if (!visPedidos.length) return ''
 
-    const rows = visPedidos.map(p => {
-      const label = [p.referencia, p.cor, p.detalhe].filter(Boolean).join(' · ')
-      const classe = [p.tipo_produto ?? p.segmentacao?.tipo_produto ?? '', p.classe ?? p.segmentacao?.classe ?? ''].filter(Boolean).join(' · ')
-      const totalQ = (p.itens ?? []).reduce((s, i) => s + i.qtd, 0)
-      return `<tr>
-        <td>${esc(label)}</td>
-        <td>${esc(classe)}</td>
-        <td class="num">${totalQ}</td>
-        <td class="num">R$ ${fmtV(p.valor_unitario ?? 0)}</td>
-        <td class="num venda">R$ ${fmtV(p.preco_venda)}</td>
-      </tr>`
+    // Agrupa por tipo_grade e abre a grade em colunas por tamanho (T/Q), igual ao PDF
+    // de pedido pro fornecedor (salvarPDFVisita). Grades diferentes têm tamanhos
+    // diferentes, então cada grade vira sua própria tabela.
+    const gradeOrder = []
+    const gradeGroups = {}
+    for (const p of visPedidos) {
+      const tg = p.tipo_grade ?? p.segmentacao?.tipo_grade ?? 'AD'
+      if (!gradeGroups[tg]) { gradeGroups[tg] = []; gradeOrder.push(tg) }
+      gradeGroups[tg].push(p)
+    }
+    for (const tg of gradeOrder) {
+      gradeGroups[tg].sort((a, b) => {
+        const prodA = [a.tipo_produto ?? a.segmentacao?.tipo_produto ?? '', a.classe ?? a.segmentacao?.classe ?? ''].filter(Boolean).join(' ')
+        const prodB = [b.tipo_produto ?? b.segmentacao?.tipo_produto ?? '', b.classe ?? b.segmentacao?.classe ?? ''].filter(Boolean).join(' ')
+        return prodA.localeCompare(prodB, 'pt-BR') || String(a.referencia ?? '').localeCompare(String(b.referencia ?? ''), 'pt-BR')
+      })
+    }
+    const multiGrade = gradeOrder.length > 1
+
+    const gradesHtml = gradeOrder.map(tg => {
+      const grupo = gradeGroups[tg]
+
+      // Tamanhos ativos só deste grupo — união entre a grade canônica e qualquer tamanho
+      // realmente salvo com qtd>0 (mesmo fora da grade). Ver comentário equivalente em
+      // salvarPDFVisita: sem isso a peça soma no total mas a coluna some.
+      const sizeOrder = [], sizeSet = new Set(), sizeHasQty = new Set()
+      for (const p of grupo) {
+        const qtdMap = Object.fromEntries((p.itens ?? []).map(i => [i.tamanho, i.qtd]))
+        for (const tam of GRADE_DEFINITIONS[tg]?.tamanhos ?? []) {
+          if (!sizeSet.has(tam)) { sizeSet.add(tam); sizeOrder.push(tam) }
+          if ((qtdMap[tam] ?? 0) > 0) sizeHasQty.add(tam)
+        }
+        for (const it of p.itens ?? []) {
+          if (it.qtd > 0 && !sizeSet.has(it.tamanho)) { sizeSet.add(it.tamanho); sizeOrder.push(it.tamanho); sizeHasQty.add(it.tamanho) }
+        }
+      }
+      const activeSizes = sizeOrder.filter(t => sizeHasQty.has(t))
+
+      const rows = grupo.map(p => {
+        const qtdMap = Object.fromEntries((p.itens ?? []).map(i => [i.tamanho, i.qtd]))
+        const totalQ = (p.itens ?? []).reduce((s, i) => s + i.qtd, 0)
+        const label = [p.referencia, p.cor, p.detalhe].filter(Boolean).join(' · ')
+        const classe = [p.tipo_produto ?? p.segmentacao?.tipo_produto ?? '', p.classe ?? p.segmentacao?.classe ?? ''].filter(Boolean).join(' · ')
+        const cells = activeSizes.map(tam => {
+          const q = qtdMap[tam] ?? 0
+          return `<td class="pv-t">${esc(tam)}</td><td class="${q === 0 ? 'pv-q pv-q0' : 'pv-q'}">${q || '—'}</td>`
+        }).join('')
+        return `<tr>
+          <td class="ref">${esc(label)}</td>
+          <td class="prod">${esc(classe)}</td>
+          ${cells}
+          <td class="pv-qt">${totalQ || '—'}</td>
+          <td class="pv-num">R$ ${fmtV(p.valor_unitario ?? 0)}</td>
+          <td class="pv-venda">R$ ${fmtV(p.preco_venda)}</td>
+        </tr>`
+      }).join('')
+
+      const headerPairs = activeSizes.map(() => '<th class="pv-t">T</th><th class="pv-q">Q</th>').join('')
+
+      return `
+        ${multiGrade ? `<div class="pv-grade">Grade: ${esc(tg)}</div>` : ''}
+        <table class="pv-table">
+          <thead><tr>
+            <th class="ref">Referência</th>
+            <th class="prod">Produto</th>
+            ${headerPairs}
+            <th class="pv-qt">Qtd</th>
+            <th class="pv-num">R$ Custo</th>
+            <th class="pv-venda">R$ Venda</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`
     }).join('')
 
     return `
@@ -437,10 +508,7 @@ export function gerarPDFPrecosVenda(sessao, visitas, pedidosPorVisita) {
         <div class="pv-title">Uso interno — não enviar ao fornecedor</div>
         <div class="pv-store">${esc(vis.comprador?.nome ?? vis.comprador_nome ?? '')}</div>
         <div class="pv-forn">${fornNome} — ${fmtDate(sessao.data_visita)}</div>
-        <table class="pv-table">
-          <thead><tr><th>Referência</th><th>Produto</th><th>Qtd</th><th>R$ Custo</th><th>R$ Venda</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
+        ${gradesHtml}
       </div>`
   }).join('')
 
