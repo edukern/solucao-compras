@@ -1,12 +1,13 @@
 import { supabase } from '../lib/supabase'
 
 // Rascunhos de "pedido de reposição" (repor o que vendeu, sem projeção) enviados
-// pelo ponto-e-stock via RPC salvar_pedido_reposicao (migração 030). Esta tela só
-// LÊ e faz a transição de status — a gravação em si é sempre pela RPC, não daqui.
+// pelo ponto-e-stock via RPC salvar_pedido_reposicao (migrações 030 + 032). A
+// gravação inicial é sempre pela RPC. Esta tela LÊ, edita a quantidade (qtd) de
+// cada item enquanto o pedido está 'rascunho', e faz a transição de status.
 // Fonte da verdade: tabelas pedidos_reposicao / pedido_reposicao_itens no Supabase.
-// list() lê da view pedidos_reposicao_lista (migração 031), que só agrega
-// qtd_referencias/qtd_total por pedido para a lista não precisar de uma query
-// por card — byId/marcarStatus continuam nas tabelas base.
+// list() lê da view pedidos_reposicao_lista (migração 031/032), que agrega
+// qtd_referencias/qtd_total por pedido — muda sozinha quando a qtd de um item é
+// editada, então o total no card da lista não precisa ser recalculado à mão.
 
 export const reposicao = {
   async list(status = null) {
@@ -30,7 +31,7 @@ export const reposicao = {
 
     const { data: itens, error: e2 } = await supabase
       .from('pedido_reposicao_itens')
-      .select('id, referencia, tamanho, qtd, vendido_periodo, estoque_cd, ja_pedido')
+      .select('id, pedido_reposicao_id, referencia, tamanho, qtd, qtd_sugerida, vendido_periodo, estoque_cd, ja_pedido')
       .eq('pedido_reposicao_id', id)
       .order('referencia')
       .order('tamanho')
@@ -39,14 +40,33 @@ export const reposicao = {
     return { ...pedido, itens: itens ?? [] }
   },
 
+  // Grava a qtd editada de um conjunto de itens num único upsert (uma requisição,
+  // uma transação no PostgREST) — não item a item, pra não deixar metade gravada
+  // se a rede cair no meio. Conflito casado pela chave natural
+  // (pedido_reposicao_id, referencia, tamanho): a linha existente é atualizada no
+  // lugar, mantendo seu id. `rows` deve trazer a linha inteira (as colunas NOT
+  // NULL precisam estar presentes pro caso de INSERT que o upsert monta, mesmo
+  // que na prática sempre caia no UPDATE).
+  async salvarQuantidades(rows) {
+    if (!rows.length) return
+    const { error } = await supabase
+      .from('pedido_reposicao_itens')
+      .upsert(rows, { onConflict: 'pedido_reposicao_id,referencia,tamanho' })
+    if (error) throw error
+  },
+
+  // Transição de status. Guarda `eq('status', 'rascunho')` pra não "reabrir" um
+  // rascunho que outra pessoa já revisou/descartou (duplo-clique, aba parada).
   async marcarStatus(id, status, revisadoPor) {
     const { data, error } = await supabase
       .from('pedidos_reposicao')
       .update({ status, revisado_por: revisadoPor, revisado_em: new Date().toISOString() })
       .eq('id', id)
+      .eq('status', 'rascunho')
       .select()
-      .single()
+      .maybeSingle()
     if (error) throw error
+    if (!data) throw new Error('este rascunho não está mais disponível (já foi revisado ou descartado por outra pessoa)')
     return data
   },
 }
