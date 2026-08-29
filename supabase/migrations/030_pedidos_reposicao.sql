@@ -1,3 +1,11 @@
+-- ┌──────────────────────────────────────────────────────────────────────────────┐
+-- │ ATENÇÃO: a RPC salvar_pedido_reposicao() e a tabela pedido_reposicao_itens    │
+-- │ definidas aqui foram SUPERADAS pela migração 032_reconciliacao_reposicao.sql. │
+-- │ Produção tem 6 colunas extras (nome/tipo/classe/colecao/reffornecedor/        │
+-- │ codigo_ponto_e) + coluna qtd_sugerida + versão nova da função. Se você        │
+-- │ reaplicar SÓ este arquivo, derruba a função nova em silêncio. Rode a 032.     │
+-- └──────────────────────────────────────────────────────────────────────────────┘
+--
 -- Rascunho de pedido de reposicao vindo do ponto-e-stock (CD Ponto E).
 -- Tabela nova e desacoplada de sessoes/visitas/pedidos: reposicao nao nasce de uma
 -- sessao de compra com fornecedor, e um pedido avulso de "repor o que vendeu" (sem

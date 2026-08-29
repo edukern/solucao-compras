@@ -3,6 +3,11 @@
   max-width: 960px;
 }
 
+/* Tela de detalhe: grade agrupada por referência precisa de mais largura. */
+.pageWide {
+  max-width: 1180px;
+}
+
 .header {
   margin-bottom: 1.5rem;
 }
@@ -18,6 +23,13 @@
   color: var(--text-muted);
   line-height: 1.6;
   margin: 0;
+}
+
+.subtitleHint {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0.5rem 0 0;
 }
 
 .detalheTopo {
@@ -275,3 +287,155 @@
   color: var(--text-secondary);
 }
 .btnDescartar:hover:not(:disabled) { border-color: var(--red); color: var(--red); }
+
+.btnSalvarQtds {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--bg-primary);
+  margin-right: auto;
+}
+.btnSalvarQtds:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Grade agrupada por referência (padrão da tela Compras) ── */
+
+.blocos {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.refBloco {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.refHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 0.9rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.refCodigo {
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.refDesc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.gradeWrap {
+  overflow-x: auto;
+}
+
+.grade {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.83rem;
+}
+
+.grade th,
+.grade td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.grade tbody tr:last-child th,
+.grade tbody tr:last-child td { border-bottom: none; }
+
+.grade thead th {
+  background: var(--bg-card);
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.metricaCol {
+  text-align: left !important;
+  font-weight: 500;
+  color: var(--text-secondary);
+  position: sticky;
+  left: 0;
+  background: var(--bg-primary);
+  min-width: 8.5rem;
+}
+
+.grade thead .metricaCol { background: var(--bg-card); }
+
+.numCol { text-align: right; min-width: 3rem; }
+
+.totalCol {
+  text-align: right;
+  border-left: 1px solid var(--border);
+  min-width: 3.5rem;
+}
+.totalCol_alerta { color: var(--red); }
+
+.linhaEditavel th,
+.linhaEditavel td { background: rgba(252, 211, 77, 0.06); }
+
+.qtdInput {
+  width: 3rem;
+  padding: 0.2rem 0.3rem;
+  text-align: right;
+  font: inherit;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+.qtdInput:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.qtdInputDirty { border-color: var(--accent); font-weight: 600; }
+.qtdInputInvalido {
+  border-color: var(--red);
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.sugCell {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+
+.semTam { color: var(--text-muted); }
+
+.rodapeTotais {
+  display: flex;
+  align-items: baseline;
+  gap: 0.9rem;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+.rodapeSug { font-size: 0.75rem; color: var(--text-muted); }
+
+.avisoInvalido {
+  padding: 0.6rem 0.9rem;
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-radius: 8px;
+  color: var(--red);
+  font-size: 0.8rem;
+  margin-bottom: 1rem;
+}

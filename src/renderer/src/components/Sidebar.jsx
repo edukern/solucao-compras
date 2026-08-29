@@ -10,7 +10,7 @@ const NAV_ITEMS = [
   { id: 'dashboard',     label: 'Visão Geral',   Icon: LayoutDashboard },
   { id: 'planejamento',  label: 'Planejamento',  Icon: Target },
   { id: 'compras',       label: 'Compras',       Icon: ShoppingBag },
-  { id: 'reposicao',     label: 'Reposição',     Icon: RefreshCw },
+  { id: 'reposicao',     label: 'Reposição',     Icon: RefreshCw, editorOnly: true },
   { id: 'historico',     label: 'Histórico',     Icon: TrendingUp },
   { id: 'relatorios',    label: 'Relatórios',    Icon: BarChart2 },
   { id: 'agregador',     label: 'Agregador',     Icon: Table2 },
@@ -57,7 +57,7 @@ export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
       </div>
 
       <nav className={styles.nav}>
-        {NAV_ITEMS.map(({ id, label, Icon }) => (
+        {NAV_ITEMS.filter(({ editorOnly }) => !editorOnly || comprador?.is_editor).map(({ id, label, Icon }) => (
           <button
             key={id}
             className={`${styles.navBtn} ${current === id ? styles.active : ''}`}
