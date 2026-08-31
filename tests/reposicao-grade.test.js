@@ -1,94 +1,157 @@
 import { describe, it, expect } from 'vitest'
-import { ordenarTamanhos, agruparPorReferencia, editState } from '../src/renderer/src/screens/reposicaoGrade.js'
+import {
+  adivinharGrade, colunasDaGrade, gradesDoSeletor, agruparPorReferencia, editState,
+} from '../src/renderer/src/screens/reposicaoGrade.js'
 
-describe('ordenarTamanhos', () => {
-  it('usa a ordem da grade AD quando todos os tamanhos cabem nela', () => {
-    expect(ordenarTamanhos(['XG', 'P', 'GG', 'M', 'PP', 'G'])).toEqual(['PP', 'P', 'M', 'G', 'GG', 'XG'])
+describe('adivinharGrade', () => {
+  it('classe AD + tamanhos de letra -> AD', () => {
+    expect(adivinharGrade('AD', ['M', 'G', 'GG'])).toBe('AD')
   })
 
-  it('usa a ordem da grade EX (G1..G10) para tamanhos G1/G2/G3 fora de ordem', () => {
-    expect(ordenarTamanhos(['G3', 'G1', 'G2'])).toEqual(['G1', 'G2', 'G3'])
+  it('classe AD + tamanhos 34-52 -> AD1 (distingue pela régua, não pela classe)', () => {
+    expect(adivinharGrade('AD', ['38', '40', '46'])).toBe('AD1')
   })
 
-  it('usa a ordem de uma grade numérica (AD1) quando o subconjunto cabe nela', () => {
-    expect(ordenarTamanhos(['46', '38', '40'])).toEqual(['38', '40', '46'])
+  it('classe AD + tamanhos 1-5 -> AD2', () => {
+    expect(adivinharGrade('AD', ['1', '2', '3'])).toBe('AD2')
   })
 
-  it('sem grade que sirva, põe numéricos crescentes antes do texto', () => {
-    // nenhuma grade tem "0" e "U" juntos -> cai no fallback
-    expect(ordenarTamanhos(['U', '0'])).toEqual(['0', 'U'])
+  it('classe INF + tamanhos de letra -> INF1 (não INF numérica)', () => {
+    expect(adivinharGrade('INF', ['P', 'G', 'GG'])).toBe('INF1')
   })
 
-  it('fallback ordena rótulos de texto alfabeticamente', () => {
-    expect(ordenarTamanhos(['XPTO', 'ABC'])).toEqual(['ABC', 'XPTO'])
+  it('classe JUV + tamanhos de letra -> JUV1', () => {
+    expect(adivinharGrade('JUV', ['GG', 'P'])).toBe('JUV1')
   })
 
-  it('tamanho único passa sem mexer', () => {
-    expect(ordenarTamanhos(['U'])).toEqual(['U'])
+  it('classe EX + G1..G4 -> EX', () => {
+    expect(adivinharGrade('EX', ['G1', 'G2', 'G3', 'G4'])).toBe('EX')
   })
 
-  it('não muta o array recebido', () => {
-    const orig = ['XG', 'P', 'M']
-    ordenarTamanhos(orig)
-    expect(orig).toEqual(['XG', 'P', 'M'])
+  it('classe EX + tamanho que não cabe em nenhuma grade EX -> default da classe (EX)', () => {
+    expect(adivinharGrade('EX', ['XG'])).toBe('EX')
+  })
+
+  it('só um tamanho comum (M) + classe AD -> AD (default de letras)', () => {
+    expect(adivinharGrade('AD', ['M'])).toBe('AD')
+  })
+
+  it('sem classe -> não quebra (retorna alguma grade ou null)', () => {
+    const g = adivinharGrade('', ['M'])
+    expect(g === null || typeof g === 'string').toBe(true)
+  })
+})
+
+describe('colunasDaGrade', () => {
+  it('devolve a régua canônica da grade', () => {
+    expect(colunasDaGrade('AD', [])).toEqual(['PP', 'P', 'M', 'G', 'GG', 'XG'])
+  })
+
+  it('acrescenta ao final tamanho presente que está fora da régua (nunca esconder dado)', () => {
+    expect(colunasDaGrade('EX', ['XG'])).toEqual(['G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8', 'G9', 'G10', 'XG'])
+  })
+
+  it('não duplica tamanho que já está na régua', () => {
+    expect(colunasDaGrade('AD', ['M', 'G'])).toEqual(['PP', 'P', 'M', 'G', 'GG', 'XG'])
+  })
+
+  it('grade desconhecida -> só os tamanhos presentes', () => {
+    expect(colunasDaGrade('XXX', ['M', 'G'])).toEqual(['M', 'G'])
+  })
+})
+
+describe('gradesDoSeletor', () => {
+  it('coloca as grades da classe primeiro', () => {
+    const opts = gradesDoSeletor('AD', 'AD')
+    expect(opts.slice(0, 3)).toEqual(['AD', 'AD1', 'AD2'])
+    expect(opts).toContain('EX')
+  })
+
+  it('garante a grade atual na lista mesmo sendo de outra classe', () => {
+    expect(gradesDoSeletor('AD', 'EX')[0]).toBe('EX')
   })
 })
 
 describe('agruparPorReferencia', () => {
   const itens = [
-    { id: 'a', referencia: 'R1', tamanho: 'G',  qtd: 7, nome: 'CAMISETA', tipo: 'AD', classe: 'FEM' },
-    { id: 'b', referencia: 'R1', tamanho: 'P',  qtd: 4, nome: 'CAMISETA', tipo: 'AD', classe: 'FEM' },
-    { id: 'c', referencia: 'R1', tamanho: 'M',  qtd: 10, nome: 'CAMISETA', tipo: 'AD', classe: 'FEM' },
-    { id: 'd', referencia: 'R2', tamanho: 'U',  qtd: 15 },
+    { id: 'a', pedido_reposicao_id: 'P', referencia: '117', tamanho: 'G',  qtd: 5, qtd_sugerida: 5, vendido_periodo: 5, estoque_cd: 0, ja_pedido: 0, nome: 'SUTIA AD FEM 117', tipo: 'SUTIA', classe: 'AD', colecao: '2026/2', reffornecedor: '117', codigo_ponto_e: '1.2280', foto_url: 'http://x/117.jpg', tipo_grade: null },
+    { id: 'b', pedido_reposicao_id: 'P', referencia: '117', tamanho: 'GG', qtd: 3, qtd_sugerida: 4, vendido_periodo: 4, estoque_cd: 1, ja_pedido: 0, nome: 'SUTIA AD FEM 117', tipo: 'SUTIA', classe: 'AD', colecao: '2026/2', reffornecedor: '117', codigo_ponto_e: '1.2280', foto_url: 'http://x/117.jpg', tipo_grade: null },
+    { id: 'c', pedido_reposicao_id: 'P', referencia: '125', tamanho: 'G2', qtd: 7, qtd_sugerida: 7, vendido_periodo: 8, estoque_cd: 2, ja_pedido: 1, nome: 'BOXER EX MASC 125', tipo: 'BOXER', classe: 'EX', colecao: '2026/2', reffornecedor: '125', codigo_ponto_e: '2.148', foto_url: null, tipo_grade: null },
   ]
 
-  it('cria um grupo por referência, na ordem de aparição', () => {
-    const g = agruparPorReferencia(itens)
-    expect(g.map(x => x.referencia)).toEqual(['R1', 'R2'])
+  it('um grupo por referência, na ordem de aparição', () => {
+    expect(agruparPorReferencia(itens).map(g => g.referencia)).toEqual(['117', '125'])
   })
 
-  it('ordena os tamanhos de cada grupo pela grade', () => {
-    const [r1] = agruparPorReferencia(itens)
-    expect(r1.tamanhos).toEqual(['P', 'M', 'G'])
+  it('carrega campos descritivos e foto de qualquer item da ref', () => {
+    const [r117] = agruparPorReferencia(itens)
+    expect(r117.nome).toBe('SUTIA AD FEM 117')
+    expect(r117.classe).toBe('AD')
+    expect(r117.foto_url).toBe('http://x/117.jpg')
   })
 
-  it('indexa os itens por tamanho', () => {
-    const [r1] = agruparPorReferencia(itens)
-    expect(r1.porTamanho['M'].id).toBe('c')
-    expect(r1.porTamanho['G'].qtd).toBe(7)
+  it('gradePalpite pela classe + tamanhos presentes', () => {
+    const [r117, r125] = agruparPorReferencia(itens)
+    expect(r117.gradePalpite).toBe('AD')
+    expect(r125.gradePalpite).toBe('EX')
   })
 
-  it('carrega nome/tipo/classe quando existem e null quando não', () => {
-    const [r1, r2] = agruparPorReferencia(itens)
-    expect(r1.nome).toBe('CAMISETA')
-    expect(r1.classe).toBe('FEM')
-    expect(r2.nome).toBeNull()
-    expect(r2.tipo).toBeNull()
+  it('gradeInicial usa tipo_grade gravado quando ele é uma grade conhecida', () => {
+    const comGrade = itens.map(i => i.referencia === '117' ? { ...i, tipo_grade: 'AD1' } : i)
+    const [r117] = agruparPorReferencia(comGrade)
+    expect(r117.tipoGradeSalva).toBe('AD1')
+    expect(r117.gradeInicial).toBe('AD1')
+  })
+
+  it('gradeInicial ignora tipo_grade gravado inválido e cai no palpite', () => {
+    const comLixo = itens.map(i => i.referencia === '117' ? { ...i, tipo_grade: 'GENERICA' } : i)
+    const [r117] = agruparPorReferencia(comLixo)
+    expect(r117.gradeInicial).toBe('AD')
+  })
+
+  it('totalSugerido soma qtd_sugerida; totalAtual soma qtd', () => {
+    const [r117] = agruparPorReferencia(itens)
+    expect(r117.totalSugerido).toBe(9) // 5 + 4
+    expect(r117.totalAtual).toBe(8)    // 5 + 3
+  })
+
+  it('indexa itens por tamanho', () => {
+    const [r117] = agruparPorReferencia(itens)
+    expect(r117.porTamanho['GG'].id).toBe('b')
   })
 })
 
 describe('editState', () => {
-  it('não tocado -> clean', () => {
-    expect(editState(undefined, 10)).toBe('clean')
+  it('linha existente: não tocado / igual / com espaços -> clean', () => {
+    expect(editState(undefined, 5)).toBe('clean')
+    expect(editState('5', 5)).toBe('clean')
+    expect(editState(' 5 ', 5)).toBe('clean')
   })
 
-  it('igual ao original (com ou sem espaços) -> clean', () => {
-    expect(editState('10', 10)).toBe('clean')
-    expect(editState('  10 ', 10)).toBe('clean')
+  it('linha existente: inteiro 1..9999 diferente -> dirty', () => {
+    expect(editState('12', 5)).toBe('dirty')
+    expect(editState('1', 5)).toBe('dirty')
   })
 
-  it('inteiro diferente dentro de 1..9999 -> dirty', () => {
-    expect(editState('12', 10)).toBe('dirty')
-    expect(editState('1', 10)).toBe('dirty')
-    expect(editState('9999', 10)).toBe('dirty')
+  it('linha existente: 0 / negativo / >9999 / texto -> invalid (não dá pra zerar sugestão)', () => {
+    expect(editState('0', 5)).toBe('invalid')
+    expect(editState('-1', 5)).toBe('invalid')
+    expect(editState('10000', 5)).toBe('invalid')
+    expect(editState('x', 5)).toBe('invalid')
   })
 
-  it('zero, negativo, acima de 9999, texto ou vazio -> invalid', () => {
-    expect(editState('0', 10)).toBe('invalid')
-    expect(editState('-1', 10)).toBe('invalid')
-    expect(editState('10000', 10)).toBe('invalid')
-    expect(editState('abc', 10)).toBe('invalid')
-    expect(editState('', 10)).toBe('invalid')
-    expect(editState('3,5', 10)).toBe('invalid')
+  it('tamanho novo (sem linha): vazio ou 0 -> clean', () => {
+    expect(editState('', null)).toBe('clean')
+    expect(editState('0', null)).toBe('clean')
+    expect(editState(undefined, null)).toBe('clean')
+  })
+
+  it('tamanho novo: inteiro 1..9999 -> dirty', () => {
+    expect(editState('8', null)).toBe('dirty')
+  })
+
+  it('tamanho novo: texto / >9999 -> invalid', () => {
+    expect(editState('abc', null)).toBe('invalid')
+    expect(editState('99999', null)).toBe('invalid')
   })
 })

@@ -304,60 +304,127 @@
 }
 .btnSalvarQtds:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* ── Grade agrupada por referência (padrão da tela Compras) ── */
+/* ── Lista compacta de referências (padrão da tela Compras) ── */
 
-.blocos {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  margin-bottom: 1.25rem;
-}
-
-.refBloco {
+.refLista {
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
+  margin-bottom: 1.25rem;
 }
 
-.refHeader {
+.refBloco { border-top: 1px solid var(--border); }
+.refBloco:first-child { border-top: none; }
+.refBlocoAberto { background: var(--bg-secondary); }
+
+.refLinha {
   display: flex;
-  align-items: baseline;
-  gap: 0.6rem;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
   padding: 0.6rem 0.9rem;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
+.refLinha:hover { background: var(--bg-secondary); }
 
-.refCodigo {
-  font-size: 0.9rem;
+.refChevron { color: var(--text-muted); flex-shrink: 0; }
+
+.refCod {
   font-weight: 700;
-  letter-spacing: 0.01em;
+  font-size: 0.85rem;
+  min-width: 5.5rem;
+  flex-shrink: 0;
 }
 
-.refDesc {
-  font-size: 0.78rem;
+.refProd {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.refSug {
+  font-size: 0.8rem;
   color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.refAgora { color: var(--accent); font-weight: 600; }
+
+/* ── Expansão: foto + info + grade ── */
+
+.expansao {
+  padding: 0.75rem 0.9rem 1rem;
+  border-top: 1px solid var(--border);
 }
 
-.gradeWrap {
-  overflow-x: auto;
+.expTopo {
+  display: flex;
+  gap: 0.9rem;
+  margin-bottom: 0.75rem;
 }
+
+.foto {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg-card);
+}
+
+.expInfo { min-width: 0; }
+
+.expNome {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.15rem;
+}
+
+.expMeta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 0.4rem;
+}
+
+.gradeSel {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+.gradeSel select {
+  font: inherit;
+  padding: 0.15rem 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+.gradeHint { color: var(--yellow); font-size: 0.72rem; }
+
+.gradeWrap { overflow-x: auto; }
 
 .grade {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.83rem;
+  font-size: 0.82rem;
 }
 
 .grade th,
 .grade td {
-  padding: 0.4rem 0.6rem;
+  padding: 0.35rem 0.55rem;
   border-bottom: 1px solid var(--border);
   text-align: right;
   white-space: nowrap;
 }
-
 .grade tbody tr:last-child th,
 .grade tbody tr:last-child td { border-bottom: none; }
 
@@ -365,29 +432,22 @@
   background: var(--bg-card);
   font-weight: 600;
   color: var(--text-secondary);
-  border-bottom: 1px solid var(--border);
 }
 
 .metricaCol {
   text-align: left !important;
   font-weight: 500;
   color: var(--text-secondary);
-  position: sticky;
-  left: 0;
-  background: var(--bg-primary);
-  min-width: 8.5rem;
+  min-width: 7.5rem;
 }
 
-.grade thead .metricaCol { background: var(--bg-card); }
-
-.numCol { text-align: right; min-width: 3rem; }
+.numCol { text-align: right; min-width: 2.75rem; }
 
 .totalCol {
   text-align: right;
   border-left: 1px solid var(--border);
-  min-width: 3.5rem;
+  min-width: 3.25rem;
 }
-.totalCol_alerta { color: var(--red); }
 
 .linhaEditavel th,
 .linhaEditavel td { background: rgba(252, 211, 77, 0.06); }
@@ -402,11 +462,9 @@
   background: var(--bg-card);
   color: var(--text-primary);
 }
-.qtdInput:focus {
-  outline: none;
-  border-color: var(--accent);
-}
+.qtdInput:focus { outline: none; border-color: var(--accent); }
 .qtdInputDirty { border-color: var(--accent); font-weight: 600; }
+.qtdInputNovo { border-style: dashed; color: var(--text-muted); }
 .qtdInputInvalido {
   border-color: var(--red);
   background: rgba(248, 113, 113, 0.1);
@@ -420,15 +478,6 @@
 }
 
 .semTam { color: var(--text-muted); }
-
-.rodapeTotais {
-  display: flex;
-  align-items: baseline;
-  gap: 0.9rem;
-  font-size: 0.85rem;
-  margin-bottom: 1rem;
-}
-.rodapeSug { font-size: 0.75rem; color: var(--text-muted); }
 
 .avisoInvalido {
   padding: 0.6rem 0.9rem;
