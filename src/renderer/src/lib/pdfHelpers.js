@@ -647,16 +647,20 @@ export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride
       }
       const activeSizes = sizeOrder.filter(t => sizeHasQty.has(t))
 
-      // Cor/Detalhe entra sempre na célula de Referência (por referência — só aparece
-      // nas que têm valor, sem coluna global vazia para as que não têm).
-      // Obs vira coluna própria só se sobrar espaço legível para os tamanhos.
-      const showCorDetCol = false
-      let showObsCol = temObsCol
+      // Cor/Detalhe e Obs só viram coluna própria se sobrar espaço legível pros tamanhos —
+      // senão a grade fica ilegível (número cortado é pior que o texto quebrar linha), e
+      // volta a concatenar tudo na coluna Referência, como era antes.
+      let showCorDetCol = temCorDetalhe, showObsCol = temObsCol
       const larguraDisponivel = extra => PW - (W_REF + extra + W_PROD + W_QTOT + W_PREC + W_TOT + W_RLIQ + (temICMS ? W_ICMS : 0))
-      let extraWidth = showObsCol ? W_OBS : 0
+      let extraWidth = (showCorDetCol ? W_CORDET : 0) + (showObsCol ? W_OBS : 0)
       let avail = larguraDisponivel(extraWidth)
       if (activeSizes.length && avail / activeSizes.length < MIN_SZ) {
         showObsCol = false
+        extraWidth = showCorDetCol ? W_CORDET : 0
+        avail = larguraDisponivel(extraWidth)
+      }
+      if (activeSizes.length && avail / activeSizes.length < MIN_SZ) {
+        showCorDetCol = false
         extraWidth = 0
         avail = larguraDisponivel(0)
       }
@@ -692,9 +696,9 @@ export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride
         const totalV = totalQ * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100)
         const tipo_produto = p.tipo_produto ?? p.segmentacao?.tipo_produto ?? ''
         const classe       = p.classe ?? p.segmentacao?.classe ?? ''
-        // Cor/Detalhe sempre inline na célula de referência; Obs em coluna própria se couber.
-        const refLabel = showObsCol
-          ? [p.referencia, p.cor, p.detalhe].filter(Boolean).join(' ')
+        // Sem colunas próprias: mantém o formato antigo (tudo junto, uma linha por campo).
+        const refLabel = (showCorDetCol || showObsCol)
+          ? (p.referencia || '')
           : [p.referencia, p.cor, p.detalhe, p.obs].filter(Boolean).join('\n')
         return [
           refLabel,
