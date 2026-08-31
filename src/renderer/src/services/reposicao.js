@@ -31,7 +31,7 @@ export const reposicao = {
 
     const { data: itens, error: e2 } = await supabase
       .from('pedido_reposicao_itens')
-      .select('id, pedido_reposicao_id, referencia, tamanho, qtd, qtd_sugerida, vendido_periodo, estoque_cd, ja_pedido')
+      .select('id, pedido_reposicao_id, referencia, tamanho, qtd, qtd_sugerida, vendido_periodo, estoque_cd, ja_pedido, nome, tipo, classe, colecao, reffornecedor, codigo_ponto_e, foto_url, tipo_grade')
       .eq('pedido_reposicao_id', id)
       .order('referencia')
       .order('tamanho')
@@ -40,13 +40,13 @@ export const reposicao = {
     return { ...pedido, itens: itens ?? [] }
   },
 
-  // Grava a qtd editada de um conjunto de itens num único upsert (uma requisição,
-  // uma transação no PostgREST) — não item a item, pra não deixar metade gravada
-  // se a rede cair no meio. Conflito casado pela chave natural
-  // (pedido_reposicao_id, referencia, tamanho): a linha existente é atualizada no
-  // lugar, mantendo seu id. `rows` deve trazer a linha inteira (as colunas NOT
-  // NULL precisam estar presentes pro caso de INSERT que o upsert monta, mesmo
-  // que na prática sempre caia no UPDATE).
+  // Grava a qtd de um conjunto de itens num único upsert (uma requisição, uma
+  // transação no PostgREST) — não item a item, pra não deixar metade gravada se
+  // a rede cair no meio. Conflito casado pela chave natural
+  // (pedido_reposicao_id, referencia, tamanho): tamanho que já existe é
+  // atualizado no lugar (mantém o id); tamanho novo (comprador completando a
+  // grade além da sugestão) é inserido. `rows` traz a linha inteira porque as
+  // colunas NOT NULL precisam estar presentes no caso de INSERT.
   async salvarQuantidades(rows) {
     if (!rows.length) return
     const { error } = await supabase
