@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import { ArrowLeft, Check, X, ChevronRight, ChevronDown, Save } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from 'react'
+import { ArrowLeft, Check, X, ChevronRight, Save } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { reposicao as reposicaoService } from '../services/reposicao'
 import { tamanhosDeTipoGrade } from '../constants/grades'
@@ -19,10 +19,11 @@ function fmtDateTime(iso) {
   return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-// "SUTIA · AD · FEM" a partir de tipo + classe + gênero embutido no nome.
-function descricaoCurta(g) {
+// "SUTIA · AD · FEM" — mesmo formato de "Produto · Grade · Classe" do Compras.
+// A grade do meio é a escolhida no seletor (muda quando o comprador troca).
+function descricaoCurta(g, grade) {
   const genero = /\bMASC\b/i.test(g.nome || '') ? 'MASC' : /\bFEM\b/i.test(g.nome || '') ? 'FEM' : null
-  return [g.tipo, g.classe, genero].filter(Boolean).join(' · ')
+  return [g.tipo, grade, genero].filter(Boolean).join(' · ')
 }
 
 // Percorre o mapa de edições { [ref]: { [tam]: raw } } como lista [ref, tam, raw].
@@ -143,7 +144,7 @@ function ListaRascunhos({ onAbrir }) {
   )
 }
 
-// ─── Detalhe: grade agrupada, uma referência aberta por vez ──────────────────
+// ─── Detalhe: mesma tabela do Compras (Registrar Pedidos / Por referência) ───
 
 function DetalheRascunho({ id, onVoltar, onStatusChange }) {
   const { comprador, user } = useAuth()
@@ -156,6 +157,9 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
   const [expandida,   setExpandida]   = useState(null)    // referencia aberta
   const [edits,       setEdits]       = useState({})      // { [ref]: { [tam]: rawString } }
   const [gradeSel,    setGradeSel]    = useState({})      // { [ref]: gradeCode escolhido }
+
+  const firstQtdRef     = useRef(null)   // 1º input da linha Qtd da ref aberta
+  const focusOnExpand   = useRef(false)  // pedir foco no 1º input ao expandir (nav por teclado)
 
   // Recarrega do banco (fonte da verdade) e descarta edits/seleções locais.
   const carregar = useCallback(() => {
@@ -175,6 +179,14 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [id])
+
+  // Foco no 1º campo ao abrir uma ref via Enter/Tab (não em clique).
+  useEffect(() => {
+    if (focusOnExpand.current && firstQtdRef.current) {
+      firstQtdRef.current.focus()
+    }
+    focusOnExpand.current = false
+  }, [expandida])
 
   const grupos      = useMemo(() => (pedido ? agruparPorReferencia(pedido.itens) : []), [pedido])
   const gruposByRef = useMemo(() => Object.fromEntries(grupos.map(g => [g.referencia, g])), [grupos])
@@ -209,6 +221,25 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
   const totalEfetivoRef = (g) =>
     colunasDaGrade(gradeDaRef(g), g.tamanhosPresentes)
       .reduce((s, t) => s + valorEfetivo(g.referencia, t), 0)
+
+  // Navegação por teclado igual ao Compras: Enter/Tab avança pelo próximo campo
+  // da linha; no fim da linha, abre a próxima referência e foca o 1º campo dela.
+  // Esc fecha a referência.
+  function handleKeyNavQtd(e) {
+    if (e.key === 'Escape') { e.currentTarget.blur(); setExpandida(null); return }
+    const avancar = e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)
+    if (!avancar) return
+    e.preventDefault()
+    const row = e.target.closest('[data-qtd-row]')
+    const inputs = row ? Array.from(row.querySelectorAll('input')) : []
+    const i = inputs.indexOf(e.target)
+    if (i >= 0 && i < inputs.length - 1) { inputs[i + 1].focus(); return }
+    const idx = grupos.findIndex(g => g.referencia === expandida)
+    if (idx >= 0 && idx < grupos.length - 1) {
+      focusOnExpand.current = true
+      setExpandida(grupos[idx + 1].referencia)
+    }
+  }
 
   async function handleSalvarQtds() {
     setErroSalvar(null)
@@ -309,139 +340,144 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
         </p>
         {editavel && (
           <p className={styles.subtitleHint}>
-            Clique numa referência para abrir a grade. A quantidade sugerida já vem preenchida; complete os outros tamanhos se quiser. Depois clique em <strong>Salvar quantidades</strong> e então marque como revisado.
+            Clique numa referência para abrir a grade. A quantidade sugerida já vem preenchida; complete os outros tamanhos se quiser (Enter/Tab anda pelos campos). Depois clique em <strong>Salvar quantidades</strong> e então marque como revisado.
           </p>
         )}
       </div>
 
-      <div className={styles.refLista}>
-        {grupos.map(g => {
-          const aberta = expandida === g.referencia
-          const editada = refsComEdicao.has(g.referencia)
-          const grade = gradeDaRef(g)
-          const colunas = colunasDaGrade(grade, g.tamanhosPresentes)
-          return (
-            <div key={g.referencia} className={`${styles.refBloco} ${aberta ? styles.refBlocoAberto : ''}`}>
-              <button
-                type="button"
-                className={styles.refLinha}
-                onClick={() => setExpandida(aberta ? null : g.referencia)}
-              >
-                {aberta
-                  ? <ChevronDown size={16} strokeWidth={1.8} className={styles.refChevron} />
-                  : <ChevronRight size={16} strokeWidth={1.8} className={styles.refChevron} />}
-                <span className={styles.refCod}>{g.referencia}</span>
-                <span className={styles.refProd}>{descricaoCurta(g) || g.nome || '—'}</span>
-                <span className={styles.refSug}>
-                  Sugestão: <strong>{g.totalSugerido}</strong> un.
-                  {editada && <span className={styles.refAgora}> → {totalEfetivoRef(g)} un.</span>}
-                </span>
-              </button>
-
-              {aberta && (
-                <div className={styles.expansao}>
-                  <div className={styles.expTopo}>
-                    {g.foto_url && (
-                      <img
-                        src={g.foto_url}
-                        alt=""
-                        className={styles.foto}
-                        loading="lazy"
-                        referrerPolicy="no-referrer"
-                        onError={e => { e.currentTarget.style.display = 'none' }}
-                      />
+      <table className={styles.itemsTable}>
+        <thead>
+          <tr>
+            <th>Ref</th>
+            <th>Produto · Grade · Classe</th>
+            <th>Peças</th>
+          </tr>
+        </thead>
+        <tbody>
+          {grupos.map(g => {
+            const aberta  = expandida === g.referencia
+            const editada = refsComEdicao.has(g.referencia)
+            const grade   = gradeDaRef(g)
+            const colunas = colunasDaGrade(grade, g.tamanhosPresentes)
+            const pecas   = totalEfetivoRef(g)
+            return (
+              <Fragment key={g.referencia}>
+                <tr
+                  className={`${styles.itemRow} ${aberta ? styles.itemRowActive : ''}`}
+                  onClick={() => setExpandida(aberta ? null : g.referencia)}
+                >
+                  <td>{g.referencia || <span className={styles.itemDot}>—</span>}</td>
+                  <td>
+                    {descricaoCurta(g, grade) || g.nome || '—'}
+                    {editada && g.totalSugerido !== pecas && (
+                      <span className={styles.itemRefDetail}>sugestão: {g.totalSugerido}</span>
                     )}
-                    <div className={styles.expInfo}>
-                      <div className={styles.expNome}>{g.nome || descricaoCurta(g) || g.referencia}</div>
-                      <div className={styles.expMeta}>
-                        {[
-                          g.reffornecedor && `Ref. forn.: ${g.reffornecedor}`,
-                          g.colecao && `Coleção ${g.colecao}`,
-                          g.codigo_ponto_e && `cód. ${g.codigo_ponto_e}`,
-                        ].filter(Boolean).join(' · ')}
-                      </div>
-                      <label className={styles.gradeSel}>
-                        Grade:{' '}
-                        <select
-                          value={grade || ''}
-                          disabled={!editavel}
-                          onChange={e => setGradeSel(p => ({ ...p, [g.referencia]: e.target.value }))}
-                        >
-                          {gradesDoSeletor(g.classe, grade).map(k => (
-                            <option key={k} value={k}>{k} — {tamanhosDeTipoGrade(k).join('/') || '—'}</option>
-                          ))}
-                        </select>
-                        {editavel && !g.tipoGradeSalva && grade === g.gradePalpite && (
-                          <span className={styles.gradeHint}> (palpite — confira)</span>
-                        )}
-                      </label>
-                    </div>
-                  </div>
+                  </td>
+                  <td><strong>{pecas > 0 ? pecas : <span className={styles.itemDot}>—</span>}</strong></td>
+                </tr>
 
-                  <div className={styles.gradeWrap}>
-                    <table className={styles.grade}>
-                      <thead>
-                        <tr>
-                          <th className={styles.metricaCol}></th>
-                          {colunas.map(t => <th key={t} className={styles.numCol}>{t}</th>)}
-                          <th className={styles.totalCol}>Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr className={styles.linhaEditavel}>
-                          <th className={styles.metricaCol}>Qtd</th>
-                          {colunas.map(t => {
-                            const it = g.porTamanho[t]
-                            const st = estadoDe(g.referencia, t)
+                {aberta && (
+                  <tr className={styles.gradeExpansionRow}>
+                    <td colSpan={3} className={styles.gradeExpansionCell}>
+                      <div className={styles.gradeInlineWrap}>
+                        <div className={styles.expTopo}>
+                          {g.foto_url && (
+                            <img
+                              src={g.foto_url}
+                              alt=""
+                              className={styles.foto}
+                              loading="lazy"
+                              referrerPolicy="no-referrer"
+                              onError={e => { e.currentTarget.style.display = 'none' }}
+                            />
+                          )}
+                          <div className={styles.expInfo}>
+                            <div className={styles.expNome}>{g.nome || descricaoCurta(g, grade) || g.referencia}</div>
+                            <div className={styles.expMeta}>
+                              {[
+                                g.reffornecedor && `Ref. forn.: ${g.reffornecedor}`,
+                                g.colecao && `Coleção ${g.colecao}`,
+                                g.codigo_ponto_e && `cód. ${g.codigo_ponto_e}`,
+                              ].filter(Boolean).join(' · ')}
+                            </div>
+                            <label className={styles.gradeSel}>
+                              Grade:{' '}
+                              <select
+                                value={grade || ''}
+                                disabled={!editavel}
+                                onChange={e => setGradeSel(p => ({ ...p, [g.referencia]: e.target.value }))}
+                              >
+                                {gradesDoSeletor(g.classe, grade).map(k => (
+                                  <option key={k} value={k}>{k} — {tamanhosDeTipoGrade(k).join('/') || '—'}</option>
+                                ))}
+                              </select>
+                              {editavel && !g.tipoGradeSalva && grade === g.gradePalpite && (
+                                <span className={styles.gradeHint}> (palpite — confira)</span>
+                              )}
+                            </label>
+                          </div>
+                        </div>
+
+                        <div className={styles.gradeInlineHeader}>
+                          <div className={styles.gradeInlineLoja} />
+                          {colunas.map(t => (
+                            <div key={t} className={styles.gradeInlineSize}>{t}</div>
+                          ))}
+                          <div className={styles.gradeInlineTotalHead}>Total</div>
+                        </div>
+
+                        <div className={styles.gradeInlineRow} data-qtd-row>
+                          <div className={styles.gradeInlineLoja}>Qtd</div>
+                          {colunas.map((t, ci) => {
+                            const it  = g.porTamanho[t]
+                            const st  = estadoDe(g.referencia, t)
                             const raw = rawDe(g.referencia, t)
-                            const mostrarSug = it && it.qtd_sugerida != null && st !== 'clean'
-                              && String(it.qtd_sugerida) !== String(raw).trim()
                             return (
-                              <td key={t} className={styles.numCol}>
+                              <div key={t} className={styles.gradeInlineSize}>
                                 {editavel ? (
-                                  <>
-                                    <input
-                                      type="text"
-                                      inputMode="numeric"
-                                      className={`${styles.qtdInput} ${st === 'invalid' ? styles.qtdInputInvalido : ''} ${st === 'dirty' ? styles.qtdInputDirty : ''} ${!it ? styles.qtdInputNovo : ''}`}
-                                      value={raw}
-                                      placeholder={it ? '' : '·'}
-                                      onChange={e => setQtd(g.referencia, t, e.target.value)}
-                                      aria-label={`Quantidade ${g.referencia} tamanho ${t}`}
-                                    />
-                                    {mostrarSug && <span className={styles.sugCell}>sug. {it.qtd_sugerida}</span>}
-                                  </>
+                                  <input
+                                    ref={ci === 0 ? firstQtdRef : null}
+                                    type="number"
+                                    min="0"
+                                    className={`${styles.qtyInput} ${st === 'invalid' ? styles.qtyInputInvalido : ''} ${st === 'dirty' ? styles.qtyInputDirty : ''} ${!it ? styles.qtyInputNovo : ''}`}
+                                    value={raw}
+                                    placeholder={it ? '0' : '·'}
+                                    onChange={e => setQtd(g.referencia, t, e.target.value)}
+                                    onKeyDown={handleKeyNavQtd}
+                                    aria-label={`Quantidade ${g.referencia} tamanho ${t}`}
+                                  />
                                 ) : (
                                   it ? <strong>{it.qtd}</strong> : <span className={styles.semTam}>—</span>
                                 )}
-                              </td>
+                              </div>
                             )
                           })}
-                          <td className={styles.totalCol}><strong>{totalEfetivoRef(g)}</strong></td>
-                        </tr>
+                          <div className={styles.gradeInlineTotalReadonly}>{pecas || '—'}</div>
+                        </div>
+
                         {METRICAS_LEITURA.map(m => {
                           const soma = colunas.reduce((s, t) => s + (g.porTamanho[t]?.[m.key] ?? 0), 0)
                           return (
-                            <tr key={m.key}>
-                              <th className={styles.metricaCol}>{m.label}</th>
+                            <div key={m.key} className={`${styles.gradeInlineRow} ${styles.gradeInlineRowRead}`}>
+                              <div className={styles.gradeInlineLoja}>{m.label}</div>
                               {colunas.map(t => (
-                                <td key={t} className={styles.numCol}>
+                                <div key={t} className={styles.gradeInlineSize}>
                                   {g.porTamanho[t] ? g.porTamanho[t][m.key] : <span className={styles.semTam}>—</span>}
-                                </td>
+                                </div>
                               ))}
-                              <td className={styles.totalCol}>{soma}</td>
-                            </tr>
+                              <div className={styles.gradeInlineTotalReadonly}>{soma}</div>
+                            </div>
                           )
                         })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            )
+          })}
+        </tbody>
+      </table>
 
       {erroSalvar && <div className={styles.erro}>{erroSalvar}</div>}
       {temInvalido && !erroSalvar && (
