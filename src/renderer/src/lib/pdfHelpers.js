@@ -806,3 +806,191 @@ export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride
     return { ok: false }
   }
 }
+
+// ─── PDF do pedido de reposição (do CD) ─────────────────────────────────────
+// Documento único. Não tem loja/visita/fornecedor no modelo — a `marca` é a
+// destinatária. Duas variantes:
+//   - interno    (padrão): mostra tudo, inclusive cód. interno e as métricas
+//                 Vendido/Estoque/Já pedido.
+//   - fornecedor: lista de campos PERMITIDOS (allow-list) — Referência (=código
+//                 do fornecedor), Produto, tamanhos/Qtd, R$ un., Total. Nunca
+//                 codigo_ponto_e nem as métricas internas.
+//
+// `grupos` vem pré-computado da tela (grade escolhida + qtds já salvas):
+//   { referencia, reffornecedor, codigo_ponto_e, nome, tipo, classe, grade,
+//     colunas:[tam], porTamanho:{ tam:{qtd,vendido_periodo,estoque_cd,ja_pedido} },
+//     custoRef, totalQtd }
+// `cd` (só na variante fornecedor): { nome, cnpj, endereco, cidade, ie } —
+//   lido da linha de `compradores` do CD.
+const REPOSICAO_PDF_STYLES = `
+  body { font-family: Arial, sans-serif; font-size: 10px; color: #000; margin: 0; }
+  .rp { padding: 12px 16px; }
+  .rp-h { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #000; padding-bottom:8px; margin-bottom:10px; gap:24px; }
+  .rp-title { font-size:11px; font-weight:bold; letter-spacing:.06em; color:#a00; text-transform:uppercase; }
+  .rp-marca { font-size:18px; font-weight:900; margin:2px 0 4px; }
+  .rp-meta { font-size:9px; color:#444; }
+  .rp-cd { text-align:right; font-size:9px; min-width:220px; }
+  .rp-cd-name { font-size:11px; font-weight:bold; margin-bottom:2px; }
+  .rp-grade { font-size:9px; font-weight:bold; color:#555; margin:12px 0 3px; text-transform:uppercase; letter-spacing:.04em; }
+  .rp-tbl { width:100%; border-collapse:collapse; font-size:9px; table-layout:fixed; }
+  .rp-tbl th,.rp-tbl td { border:0.5px solid #bbb; padding:2px 3px; text-align:center; overflow:hidden; white-space:nowrap; }
+  .rp-tbl th { background:#e0e0e0; font-weight:bold; font-size:8px; }
+  .rp-tbl .ref { text-align:left; width:110px; white-space:normal; word-break:break-word; }
+  .rp-tbl .ref small { color:#777; font-weight:normal; }
+  .rp-tbl .prod { text-align:left; width:96px; white-space:normal; }
+  .rp-tbl .t { width:20px; background:#f5f5f5; color:#555; font-size:8px; }
+  .rp-tbl .q { width:22px; }
+  .rp-tbl .q0 { color:#ccc; }
+  .rp-tbl .qt { width:30px; font-weight:bold; }
+  .rp-tbl .num { width:50px; text-align:right; }
+  .rp-tbl .tot { width:60px; text-align:right; font-weight:bold; }
+  .rp-tbl .m { width:38px; color:#1a5; font-size:8px; }
+  .rp-tbl tbody tr { page-break-inside:avoid; break-inside:avoid; }
+  .rp-tbl tfoot td { font-weight:bold; background:#f0f0f0; border-top:1.5px solid #777; }
+  .rp-tbl tfoot .tl { text-align:right; }
+  .rp-foot { margin-top:12px; font-size:10px; font-weight:bold; text-align:right; border-top:2px solid #000; padding-top:6px; }
+  .rp-warn { font-size:8px; color:#a00; margin-top:8px; }
+  @media print { @page { margin:10mm; size:A4 landscape; } }`
+
+function fmtDataReposicao(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('pt-BR')
+}
+
+// Monta só o HTML (puro, testável). gerarPDFReposicao abaixo abre a janela e imprime.
+export function montarHTMLReposicao(pedido, grupos, { paraFornecedor = false, cd = null } = {}) {
+  const gs = (grupos ?? []).filter(g => (g.totalQtd ?? 0) > 0)
+  if (!gs.length) return ''
+
+  const totalPecas = gs.reduce((s, g) => s + g.totalQtd, 0)
+  const totalValor = gs.reduce((s, g) => s + (g.custoRef != null ? g.totalQtd * g.custoRef : 0), 0)
+
+  // Agrupa por grade, uma tabela por grade (grades diferentes = tamanhos diferentes).
+  const gradeOrder = []
+  const porGrade = {}
+  for (const g of gs) {
+    const k = g.grade || '—'
+    if (!porGrade[k]) { porGrade[k] = []; gradeOrder.push(k) }
+    porGrade[k].push(g)
+  }
+  const multiGrade = gradeOrder.length > 1
+
+  const tabelas = gradeOrder.map(gk => {
+    const refs = porGrade[gk]
+    // Tamanhos ativos deste grupo: só os que têm qtd > 0 em alguma ref.
+    const ativos = []
+    const seen = new Set()
+    for (const g of refs) {
+      for (const t of g.colunas) {
+        if ((g.porTamanho[t]?.qtd ?? 0) > 0 && !seen.has(t)) { seen.add(t); ativos.push(t) }
+      }
+    }
+    const headPares = ativos.map(() => '<th class="t">T</th><th class="q">Q</th>').join('')
+
+    const linhas = refs.map(g => {
+      const cells = ativos.map(t => {
+        const q = g.porTamanho[t]?.qtd ?? 0
+        return `<td class="t">${esc(t)}</td><td class="${q === 0 ? 'q q0' : 'q'}">${q || '—'}</td>`
+      }).join('')
+      const total = g.custoRef != null ? g.totalQtd * g.custoRef : null
+      const refCol = paraFornecedor
+        ? esc(g.reffornecedor || '')
+        : `${esc(g.referencia || '')}${g.codigo_ponto_e ? ` <small>${esc(g.codigo_ponto_e)}</small>` : ''}`
+      const prod = [g.tipo, g.classe].filter(Boolean).join(' · ')
+      const metricas = paraFornecedor ? '' : `
+        <td class="m">${g.porTamanho ? ativos.reduce((s, t) => s + (g.porTamanho[t]?.vendido_periodo ?? 0), 0) : 0}</td>
+        <td class="m">${ativos.reduce((s, t) => s + (g.porTamanho[t]?.estoque_cd ?? 0), 0)}</td>
+        <td class="m">${ativos.reduce((s, t) => s + (g.porTamanho[t]?.ja_pedido ?? 0), 0)}</td>`
+      return `<tr>
+        <td class="ref">${refCol || '—'}</td>
+        <td class="prod">${esc(prod)}</td>
+        ${cells}
+        <td class="qt">${g.totalQtd || '—'}</td>
+        <td class="num">${g.custoRef != null ? 'R$ ' + fmtV(g.custoRef) : '—'}</td>
+        <td class="tot">${total != null ? 'R$ ' + fmtV(total) : '—'}</td>
+        ${metricas}
+      </tr>`
+    }).join('')
+
+    const subPecas = refs.reduce((s, g) => s + g.totalQtd, 0)
+    const subValor = refs.reduce((s, g) => s + (g.custoRef != null ? g.totalQtd * g.custoRef : 0), 0)
+    const colsAntesTotal = 2 + ativos.length * 2
+    const metricasHead = paraFornecedor ? '' : '<th class="m">Vend.</th><th class="m">Est.CD</th><th class="m">Já ped.</th>'
+    const metricasFoot = paraFornecedor ? '' : '<td colspan="3"></td>'
+
+    return `
+      ${multiGrade ? `<div class="rp-grade">Grade: ${esc(gk)}</div>` : ''}
+      <table class="rp-tbl">
+        <thead><tr>
+          <th class="ref">Referência</th>
+          <th class="prod">Produto</th>
+          ${headPares}
+          <th class="qt">Qtd</th>
+          <th class="num">R$ un.</th>
+          <th class="tot">Total</th>
+          ${metricasHead}
+        </tr></thead>
+        <tbody>${linhas}</tbody>
+        <tfoot><tr>
+          <td class="tl" colspan="${colsAntesTotal}">Subtotal — ${subPecas} peças</td>
+          <td class="qt">${subPecas}</td>
+          <td class="num"></td>
+          <td class="tot">${subValor > 0 ? 'R$ ' + fmtV(subValor) : '—'}</td>
+          ${metricasFoot}
+        </tr></tfoot>
+      </table>`
+  }).join('')
+
+  const semRef = gs.filter(g => !g.reffornecedor).length
+  const semCusto = gs.filter(g => g.custoRef == null).length
+  const avisos = paraFornecedor
+    ? [
+        semRef ? `${semRef} referência(s) sem código do fornecedor — saíram com a coluna em branco.` : '',
+        semCusto ? `${semCusto} referência(s) sem custo informado — saíram com "—".` : '',
+      ].filter(Boolean).join(' ')
+    : ''
+
+  const pedNum = String(pedido.id ?? '').slice(0, 8).toUpperCase()
+  const cdBloco = (paraFornecedor && cd) ? `
+    <div class="rp-cd">
+      <div class="rp-cd-name">${esc(cd.nome ?? '')}</div>
+      ${cd.cnpj ? `<div>CNPJ: ${esc(cd.cnpj)}</div>` : ''}
+      ${cd.ie ? `<div>I.E.: ${esc(cd.ie)}</div>` : ''}
+      ${cd.endereco ? `<div>${esc(cd.endereco)}</div>` : ''}
+      ${cd.cidade ? `<div>${esc(cd.cidade)}</div>` : ''}
+    </div>` : ''
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>Reposição ${esc(pedido.marca ?? '')} — ${pedNum}</title>
+    <style>${REPOSICAO_PDF_STYLES}</style></head>
+    <body><div class="rp">
+      <div class="rp-h">
+        <div>
+          <div class="rp-title">Pedido de reposição${paraFornecedor ? '' : ' — uso interno'}</div>
+          <div class="rp-marca">${esc(pedido.marca ?? '')}</div>
+          <div class="rp-meta">
+            Pedido nº ${pedNum} · Data: ${fmtDataReposicao(pedido.gerado_em)}
+            ${pedido.gerado_por ? ` · Gerado por: ${esc(pedido.gerado_por)}` : ''}
+            ${pedido.janela_dias ? ` · Janela: ${pedido.janela_dias} dias` : ''}
+          </div>
+        </div>
+        ${cdBloco}
+      </div>
+      ${tabelas}
+      <div class="rp-foot">Total do pedido: ${totalPecas} peças${totalValor > 0 ? ` · R$ ${fmtV(totalValor)}` : ''}</div>
+      ${avisos ? `<div class="rp-warn">${esc(avisos)}</div>` : ''}
+    </div></body></html>`
+}
+
+export function gerarPDFReposicao(pedido, grupos, opts = {}) {
+  const html = montarHTMLReposicao(pedido, grupos, opts)
+  if (!html) { alert('Nenhuma referência com quantidade para gerar o PDF.'); return }
+  // Abrir a janela no gesto do clique (sem await antes).
+  const win = window.open('', '_blank')
+  if (!win) { alert('Bloqueador de pop-ups ativo. Permita pop-ups para este site.'); return }
+  win.document.write(html)
+  win.document.close()
+  win.focus()
+  win.print()
+}
