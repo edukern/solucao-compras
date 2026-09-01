@@ -426,6 +426,37 @@
 .qtyInputNovo { border-style: dashed; }
 .qtyInputInvalido { border-color: var(--red); background: rgba(248, 113, 113, 0.12); }
 
+/* ── Coluna "Valor unit." na tabela de itens ── */
+
+.custoWrap {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.custoInput {
+  width: 4.5rem;
+  text-align: right;
+  background: var(--input-bg, var(--bg-card));
+  border: 1px solid var(--input-border, var(--border));
+  border-radius: 4px;
+  color: var(--text-primary);
+  padding: 0.15rem 0.35rem;
+  font: inherit;
+}
+.custoInput:focus { outline: none; border-color: var(--accent); }
+.custoInputDirty { border-color: var(--accent); font-weight: 600; }
+.custoInputInvalido { border-color: var(--red); background: rgba(248, 113, 113, 0.12); }
+
+.expRodape {
+  margin-top: 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
 /* ── Faixa foto + descrição + seletor de grade (extra da reposição) ── */
 
 .expTopo {

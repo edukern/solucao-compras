@@ -4,7 +4,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { reposicao as reposicaoService } from '../services/reposicao'
 import { tamanhosDeTipoGrade } from '../constants/grades'
 import {
-  agruparPorReferencia, editState, colunasDaGrade, gradesDoSeletor, METRICAS_LEITURA,
+  agruparPorReferencia, editState, custoState, parseValorBR, fmtValorBR,
+  colunasDaGrade, gradesDoSeletor, METRICAS_LEITURA,
 } from './reposicaoGrade'
 import styles from './RevisaoReposicao.module.css'
 
@@ -155,17 +156,20 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
   const [salvando,    setSalvando]    = useState(false)   // gravação de quantidades
   const [erroSalvar,  setErroSalvar]  = useState(null)
   const [expandida,   setExpandida]   = useState(null)    // referencia aberta
-  const [edits,       setEdits]       = useState({})      // { [ref]: { [tam]: rawString } }
+  const [edits,       setEdits]       = useState({})      // { [ref]: { [tam]: rawString } }  qtd
+  const [custoEdits,  setCustoEdits]  = useState({})      // { [ref]: rawString }  valor unit.
   const [gradeSel,    setGradeSel]    = useState({})      // { [ref]: gradeCode escolhido }
 
   const firstQtdRef     = useRef(null)   // 1º input da linha Qtd da ref aberta
   const focusOnExpand   = useRef(false)  // pedir foco no 1º input ao expandir (nav por teclado)
 
+  const limparEdits = () => { setEdits({}); setCustoEdits({}); setGradeSel({}) }
+
   // Recarrega do banco (fonte da verdade) e descarta edits/seleções locais.
   const carregar = useCallback(() => {
     setLoading(true)
     return reposicaoService.byId(id)
-      .then(p => { setPedido(p); setEdits({}); setGradeSel({}); setErro(null); return p })
+      .then(p => { setPedido(p); setEdits({}); setCustoEdits({}); setGradeSel({}); setErro(null); return p })
       .catch(e => { setErro(e.message); return null })
       .finally(() => setLoading(false))
   }, [id])
@@ -174,7 +178,7 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
     let cancelled = false
     setLoading(true)
     reposicaoService.byId(id)
-      .then(p => { if (!cancelled) { setPedido(p); setEdits({}); setGradeSel({}) } })
+      .then(p => { if (!cancelled) { setPedido(p); setEdits({}); setCustoEdits({}); setGradeSel({}) } })
       .catch(e => { if (!cancelled) setErro(e.message) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
@@ -193,6 +197,7 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
   const editavel    = pedido?.status === 'rascunho'
 
   const gradeDaRef = (g) => gradeSel[g.referencia] ?? g.gradeInicial
+  const gradeMudou = (g) => gradeSel[g.referencia] !== undefined && gradeSel[g.referencia] !== g.gradeInicial
 
   const rawDe = (ref, tam) => {
     const e = edits[ref]?.[tam]
@@ -207,6 +212,18 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
     return gruposByRef[ref]?.porTamanho[tam]?.qtd ?? 0
   }
 
+  // Custo por referência: valor cru mostrado no campo, estado e valor efetivo.
+  const custoRawDe = (ref) => {
+    if (custoEdits[ref] !== undefined) return custoEdits[ref]
+    const c = gruposByRef[ref]?.custoRef
+    return c != null ? fmtValorBR(c) : ''
+  }
+  const custoStateDe = (ref) => custoState(custoEdits[ref], gruposByRef[ref]?.custoRef ?? null)
+  const custoEfetivo = (ref) => {
+    if (custoStateDe(ref) === 'dirty') return parseValorBR(custoEdits[ref])
+    return gruposByRef[ref]?.custoRef ?? null
+  }
+
   let temInvalido = false, temPendente = false
   const refsComEdicao = new Set()
   for (const [ref, tam] of percorrerEdits(edits)) {
@@ -214,13 +231,27 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
     if (st === 'invalid') temInvalido = true
     if (st === 'dirty') { temPendente = true; refsComEdicao.add(ref) }
   }
+  for (const ref of Object.keys(custoEdits)) {
+    const st = custoStateDe(ref)
+    if (st === 'invalid') temInvalido = true
+    if (st === 'dirty') { temPendente = true; refsComEdicao.add(ref) }
+  }
+  for (const g of grupos) {
+    if (gradeMudou(g)) { temPendente = true; refsComEdicao.add(g.referencia) }
+  }
 
   const setQtd = (ref, tam, raw) =>
     setEdits(prev => ({ ...prev, [ref]: { ...prev[ref], [tam]: raw } }))
+  const setCusto = (ref, raw) =>
+    setCustoEdits(prev => ({ ...prev, [ref]: raw }))
 
   const totalEfetivoRef = (g) =>
     colunasDaGrade(gradeDaRef(g), g.tamanhosPresentes)
       .reduce((s, t) => s + valorEfetivo(g.referencia, t), 0)
+  const valorTotalRef = (g) => {
+    const c = custoEfetivo(g.referencia)
+    return c != null ? totalEfetivoRef(g) * c : null
+  }
 
   // Navegação por teclado igual ao Compras: Enter/Tab avança pelo próximo campo
   // da linha; no fim da linha, abre a próxima referência e foca o 1º campo dela.
@@ -241,37 +272,57 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
     }
   }
 
-  async function handleSalvarQtds() {
+  async function handleSalvar() {
     setErroSalvar(null)
     setSalvando(true)
     try {
       const atual = await reposicaoService.byId(id)
       if (atual.status !== 'rascunho') {
-        setPedido(atual); setEdits({}); setGradeSel({})
+        setPedido(atual); limparEdits()
         setErroSalvar('Este rascunho não está mais como "rascunho" (alguém revisou ou descartou). Recarreguei os dados.')
         return
       }
       const gRefAtual = Object.fromEntries(
         agruparPorReferencia(atual.itens).map(g => [g.referencia, g])
       )
+      // Alguém mexeu na qtd ou no custo de algo que eu já tinha carregado?
       const conflito = (pedido?.itens ?? []).some(orig => {
         const itA = gRefAtual[orig.referencia]?.porTamanho[orig.tamanho]
-        return itA && itA.qtd !== orig.qtd
+        if (!itA) return false
+        const custoIgual = String(itA.valor_unitario ?? '') === String(orig.valor_unitario ?? '')
+        return itA.qtd !== orig.qtd || !custoIgual
       })
       if (conflito) {
-        setPedido(atual); setEdits({}); setGradeSel({})
-        setErroSalvar('As quantidades mudaram no servidor desde que você abriu (outra pessoa editou). Recarreguei — confira e edite de novo.')
+        setPedido(atual); limparEdits()
+        setErroSalvar('As quantidades ou o custo mudaram no servidor desde que você abriu (outra pessoa editou). Recarreguei — confira e edite de novo.')
         return
       }
 
+      // Refs a gravar = qtd editada  ∪  custo editado  ∪  grade trocada.
+      const refsAlteradas = new Set()
+      for (const [ref, tam] of percorrerEdits(edits)) {
+        if (estadoDe(ref, tam) === 'dirty') refsAlteradas.add(ref)
+      }
+      for (const ref of Object.keys(custoEdits)) {
+        if (custoStateDe(ref) === 'dirty') refsAlteradas.add(ref)
+      }
+      for (const g of grupos) if (gradeMudou(g)) refsAlteradas.add(g.referencia)
+      if (!refsAlteradas.size) { limparEdits(); return }
+
       const rows = []
-      for (const [ref, tam, raw] of percorrerEdits(edits)) {
-        if (estadoDe(ref, tam) !== 'dirty') continue
-        const qtd = parseInt(String(raw).trim(), 10)
+      for (const ref of refsAlteradas) {
         const gA = gRefAtual[ref]
-        const existente = gA?.porTamanho[tam]
-        const irmao = existente ?? Object.values(gA?.porTamanho ?? {})[0] ?? {}
-        rows.push({
+        if (!gA) continue
+        const irmao = Object.values(gA.porTamanho)[0] ?? {}
+        // valor_unitario da ref: o editado (se sujo) senão o atual do banco.
+        const custo = custoStateDe(ref) === 'dirty'
+          ? parseValorBR(custoEdits[ref])
+          : (gA.custoRef ?? null)
+        // tipo_grade: só a escolha explícita do comprador OU o que já estava salvo
+        // — nunca o palpite (senão o aviso "confira" some sem ninguém confirmar).
+        const tipoGrade = gradeSel[ref] ?? gA.tipoGradeSalva ?? null
+
+        const mkRow = (tam, qtd, existente) => ({
           pedido_reposicao_id: irmao.pedido_reposicao_id ?? pedido.id,
           referencia:      ref,
           tamanho:         tam,
@@ -287,10 +338,24 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
           reffornecedor:   irmao.reffornecedor ?? null,
           codigo_ponto_e:  irmao.codigo_ponto_e ?? null,
           foto_url:        irmao.foto_url ?? null,
-          tipo_grade:      gradeSel[ref] ?? irmao.tipo_grade ?? gA?.gradeInicial ?? null,
+          tipo_grade:      tipoGrade,
+          valor_unitario:  custo,
         })
+
+        // Todas as linhas que já existem da ref (mantém qtd atual, ou a editada).
+        for (const [tam, it] of Object.entries(gA.porTamanho)) {
+          const ed = edits[ref]?.[tam]
+          const qtd = editState(ed, it.qtd) === 'dirty' ? parseInt(String(ed).trim(), 10) : it.qtd
+          rows.push(mkRow(tam, qtd, it))
+        }
+        // Tamanhos novos que o comprador preencheu (qtd >= 1) e ainda não têm linha.
+        for (const [tam, ed] of Object.entries(edits[ref] ?? {})) {
+          if (gA.porTamanho[tam]) continue
+          if (editState(ed, null) !== 'dirty') continue
+          rows.push(mkRow(tam, parseInt(String(ed).trim(), 10), null))
+        }
       }
-      if (!rows.length) { setEdits({}); return }
+      if (!rows.length) { limparEdits(); return }
 
       await reposicaoService.salvarQuantidades(rows)
       await carregar()
@@ -340,7 +405,7 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
         </p>
         {editavel && (
           <p className={styles.subtitleHint}>
-            Clique numa referência para abrir a grade. A quantidade sugerida já vem preenchida; complete os outros tamanhos se quiser (Enter/Tab anda pelos campos). Depois clique em <strong>Salvar quantidades</strong> e então marque como revisado.
+            Clique numa referência para abrir a grade. A quantidade sugerida já vem preenchida; complete os outros tamanhos e o custo se quiser (Enter/Tab anda pelos campos). Depois clique em <strong>Salvar alterações</strong> e então marque como revisado.
           </p>
         )}
       </div>
@@ -350,6 +415,7 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
           <tr>
             <th>Ref</th>
             <th>Produto · Grade · Classe</th>
+            <th>Valor unit.</th>
             <th>Peças</th>
           </tr>
         </thead>
@@ -360,6 +426,7 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
             const grade   = gradeDaRef(g)
             const colunas = colunasDaGrade(grade, g.tamanhosPresentes)
             const pecas   = totalEfetivoRef(g)
+            const custoSt = custoStateDe(g.referencia)
             return (
               <Fragment key={g.referencia}>
                 <tr
@@ -373,12 +440,29 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
                       <span className={styles.itemRefDetail}>sugestão: {g.totalSugerido}</span>
                     )}
                   </td>
+                  <td onClick={e => e.stopPropagation()}>
+                    {editavel ? (
+                      <span className={styles.custoWrap}>
+                        R$&nbsp;<input
+                          type="text"
+                          inputMode="decimal"
+                          className={`${styles.custoInput} ${custoSt === 'invalid' ? styles.custoInputInvalido : ''} ${custoSt === 'dirty' ? styles.custoInputDirty : ''}`}
+                          value={custoRawDe(g.referencia)}
+                          placeholder="—"
+                          onChange={e => setCusto(g.referencia, e.target.value)}
+                          aria-label={`Valor unitário ${g.referencia}`}
+                        />
+                      </span>
+                    ) : (
+                      g.custoRef != null ? `R$ ${fmtValorBR(g.custoRef)}` : <span className={styles.itemDot}>—</span>
+                    )}
+                  </td>
                   <td><strong>{pecas > 0 ? pecas : <span className={styles.itemDot}>—</span>}</strong></td>
                 </tr>
 
                 {aberta && (
                   <tr className={styles.gradeExpansionRow}>
-                    <td colSpan={3} className={styles.gradeExpansionCell}>
+                    <td colSpan={4} className={styles.gradeExpansionCell}>
                       <div className={styles.gradeInlineWrap}>
                         <div className={styles.expTopo}>
                           {g.foto_url && (
@@ -469,6 +553,12 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
                             </div>
                           )
                         })}
+
+                        <div className={styles.expRodape}>
+                          {custoEfetivo(g.referencia) != null
+                            ? <>Total: <strong>R$ {fmtValorBR(valorTotalRef(g))}</strong> · {pecas} pç × R$ {fmtValorBR(custoEfetivo(g.referencia))}</>
+                            : <>{pecas} peças · sem custo informado</>}
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -481,7 +571,7 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
 
       {erroSalvar && <div className={styles.erro}>{erroSalvar}</div>}
       {temInvalido && !erroSalvar && (
-        <div className={styles.avisoInvalido}>Há quantidade inválida — use um número inteiro de 1 a 9999 (não dá para zerar uma sugestão pela tela).</div>
+        <div className={styles.avisoInvalido}>Há valor inválido — quantidade tem que ser inteiro de 1 a 9999 (não dá para zerar uma sugestão), e o custo tem que ser um número (ex.: 16,90).</div>
       )}
 
       {editavel && (
@@ -490,15 +580,15 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
             <button
               className={styles.btnSalvarQtds}
               disabled={salvando || temInvalido || !temPendente}
-              onClick={handleSalvarQtds}
+              onClick={handleSalvar}
             >
-              <Save size={14} strokeWidth={1.8} /> {salvando ? 'Salvando…' : 'Salvar quantidades'}
+              <Save size={14} strokeWidth={1.8} /> {salvando ? 'Salvando…' : 'Salvar alterações'}
             </button>
           )}
           <button
             className={styles.btnDescartar}
             disabled={processando || salvando || temPendente || temInvalido}
-            title={temPendente || temInvalido ? 'Salve as quantidades primeiro' : undefined}
+            title={temPendente || temInvalido ? 'Salve as alterações primeiro' : undefined}
             onClick={() => handleMarcar('descartado')}
           >
             <X size={14} strokeWidth={1.8} /> Descartar
@@ -506,7 +596,7 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
           <button
             className={styles.btnRevisar}
             disabled={processando || salvando || temPendente || temInvalido}
-            title={temPendente || temInvalido ? 'Salve as quantidades primeiro' : undefined}
+            title={temPendente || temInvalido ? 'Salve as alterações primeiro' : undefined}
             onClick={() => handleMarcar('revisado')}
           >
             <Check size={14} strokeWidth={1.8} /> Marcar como revisado

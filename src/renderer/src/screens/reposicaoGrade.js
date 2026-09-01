@@ -88,15 +88,56 @@ export function agruparPorReferencia(itens) {
     const gradeInicial = (g.tipoGradeSalva && GRADE_DEFINITIONS[g.tipoGradeSalva])
       ? g.tipoGradeSalva
       : gradePalpite
+    // Custo por referência: um valor só. Se as linhas irmãs divergirem (ex.: ERP
+    // mandou custo por SKU), pega o maior — a tela grava uniforme no 1º save.
+    const custos = tamanhosPresentes
+      .map(t => g.porTamanho[t].valor_unitario)
+      .filter(v => v != null && !Number.isNaN(Number(v)))
+      .map(Number)
+    const custoRef = custos.length ? Math.max(...custos) : null
+
     return {
       ...g,
       tamanhosPresentes,
       gradePalpite,
       gradeInicial,
+      custoRef,
       totalSugerido: tamanhosPresentes.reduce((s, t) => s + (g.porTamanho[t].qtd_sugerida ?? g.porTamanho[t].qtd), 0),
       totalAtual:    tamanhosPresentes.reduce((s, t) => s + g.porTamanho[t].qtd, 0),
     }
   })
+}
+
+// "16,90" / "16.90" / "R$ 16,90" -> 16.9 ; "" -> null ; inválido -> NaN.
+// Arredonda a 2 casas (a coluna no banco é numeric(10,2)).
+export function parseValorBR(raw) {
+  if (raw == null) return null
+  const s = String(raw).replace(/[R$\s]/gi, '').replace(',', '.').trim()
+  if (s === '') return null
+  const n = Number(s)
+  if (Number.isNaN(n)) return NaN
+  return Math.round(n * 100) / 100
+}
+
+export function fmtValorBR(n) {
+  if (n == null || Number.isNaN(Number(n))) return ''
+  return Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+// Estado do campo de custo de uma referência.
+//   original = custoRef atual (número) ou null.
+//   'clean'   = não mexeu / voltou ao original / limpou um custo que já era vazio
+//   'dirty'   = número >= 0 diferente do original, OU limpou um custo que existia
+//   'invalid' = texto não numérico ou negativo
+export function custoState(raw, original) {
+  if (raw === undefined) return 'clean'
+  const orig = original == null ? null : Math.round(Number(original) * 100) / 100
+  const n = parseValorBR(raw)
+  if (Number.isNaN(n)) return 'invalid'
+  if (n != null && n < 0) return 'invalid'
+  if (n === orig) return 'clean'
+  if (n == null && orig == null) return 'clean'
+  return 'dirty'
 }
 
 // Estado de um campo editável.
