@@ -1,13 +1,19 @@
 import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from 'react'
-import { ArrowLeft, Check, X, ChevronRight, Save } from 'lucide-react'
+import { ArrowLeft, Check, X, ChevronRight, Save, FileText } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { reposicao as reposicaoService } from '../services/reposicao'
+import { compradores as compradoresService } from '../services/compradores'
+import { gerarPDFReposicao } from '../lib/pdfHelpers'
 import { tamanhosDeTipoGrade } from '../constants/grades'
 import {
   agruparPorReferencia, editState, custoState, parseValorBR, fmtValorBR,
   colunasDaGrade, gradesDoSeletor, METRICAS_LEITURA,
 } from './reposicaoGrade'
 import styles from './RevisaoReposicao.module.css'
+
+// Linha de `compradores` usada como remetente/faturamento no PDF que vai pra
+// marca. Confirmado com o Eduardo: Backes Art. Vestuário (Três Coroas).
+const CD_COMPRADOR_ID = 1
 
 const STATUS_LABEL = {
   rascunho:   'Rascunho',
@@ -160,10 +166,18 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
   const [custoEdits,  setCustoEdits]  = useState({})      // { [ref]: rawString }  valor unit.
   const [gradeSel,    setGradeSel]    = useState({})      // { [ref]: gradeCode escolhido }
 
+  const [cd, setCd] = useState(null)     // linha de compradores do CD (remetente do PDF fornecedor)
+
   const firstQtdRef     = useRef(null)   // 1º input da linha Qtd da ref aberta
   const focusOnExpand   = useRef(false)  // pedir foco no 1º input ao expandir (nav por teclado)
 
   const limparEdits = () => { setEdits({}); setCustoEdits({}); setGradeSel({}) }
+
+  useEffect(() => {
+    compradoresService.list()
+      .then(list => setCd(list.find(c => c.id === CD_COMPRADOR_ID) ?? null))
+      .catch(() => {})
+  }, [])
 
   // Recarrega do banco (fonte da verdade) e descarta edits/seleções locais.
   const carregar = useCallback(() => {
@@ -382,6 +396,55 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
     }
   }
 
+  // Snapshot das referências pro PDF: grade escolhida + qtds já salvas (os botões
+  // de PDF ficam travados enquanto houver alteração pendente, então o que está na
+  // tela == o que está no banco).
+  function montarGruposPDF() {
+    return grupos.map(g => {
+      const grade = gradeDaRef(g)
+      const colunas = colunasDaGrade(grade, g.tamanhosPresentes)
+      const porTamanho = {}
+      for (const t of colunas) {
+        const it = g.porTamanho[t]
+        porTamanho[t] = {
+          qtd:             it?.qtd ?? 0,
+          vendido_periodo: it?.vendido_periodo ?? 0,
+          estoque_cd:      it?.estoque_cd ?? 0,
+          ja_pedido:       it?.ja_pedido ?? 0,
+        }
+      }
+      return {
+        referencia: g.referencia, reffornecedor: g.reffornecedor, codigo_ponto_e: g.codigo_ponto_e,
+        nome: g.nome, tipo: g.tipo, classe: g.classe,
+        grade, colunas, porTamanho,
+        custoRef: g.custoRef, totalQtd: g.totalAtual,
+      }
+    }).filter(g => g.totalQtd > 0)
+  }
+
+  function handleGerarPDF(paraFornecedor) {
+    if (temPendente || temInvalido) return
+    const gs = montarGruposPDF()
+    if (!gs.length) { alert('Nenhuma referência com quantidade para gerar o PDF.'); return }
+    if (paraFornecedor) {
+      const semRef = gs.filter(g => !g.reffornecedor).length
+      const semCusto = gs.filter(g => g.custoRef == null).length
+      if (semRef || semCusto) {
+        const linhas = [
+          semRef && `• ${semRef} referência(s) sem código do fornecedor — sairão com a coluna em branco`,
+          semCusto && `• ${semCusto} referência(s) sem custo — sairão com "—"`,
+        ].filter(Boolean).join('\n')
+        if (!window.confirm(`Antes de gerar o pedido pra ${pedido.marca}:\n\n${linhas}\n\nGerar mesmo assim?`)) return
+      }
+      if (!cd) { alert('Não consegui carregar os dados do CD (faturamento). Tente de novo em instantes.'); return }
+    }
+    gerarPDFReposicao(
+      { id: pedido.id, marca: pedido.marca, janela_dias: pedido.janela_dias, gerado_por: pedido.gerado_por, gerado_em: pedido.gerado_em },
+      gs,
+      { paraFornecedor, cd: paraFornecedor ? cd : null },
+    )
+  }
+
   if (loading && !pedido) return <div className={`${styles.page} ${styles.pageWide}`}><div className={styles.vazio}>Carregando…</div></div>
   if (erro) return <div className={`${styles.page} ${styles.pageWide}`}><div className={styles.erro}>Erro ao carregar: {erro}</div></div>
   if (!pedido) return null
@@ -573,6 +636,25 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
       {temInvalido && !erroSalvar && (
         <div className={styles.avisoInvalido}>Há valor inválido — quantidade tem que ser inteiro de 1 a 9999 (não dá para zerar uma sugestão), e o custo tem que ser um número (ex.: 16,90).</div>
       )}
+
+      <div className={styles.pdfRow}>
+        <button
+          className={styles.btnPdf}
+          disabled={temPendente || temInvalido}
+          title={temPendente || temInvalido ? 'Salve as alterações primeiro' : 'PDF com tudo (uso interno)'}
+          onClick={() => handleGerarPDF(false)}
+        >
+          <FileText size={13} strokeWidth={1.8} /> PDF interno
+        </button>
+        <button
+          className={styles.btnPdf}
+          disabled={temPendente || temInvalido}
+          title={temPendente || temInvalido ? 'Salve as alterações primeiro' : `Pedido pra enviar à ${pedido.marca}`}
+          onClick={() => handleGerarPDF(true)}
+        >
+          <FileText size={13} strokeWidth={1.8} /> PDF fornecedor
+        </button>
+      </div>
 
       {editavel && (
         <div className={styles.acoes}>
