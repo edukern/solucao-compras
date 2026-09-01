@@ -383,6 +383,11 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
 
   async function handleMarcar(status) {
     if (temPendente || temInvalido) return
+    if (status === 'revisado') {
+      const totalPecas = grupos.reduce((s, g) => s + totalEfetivoRef(g), 0)
+      if (totalPecas === 0 &&
+          !window.confirm('Este pedido ficou sem nenhuma peça (todos os tamanhos zerados). Marcar como revisado assim mesmo?')) return
+    }
     const revisadoPor = comprador?.nome ?? user?.email ?? 'desconhecido'
     setProcessando(true)
     try {
@@ -468,7 +473,7 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
         </p>
         {editavel && (
           <p className={styles.subtitleHint}>
-            Clique numa referência para abrir a grade. A quantidade sugerida já vem preenchida; complete os outros tamanhos e o custo se quiser (Enter/Tab anda pelos campos). Depois clique em <strong>Salvar alterações</strong> e então marque como revisado.
+            Clique numa referência para abrir a grade. A quantidade sugerida já vem preenchida; ajuste o que quiser (Enter/Tab anda pelos campos, o valor fica selecionado ao entrar). Coloque <strong>0</strong> num tamanho que não quer repor. Depois clique em <strong>Salvar alterações</strong> e então marque como revisado.
           </p>
         )}
       </div>
@@ -487,9 +492,24 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
             const aberta  = expandida === g.referencia
             const editada = refsComEdicao.has(g.referencia)
             const grade   = gradeDaRef(g)
-            const colunas = colunasDaGrade(grade, g.tamanhosPresentes)
+            // Colunas de tamanho da grade aberta. Enquanto o revisor não escolher a
+            // grade no seletor, mostra só os tamanhos que vieram com dado (ou que ele
+            // já editou) — grade adivinhada errada (ex.: produto UNI que caiu em "BB")
+            // não polui a tabela com colunas vazias que fazem o Total parecer errado.
+            // Ao escolher uma grade no seletor, mostra a régua completa dela.
+            const gradeEscolhida = gradeSel[g.referencia] !== undefined
+            const colunasFull = colunasDaGrade(grade, g.tamanhosPresentes)
+            const colunasVis  = gradeEscolhida
+              ? colunasFull
+              : colunasFull.filter(t => g.porTamanho[t] || edits[g.referencia]?.[t] !== undefined)
+            const colunas = colunasVis.length ? colunasVis : colunasFull
+            // Total é somado sobre a régua completa; colunas ocultas nunca têm qtd
+            // nem edição, então o número bate com o que aparece na tela.
             const pecas   = totalEfetivoRef(g)
             const custoSt = custoStateDe(g.referencia)
+            const gradeForaDosDados = editavel && !gradeEscolhida &&
+              tamanhosDeTipoGrade(grade).length > 0 &&
+              tamanhosDeTipoGrade(grade).every(t => !g.porTamanho[t])
             return (
               <Fragment key={g.referencia}>
                 <tr
@@ -513,6 +533,7 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
                           value={custoRawDe(g.referencia)}
                           placeholder="—"
                           onChange={e => setCusto(g.referencia, e.target.value)}
+                          onFocus={e => e.target.select()}
                           aria-label={`Valor unitário ${g.referencia}`}
                         />
                       </span>
@@ -562,6 +583,11 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
                                 <span className={styles.gradeHint}> (palpite — confira)</span>
                               )}
                             </label>
+                            {gradeForaDosDados && (
+                              <div className={styles.gradeAviso}>
+                                Os tamanhos que vieram ({g.tamanhosPresentes.join(', ')}) não são desta grade — a régua completa dela fica oculta. Troque no seletor se precisar dela.
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -590,6 +616,7 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
                                     value={raw}
                                     placeholder={it ? '0' : '·'}
                                     onChange={e => setQtd(g.referencia, t, e.target.value)}
+                                    onFocus={e => e.target.select()}
                                     onKeyDown={handleKeyNavQtd}
                                     aria-label={`Quantidade ${g.referencia} tamanho ${t}`}
                                   />
@@ -634,7 +661,7 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
 
       {erroSalvar && <div className={styles.erro}>{erroSalvar}</div>}
       {temInvalido && !erroSalvar && (
-        <div className={styles.avisoInvalido}>Há valor inválido — quantidade tem que ser inteiro de 1 a 9999 (não dá para zerar uma sugestão), e o custo tem que ser um número (ex.: 16,90).</div>
+        <div className={styles.avisoInvalido}>Há valor inválido — a quantidade tem que ser um número inteiro de 0 a 9999 (use <strong>0</strong> para não repor um tamanho; não deixe o campo em branco) e o custo tem que ser um número (ex.: 16,90).</div>
       )}
 
       <div className={styles.pdfRow}>
