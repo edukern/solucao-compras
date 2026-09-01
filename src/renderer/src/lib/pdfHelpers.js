@@ -844,7 +844,6 @@ const REPOSICAO_PDF_STYLES = `
   .rp-tbl .qt { width:30px; font-weight:bold; }
   .rp-tbl .num { width:50px; text-align:right; }
   .rp-tbl .tot { width:60px; text-align:right; font-weight:bold; }
-  .rp-tbl .m { width:38px; color:#1a5; font-size:8px; }
   .rp-tbl tbody tr { page-break-inside:avoid; break-inside:avoid; }
   .rp-tbl tfoot td { font-weight:bold; background:#f0f0f0; border-top:1.5px solid #777; }
   .rp-tbl tfoot .tl { text-align:right; }
@@ -856,6 +855,13 @@ function fmtDataReposicao(iso) {
   if (!iso) return ''
   const d = new Date(iso)
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('pt-BR')
+}
+
+// MASC / FEM embutido no nome do produto ("SUTIA AD FEM 112").
+function generoDoNome(nome) {
+  if (/\bMASC\b/i.test(nome || '')) return 'MASC'
+  if (/\bFEM\b/i.test(nome || '')) return 'FEM'
+  return ''
 }
 
 // Monta só o HTML (puro, testável). gerarPDFReposicao abaixo abre a janela e imprime.
@@ -897,11 +903,7 @@ export function montarHTMLReposicao(pedido, grupos, { paraFornecedor = false, cd
       const refCol = paraFornecedor
         ? esc(g.reffornecedor || '')
         : `${esc(g.referencia || '')}${g.codigo_ponto_e ? ` <small>${esc(g.codigo_ponto_e)}</small>` : ''}`
-      const prod = [g.tipo, g.classe].filter(Boolean).join(' · ')
-      const metricas = paraFornecedor ? '' : `
-        <td class="m">${g.porTamanho ? ativos.reduce((s, t) => s + (g.porTamanho[t]?.vendido_periodo ?? 0), 0) : 0}</td>
-        <td class="m">${ativos.reduce((s, t) => s + (g.porTamanho[t]?.estoque_cd ?? 0), 0)}</td>
-        <td class="m">${ativos.reduce((s, t) => s + (g.porTamanho[t]?.ja_pedido ?? 0), 0)}</td>`
+      const prod = [g.tipo, g.classe, generoDoNome(g.nome)].filter(Boolean).join(' · ')
       return `<tr>
         <td class="ref">${refCol || '—'}</td>
         <td class="prod">${esc(prod)}</td>
@@ -909,15 +911,12 @@ export function montarHTMLReposicao(pedido, grupos, { paraFornecedor = false, cd
         <td class="qt">${g.totalQtd || '—'}</td>
         <td class="num">${g.custoRef != null ? 'R$ ' + fmtV(g.custoRef) : '—'}</td>
         <td class="tot">${total != null ? 'R$ ' + fmtV(total) : '—'}</td>
-        ${metricas}
       </tr>`
     }).join('')
 
     const subPecas = refs.reduce((s, g) => s + g.totalQtd, 0)
     const subValor = refs.reduce((s, g) => s + (g.custoRef != null ? g.totalQtd * g.custoRef : 0), 0)
     const colsAntesTotal = 2 + ativos.length * 2
-    const metricasHead = paraFornecedor ? '' : '<th class="m">Vend.</th><th class="m">Est.CD</th><th class="m">Já ped.</th>'
-    const metricasFoot = paraFornecedor ? '' : '<td colspan="3"></td>'
 
     return `
       ${multiGrade ? `<div class="rp-grade">Grade: ${esc(gk)}</div>` : ''}
@@ -929,7 +928,6 @@ export function montarHTMLReposicao(pedido, grupos, { paraFornecedor = false, cd
           <th class="qt">Qtd</th>
           <th class="num">R$ un.</th>
           <th class="tot">Total</th>
-          ${metricasHead}
         </tr></thead>
         <tbody>${linhas}</tbody>
         <tfoot><tr>
@@ -937,7 +935,6 @@ export function montarHTMLReposicao(pedido, grupos, { paraFornecedor = false, cd
           <td class="qt">${subPecas}</td>
           <td class="num"></td>
           <td class="tot">${subValor > 0 ? 'R$ ' + fmtV(subValor) : '—'}</td>
-          ${metricasFoot}
         </tr></tfoot>
       </table>`
   }).join('')
