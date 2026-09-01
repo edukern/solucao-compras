@@ -31,7 +31,7 @@ export const reposicao = {
 
     const { data: itens, error: e2 } = await supabase
       .from('pedido_reposicao_itens')
-      .select('id, pedido_reposicao_id, referencia, tamanho, qtd, qtd_sugerida, vendido_periodo, estoque_cd, ja_pedido, nome, tipo, classe, colecao, reffornecedor, codigo_ponto_e, foto_url, tipo_grade')
+      .select('id, pedido_reposicao_id, referencia, tamanho, qtd, qtd_sugerida, vendido_periodo, estoque_cd, ja_pedido, nome, tipo, classe, colecao, reffornecedor, codigo_ponto_e, foto_url, tipo_grade, valor_unitario')
       .eq('pedido_reposicao_id', id)
       .order('referencia')
       .order('tamanho')

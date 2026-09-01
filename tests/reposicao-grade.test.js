@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   adivinharGrade, colunasDaGrade, gradesDoSeletor, agruparPorReferencia, editState,
+  parseValorBR, fmtValorBR, custoState,
 } from '../src/renderer/src/screens/reposicaoGrade.js'
 
 describe('adivinharGrade', () => {
@@ -118,6 +119,66 @@ describe('agruparPorReferencia', () => {
   it('indexa itens por tamanho', () => {
     const [r117] = agruparPorReferencia(itens)
     expect(r117.porTamanho['GG'].id).toBe('b')
+  })
+
+  it('custoRef = valor das linhas irmãs; null quando nenhuma tem', () => {
+    const comCusto = itens.map(i =>
+      i.referencia === '117' ? { ...i, valor_unitario: '16.90' } : { ...i, valor_unitario: null })
+    const [r117, r125] = agruparPorReferencia(comCusto)
+    expect(r117.custoRef).toBe(16.9)
+    expect(r125.custoRef).toBeNull()
+  })
+
+  it('custoRef pega o maior quando as irmãs divergem', () => {
+    const div = [
+      { ...itens[0], valor_unitario: 16.9 },
+      { ...itens[1], valor_unitario: 17.5 },
+    ]
+    expect(agruparPorReferencia(div)[0].custoRef).toBe(17.5)
+  })
+})
+
+describe('parseValorBR / fmtValorBR', () => {
+  it('aceita vírgula, ponto e R$', () => {
+    expect(parseValorBR('16,90')).toBe(16.9)
+    expect(parseValorBR('16.90')).toBe(16.9)
+    expect(parseValorBR('R$ 16,90')).toBe(16.9)
+    expect(parseValorBR(' 1234,5 ')).toBe(1234.5)
+  })
+  it('vazio -> null; texto -> NaN', () => {
+    expect(parseValorBR('')).toBeNull()
+    expect(parseValorBR(null)).toBeNull()
+    expect(Number.isNaN(parseValorBR('abc'))).toBe(true)
+  })
+  it('arredonda a 2 casas', () => {
+    expect(parseValorBR('16,999')).toBe(17)
+    expect(parseValorBR('16,004')).toBe(16)
+  })
+  it('fmtValorBR formata pt-BR com 2 casas; vazio p/ null', () => {
+    expect(fmtValorBR(16.9)).toBe('16,90')
+    expect(fmtValorBR(null)).toBe('')
+  })
+})
+
+describe('custoState', () => {
+  it('não tocado -> clean', () => {
+    expect(custoState(undefined, 16.9)).toBe('clean')
+  })
+  it('igual ao original (formatos diferentes) -> clean', () => {
+    expect(custoState('16,90', 16.9)).toBe('clean')
+    expect(custoState('16.9', 16.9)).toBe('clean')
+  })
+  it('número diferente -> dirty', () => {
+    expect(custoState('17,50', 16.9)).toBe('dirty')
+    expect(custoState('20', null)).toBe('dirty')
+  })
+  it('limpar um custo que existia -> dirty; limpar vazio -> clean', () => {
+    expect(custoState('', 16.9)).toBe('dirty')
+    expect(custoState('', null)).toBe('clean')
+  })
+  it('texto ou negativo -> invalid', () => {
+    expect(custoState('abc', 16.9)).toBe('invalid')
+    expect(custoState('-5', null)).toBe('invalid')
   })
 })
 
