@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { LayoutDashboard, Target, ShoppingBag, TrendingUp, BarChart2, Settings, Sun, Moon, Table2, RefreshCw } from 'lucide-react'
 import { useCollection } from '../contexts/CollectionContext'
 import { useAuth } from '../contexts/AuthContext'
 import { colecoes as colecoesService, sortColecoes } from '../services/colecoes'
+import { reposicao as reposicaoService } from '../services/reposicao'
 import ColecaoModal from './ColecaoModal'
 import styles from './Sidebar.module.css'
 
@@ -21,6 +22,18 @@ export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
   const { collections, setCollections, activeId, setActiveId } = useCollection()
   const { signOut, comprador, desvincularComprador } = useAuth()
   const [showModal, setShowModal] = useState(false)
+  const [reposPend, setReposPend] = useState(0)
+
+  // Contador de rascunhos de reposição aguardando revisão. Recarrega ao trocar de
+  // tela (assim que o comprador sai da tela de Reposição o número acompanha).
+  useEffect(() => {
+    if (!comprador?.is_editor) { setReposPend(0); return }
+    let vivo = true
+    reposicaoService.contarRascunhos()
+      .then(n => { if (vivo) setReposPend(n) })
+      .catch(() => {})
+    return () => { vivo = false }
+  }, [comprador?.is_editor, current])
 
   async function handleCreate(dados) {
     const nova = await colecoesService.create(dados)
@@ -65,6 +78,9 @@ export default function Sidebar({ current, onNavigate, theme, onToggleTheme }) {
           >
             <Icon size={15} strokeWidth={1.6} />
             <span>{label}</span>
+            {id === 'reposicao' && reposPend > 0 && (
+              <span className={styles.navBadge} title={`${reposPend} rascunho(s) aguardando revisão`}>{reposPend}</span>
+            )}
           </button>
         ))}
       </nav>

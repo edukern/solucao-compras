@@ -69,4 +69,30 @@ export const reposicao = {
     if (!data) throw new Error('este rascunho não está mais disponível (já foi revisado ou descartado por outra pessoa)')
     return data
   },
+
+  // Volta um pedido revisado/descartado para 'rascunho' (desfaz um "Descartar" ou
+  // "Marcar como revisado"). Guarda `eq('status', statusAtual)` pra não brigar com
+  // uma mudança concorrente. Limpa revisado_por/em — voltou a ser rascunho.
+  async reabrir(id, statusAtual) {
+    const { data, error } = await supabase
+      .from('pedidos_reposicao')
+      .update({ status: 'rascunho', revisado_por: null, revisado_em: null })
+      .eq('id', id)
+      .eq('status', statusAtual)
+      .select()
+      .maybeSingle()
+    if (error) throw error
+    if (!data) throw new Error('este pedido mudou de estado enquanto você olhava — recarregue a lista')
+    return data
+  },
+
+  // Quantos rascunhos aguardando revisão (pro contador no menu). Uma linha só.
+  async contarRascunhos() {
+    const { count, error } = await supabase
+      .from('pedidos_reposicao')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'rascunho')
+    if (error) throw error
+    return count ?? 0
+  },
 }
