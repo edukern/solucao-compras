@@ -513,6 +513,14 @@
 }
 .gradeHint { color: var(--yellow); font-size: 0.72rem; }
 
+.gradeAviso {
+  margin-top: 0.3rem;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--yellow);
+  max-width: 32rem;
+}
+
 .semTam { color: var(--text-muted); }
 
 .avisoInvalido {

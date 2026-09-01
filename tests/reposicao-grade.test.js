@@ -194,11 +194,20 @@ describe('editState', () => {
     expect(editState('1', 5)).toBe('dirty')
   })
 
-  it('linha existente: 0 / negativo / >9999 / texto -> invalid (não dá pra zerar sugestão)', () => {
-    expect(editState('0', 5)).toBe('invalid')
+  it('linha existente: 0 -> dirty (zerar = "não repor este tamanho", salva qtd 0)', () => {
+    expect(editState('0', 5)).toBe('dirty')
+    expect(editState('00', 5)).toBe('dirty')
+  })
+
+  it('linha existente: já era 0 e continua 0 -> clean', () => {
+    expect(editState('0', 0)).toBe('clean')
+  })
+
+  it('linha existente: negativo / >9999 / texto / vazio -> invalid', () => {
     expect(editState('-1', 5)).toBe('invalid')
     expect(editState('10000', 5)).toBe('invalid')
     expect(editState('x', 5)).toBe('invalid')
+    expect(editState('', 5)).toBe('invalid')
   })
 
   it('tamanho novo (sem linha): vazio ou 0 -> clean', () => {

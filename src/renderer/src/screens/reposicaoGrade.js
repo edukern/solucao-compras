@@ -143,10 +143,12 @@ export function custoState(raw, original) {
 // Estado de um campo editável.
 //   original = número da linha que já existe, ou null/undefined se aquele
 //   tamanho ainda não tem linha (comprador preenchendo do zero).
-//   'clean'   = não mexeu / voltou ao original / tamanho novo deixado vazio
-//   'dirty'   = inteiro de 1 a 9999, diferente do original
-//   'invalid' = qualquer outra coisa (inclui 0 numa linha que já existe —
-//               não dá pra zerar uma sugestão pela tela, só descartar o rascunho)
+//   'clean'   = não mexeu / voltou ao original / tamanho novo deixado vazio ou 0
+//   'dirty'   = inteiro de 0 a 9999, diferente do original. 0 numa linha que já
+//               existe é válido e significa "não repor este tamanho" (grava qtd 0,
+//               mantém qtd_sugerida ao lado). Só o rascunho inteiro se descarta.
+//   'invalid' = negativo, > 9999, texto, ou campo de linha existente apagado
+//               (deixe 0 explícito em vez de vazio)
 export function editState(raw, original) {
   if (raw === undefined) return 'clean'
   const temLinha = original != null && original !== ''
@@ -155,6 +157,6 @@ export function editState(raw, original) {
   if (!temLinha && (s === '' || s === '0')) return 'clean'
   if (!/^\d+$/.test(s)) return 'invalid'
   const n = parseInt(s, 10)
-  if (n < 1 || n > 9999) return 'invalid'
+  if (n > 9999) return 'invalid'
   return 'dirty'
 }
