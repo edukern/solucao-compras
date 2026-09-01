@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from 'react'
-import { ArrowLeft, Check, X, ChevronRight, Save, FileText } from 'lucide-react'
+import { ArrowLeft, Check, X, ChevronRight, Save, FileText, RotateCcw, ChevronsUpDown } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { reposicao as reposicaoService } from '../services/reposicao'
 import { compradores as compradoresService } from '../services/compradores'
@@ -42,37 +42,55 @@ function* percorrerEdits(edits) {
 
 // ─── Lista ──────────────────────────────────────────────────────────────────
 
-function ListaRascunhos({ onAbrir }) {
+function ListaRascunhos({ aba, setAba, refreshSignal, onAbrir }) {
   const { comprador, user } = useAuth()
-  const [abaStatus,    setAbaStatus]    = useState('rascunho')
   const [lista,        setLista]        = useState([])
   const [loading,      setLoading]      = useState(true)
   const [erro,         setErro]         = useState(null)
-  const [descartandoId, setDescartandoId] = useState(null)
+  const [ocupadoId,    setOcupadoId]    = useState(null)   // card em transição de status
+  const [acaoErro,     setAcaoErro]     = useState(null)
 
   const carregar = useCallback(() => {
     setLoading(true)
     setErro(null)
-    reposicaoService.list(abaStatus)
+    reposicaoService.list(aba)
       .then(setLista)
       .catch(e => setErro(e.message))
       .finally(() => setLoading(false))
-  }, [abaStatus])
+  }, [aba])
 
-  useEffect(() => { carregar() }, [carregar])
+  useEffect(() => { carregar() }, [carregar, refreshSignal])
 
-  async function handleDescartar(e, id) {
+  const quemSou = () => comprador?.nome ?? user?.email ?? 'desconhecido'
+
+  async function handleDescartar(e, id, marca) {
     e.stopPropagation()
-    if (!window.confirm('Descartar este rascunho? Ele sai da aba "Rascunho" e não tem desfazer pela tela.')) return
-    const revisadoPor = comprador?.nome ?? user?.email ?? 'desconhecido'
-    setDescartandoId(id)
+    if (!window.confirm(`Descartar a reposição de ${marca}? Ela sai da lista de rascunhos. Dá pra reabrir depois na aba "Descartado".`)) return
+    setAcaoErro(null)
+    setOcupadoId(id)
     try {
-      await reposicaoService.marcarStatus(id, 'descartado', revisadoPor)
+      await reposicaoService.marcarStatus(id, 'descartado', quemSou())
       carregar()
     } catch (err) {
-      alert(`Erro ao descartar: ${err.message}`)
+      setAcaoErro(`Não deu para descartar: ${err.message}`)
     } finally {
-      setDescartandoId(null)
+      setOcupadoId(null)
+    }
+  }
+
+  async function handleReabrir(e, id, statusAtual, marca) {
+    e.stopPropagation()
+    if (!window.confirm(`Reabrir a reposição de ${marca}? Ela volta para a aba "Rascunho" para ser editada de novo.`)) return
+    setAcaoErro(null)
+    setOcupadoId(id)
+    try {
+      await reposicaoService.reabrir(id, statusAtual)
+      setAba('rascunho')
+    } catch (err) {
+      setAcaoErro(`Não deu para reabrir: ${err.message}`)
+      carregar()
+    } finally {
+      setOcupadoId(null)
     }
   }
 
@@ -89,19 +107,20 @@ function ListaRascunhos({ onAbrir }) {
         {['rascunho', 'revisado', 'descartado'].map(s => (
           <button
             key={s}
-            className={`${styles.aba} ${abaStatus === s ? styles.abaAtiva : ''}`}
-            onClick={() => setAbaStatus(s)}
+            className={`${styles.aba} ${aba === s ? styles.abaAtiva : ''}`}
+            onClick={() => setAba(s)}
           >
             {STATUS_LABEL[s]}
           </button>
         ))}
       </div>
 
+      {acaoErro && <div className={styles.erro}>{acaoErro}</div>}
       {erro && <div className={styles.erro}>Erro ao carregar: {erro}</div>}
       {loading && <div className={styles.vazio}>Carregando…</div>}
 
       {!loading && !erro && lista.length === 0 && (
-        <div className={styles.vazio}>Nenhum rascunho com status "{STATUS_LABEL[abaStatus]}".</div>
+        <div className={styles.vazio}>Nenhum pedido com status "{STATUS_LABEL[aba]}".</div>
       )}
 
       {!loading && lista.length > 0 && (
@@ -120,8 +139,8 @@ function ListaRascunhos({ onAbrir }) {
                 <span className={`${styles.badge} ${styles['badge_' + r.status]}`}>{STATUS_LABEL[r.status]}</span>
               </div>
               <div className={styles.cardListaMeta}>
-                <span>Janela: {r.janela_dias} dias</span>
-                <span>{r.qtd_referencias ?? 0} ref. · {r.qtd_total ?? 0} un.</span>
+                <span>Base: vendas dos últimos {r.janela_dias} dias</span>
+                <span>{r.qtd_referencias ?? 0} ref. · {r.qtd_total ?? 0} peças</span>
                 <span>Gerado por: {r.gerado_por || '—'}</span>
                 <span>{fmtDateTime(r.gerado_em)}</span>
               </div>
@@ -130,18 +149,27 @@ function ListaRascunhos({ onAbrir }) {
                   {STATUS_LABEL[r.status]} por {r.revisado_por || '—'} em {fmtDateTime(r.revisado_em)}
                 </div>
               )}
-              {r.status === 'rascunho' && (
-                <div className={styles.cardListaRodape}>
+              <div className={styles.cardListaRodape}>
+                {r.status === 'rascunho' ? (
                   <button
                     type="button"
                     className={styles.btnDescartarLista}
-                    disabled={descartandoId === r.id}
-                    onClick={e => handleDescartar(e, r.id)}
+                    disabled={ocupadoId === r.id}
+                    onClick={e => handleDescartar(e, r.id, r.marca)}
                   >
                     <X size={12} strokeWidth={1.8} /> Descartar
                   </button>
-                </div>
-              )}
+                ) : (
+                  <button
+                    type="button"
+                    className={styles.btnDescartarLista}
+                    disabled={ocupadoId === r.id}
+                    onClick={e => handleReabrir(e, r.id, r.status, r.marca)}
+                  >
+                    <RotateCcw size={12} strokeWidth={1.8} /> Reabrir
+                  </button>
+                )}
+              </div>
               <ChevronRight className={styles.cardListaChevron} size={18} strokeWidth={1.8} />
             </div>
           ))}
@@ -161,7 +189,11 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
   const [processando, setProcessando] = useState(false)   // transição de status
   const [salvando,    setSalvando]    = useState(false)   // gravação de quantidades
   const [erroSalvar,  setErroSalvar]  = useState(null)
+  const [erroStatus,  setErroStatus]  = useState(null)   // falha ao revisar/descartar
+  const [sucesso,     setSucesso]     = useState(null)   // 'revisado' → banner de fim de fluxo
   const [expandida,   setExpandida]   = useState(null)    // referencia aberta
+  const [expandirTudo, setExpandirTudo] = useState(false) // abre todas as grades de uma vez
+  const [verReguaCheia, setVerReguaCheia] = useState({}) // { [ref]: true } mostra a régua canônica inteira
   const [edits,       setEdits]       = useState({})      // { [ref]: { [tam]: rawString } }  qtd
   const [custoEdits,  setCustoEdits]  = useState({})      // { [ref]: rawString }  valor unit.
   const [gradeSel,    setGradeSel]    = useState({})      // { [ref]: gradeCode escolhido }
@@ -267,6 +299,18 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
     return c != null ? totalEfetivoRef(g) * c : null
   }
 
+  // Totais do pedido inteiro (ao vivo, refletindo as edições da tela).
+  const totalGeralPecas = grupos.reduce((s, g) => s + totalEfetivoRef(g), 0)
+  const totalGeralValor = grupos.reduce((s, g) => s + (valorTotalRef(g) ?? 0), 0)
+  const refsComPeca     = grupos.filter(g => totalEfetivoRef(g) > 0).length
+
+  // "Voltar" com rede de proteção: não perde edição não salva sem avisar.
+  function handleVoltar() {
+    if (temPendente &&
+        !window.confirm('Você tem alterações não salvas nesta tela. Sair mesmo assim? As alterações serão perdidas.')) return
+    onVoltar()
+  }
+
   // Navegação por teclado igual ao Compras: Enter/Tab avança pelo próximo campo
   // da linha; no fim da linha, abre a próxima referência e foca o 1º campo dela.
   // Esc fecha a referência.
@@ -307,8 +351,10 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
         return itA.qtd !== orig.qtd || !custoIgual
       })
       if (conflito) {
-        setPedido(atual); limparEdits()
-        setErroSalvar('As quantidades ou o custo mudaram no servidor desde que você abriu (outra pessoa editou). Recarreguei — confira e edite de novo.')
+        // Mantém o que a pessoa digitou; só atualiza a base de comparação. Os
+        // campos que ainda diferem do servidor continuam destacados como pendentes.
+        setPedido(atual)
+        setErroSalvar('Outra pessoa alterou este rascunho no servidor enquanto você editava. Atualizei os números originais — os seus ajustes continuam nos campos. Confira o que ficou destacado e salve de novo.')
         return
       }
 
@@ -383,19 +429,26 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
 
   async function handleMarcar(status) {
     if (temPendente || temInvalido) return
-    if (status === 'revisado') {
-      const totalPecas = grupos.reduce((s, g) => s + totalEfetivoRef(g), 0)
-      if (totalPecas === 0 &&
-          !window.confirm('Este pedido ficou sem nenhuma peça (todos os tamanhos zerados). Marcar como revisado assim mesmo?')) return
-    }
+    if (status === 'descartado' &&
+        !window.confirm(`Descartar a reposição de ${pedido.marca}? Ela sai da lista de rascunhos. Dá pra reabrir depois na aba "Descartado".`)) return
+    if (status === 'revisado' && totalGeralPecas === 0 &&
+        !window.confirm('Este pedido ficou sem nenhuma peça (todos os tamanhos zerados). Marcar como revisado assim mesmo?')) return
+
     const revisadoPor = comprador?.nome ?? user?.email ?? 'desconhecido'
+    setErroStatus(null)
     setProcessando(true)
     try {
       await reposicaoService.marcarStatus(id, status, revisadoPor)
-      onStatusChange()
-      onVoltar()
+      onStatusChange(status)
+      if (status === 'revisado') {
+        await carregar()          // recarrega → tela vira somente-leitura, com os PDFs à mão
+        setSucesso('revisado')
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      } else {
+        onVoltar()
+      }
     } catch (e) {
-      alert(`Erro ao atualizar status: ${e.message}`)
+      setErroStatus(`Não foi possível atualizar o status: ${e.message}`)
     } finally {
       setProcessando(false)
     }
@@ -456,7 +509,7 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
 
   return (
     <div className={`${styles.page} ${styles.pageWide}`}>
-      <button className={styles.voltar} onClick={onVoltar}>
+      <button className={styles.voltar} onClick={handleVoltar}>
         <ArrowLeft size={14} strokeWidth={1.8} /> Voltar
       </button>
 
@@ -466,7 +519,7 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
           <span className={`${styles.badge} ${styles['badge_' + pedido.status]}`}>{STATUS_LABEL[pedido.status]}</span>
         </div>
         <p className={styles.subtitle}>
-          Janela de {pedido.janela_dias} dias · gerado por {pedido.gerado_por || '—'} em {fmtDateTime(pedido.gerado_em)}
+          Base: vendas dos últimos {pedido.janela_dias} dias · gerado por {pedido.gerado_por || '—'} em {fmtDateTime(pedido.gerado_em)}
           {pedido.status !== 'rascunho' && (
             <> · {STATUS_LABEL[pedido.status].toLowerCase()} por {pedido.revisado_por || '—'} em {fmtDateTime(pedido.revisado_em)}</>
           )}
@@ -477,6 +530,29 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
           </p>
         )}
       </div>
+
+      {sucesso === 'revisado' && (
+        <div className={styles.sucessoBanner}>
+          <Check size={16} strokeWidth={2} />
+          <span>
+            Pedido de <strong>{pedido.marca}</strong> marcado como revisado. Agora gere o <strong>PDF fornecedor</strong> abaixo para enviar à marca.
+          </span>
+          <button type="button" className={styles.sucessoVoltar} onClick={onVoltar}>Voltar à lista</button>
+        </div>
+      )}
+
+      {grupos.length > 1 && (
+        <div className={styles.tabelaTopo}>
+          <button
+            type="button"
+            className={styles.btnToggleGrades}
+            onClick={() => setExpandirTudo(v => !v)}
+          >
+            <ChevronsUpDown size={13} strokeWidth={1.8} />
+            {expandirTudo ? 'Recolher todas as grades' : 'Expandir todas as grades'}
+          </button>
+        </div>
+      )}
 
       <table className={styles.itemsTable}>
         <thead>
@@ -489,17 +565,18 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
         </thead>
         <tbody>
           {grupos.map(g => {
-            const aberta  = expandida === g.referencia
+            const aberta  = expandirTudo || expandida === g.referencia
             const editada = refsComEdicao.has(g.referencia)
             const grade   = gradeDaRef(g)
             // Colunas de tamanho da grade aberta. Enquanto o revisor não escolher a
-            // grade no seletor, mostra só os tamanhos que vieram com dado (ou que ele
-            // já editou) — grade adivinhada errada (ex.: produto UNI que caiu em "BB")
-            // não polui a tabela com colunas vazias que fazem o Total parecer errado.
-            // Ao escolher uma grade no seletor, mostra a régua completa dela.
+            // grade no seletor (nem pedir "ver régua inteira"), mostra só os tamanhos
+            // que vieram com dado (ou que ele já editou) — grade adivinhada errada
+            // (ex.: produto UNI que caiu em "BB") não polui a tabela com colunas
+            // vazias que fazem o Total parecer errado.
             const gradeEscolhida = gradeSel[g.referencia] !== undefined
+            const mostrarRegua = gradeEscolhida || verReguaCheia[g.referencia]
             const colunasFull = colunasDaGrade(grade, g.tamanhosPresentes)
-            const colunasVis  = gradeEscolhida
+            const colunasVis  = mostrarRegua
               ? colunasFull
               : colunasFull.filter(t => g.porTamanho[t] || edits[g.referencia]?.[t] !== undefined)
             const colunas = colunasVis.length ? colunasVis : colunasFull
@@ -507,7 +584,7 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
             // nem edição, então o número bate com o que aparece na tela.
             const pecas   = totalEfetivoRef(g)
             const custoSt = custoStateDe(g.referencia)
-            const gradeForaDosDados = editavel && !gradeEscolhida &&
+            const gradeForaDosDados = editavel && !mostrarRegua &&
               tamanhosDeTipoGrade(grade).length > 0 &&
               tamanhosDeTipoGrade(grade).every(t => !g.porTamanho[t])
             return (
@@ -579,13 +656,32 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
                                   <option key={k} value={k}>{k} — {tamanhosDeTipoGrade(k).join('/') || '—'}</option>
                                 ))}
                               </select>
-                              {editavel && !g.tipoGradeSalva && grade === g.gradePalpite && (
+                              {editavel && !g.tipoGradeSalva && grade === g.gradePalpite && !gradeForaDosDados && (
                                 <span className={styles.gradeHint}> (palpite — confira)</span>
                               )}
                             </label>
                             {gradeForaDosDados && (
                               <div className={styles.gradeAviso}>
-                                Os tamanhos que vieram ({g.tamanhosPresentes.join(', ')}) não são desta grade — a régua completa dela fica oculta. Troque no seletor se precisar dela.
+                                Os tamanhos que vieram ({g.tamanhosPresentes.join(', ')}) não são desta grade. Confira a grade no seletor{' '}
+                                — ou{' '}
+                                <button
+                                  type="button"
+                                  className={styles.gradeAvisoLink}
+                                  onClick={() => setVerReguaCheia(p => ({ ...p, [g.referencia]: true }))}
+                                >mostre a régua inteira</button>.
+                              </div>
+                            )}
+                            {editavel && !gradeForaDosDados && (colunasFull.length > colunas.length || verReguaCheia[g.referencia]) && (
+                              <div>
+                                <button
+                                  type="button"
+                                  className={styles.gradeAvisoLink}
+                                  onClick={() => setVerReguaCheia(p => ({ ...p, [g.referencia]: !verReguaCheia[g.referencia] }))}
+                                >
+                                  {verReguaCheia[g.referencia]
+                                    ? 'esconder tamanhos vazios'
+                                    : `+ mostrar todos os ${colunasFull.length} tamanhos da grade`}
+                                </button>
                               </div>
                             )}
                           </div>
@@ -605,21 +701,26 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
                             const it  = g.porTamanho[t]
                             const st  = estadoDe(g.referencia, t)
                             const raw = rawDe(g.referencia, t)
+                            const sug = it?.qtd_sugerida
+                            const mostraSug = editavel && sug != null && sug !== valorEfetivo(g.referencia, t)
                             return (
                               <div key={t} className={styles.gradeInlineSize}>
                                 {editavel ? (
-                                  <input
-                                    ref={ci === 0 ? firstQtdRef : null}
-                                    type="number"
-                                    min="0"
-                                    className={`${styles.qtyInput} ${st === 'invalid' ? styles.qtyInputInvalido : ''} ${st === 'dirty' ? styles.qtyInputDirty : ''} ${!it ? styles.qtyInputNovo : ''}`}
-                                    value={raw}
-                                    placeholder={it ? '0' : '·'}
-                                    onChange={e => setQtd(g.referencia, t, e.target.value)}
-                                    onFocus={e => e.target.select()}
-                                    onKeyDown={handleKeyNavQtd}
-                                    aria-label={`Quantidade ${g.referencia} tamanho ${t}`}
-                                  />
+                                  <>
+                                    <input
+                                      ref={ci === 0 ? firstQtdRef : null}
+                                      type="number"
+                                      min="0"
+                                      className={`${styles.qtyInput} ${st === 'invalid' ? styles.qtyInputInvalido : ''} ${st === 'dirty' ? styles.qtyInputDirty : ''} ${!it ? styles.qtyInputNovo : ''}`}
+                                      value={raw}
+                                      placeholder={it ? '0' : '·'}
+                                      onChange={e => setQtd(g.referencia, t, e.target.value)}
+                                      onFocus={e => e.target.select()}
+                                      onKeyDown={handleKeyNavQtd}
+                                      aria-label={`Quantidade ${g.referencia} tamanho ${t}`}
+                                    />
+                                    <span className={styles.sugFantasma}>{mostraSug ? `sug. ${sug}` : ' '}</span>
+                                  </>
                                 ) : (
                                   it ? <strong>{it.qtd}</strong> : <span className={styles.semTam}>—</span>
                                 )}
@@ -659,9 +760,22 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
         </tbody>
       </table>
 
+      <div className={styles.resumoBar}>
+        <span><strong>{refsComPeca}</strong> referência{refsComPeca === 1 ? '' : 's'} com peça</span>
+        <span aria-hidden>·</span>
+        <span><strong>{totalGeralPecas}</strong> peça{totalGeralPecas === 1 ? '' : 's'} no total</span>
+        {totalGeralValor > 0 && <><span aria-hidden>·</span><span><strong>R$ {fmtValorBR(totalGeralValor)}</strong></span></>}
+      </div>
+
+      {erroStatus && <div className={styles.erro}>{erroStatus}</div>}
       {erroSalvar && <div className={styles.erro}>{erroSalvar}</div>}
       {temInvalido && !erroSalvar && (
         <div className={styles.avisoInvalido}>Há valor inválido — a quantidade tem que ser um número inteiro de 0 a 9999 (use <strong>0</strong> para não repor um tamanho; não deixe o campo em branco) e o custo tem que ser um número (ex.: 16,90).</div>
+      )}
+      {editavel && temPendente && !temInvalido && !erroSalvar && (
+        <div className={styles.pendenteAviso}>
+          Você tem alterações não salvas — clique em <strong>Salvar alterações</strong> antes de gerar PDF ou marcar como revisado.
+        </div>
       )}
 
       <div className={styles.pdfRow}>
@@ -695,20 +809,18 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
             </button>
           )}
           <button
-            className={styles.btnDescartar}
+            className={styles.btnDescartarSutil}
             disabled={processando || salvando || temPendente || temInvalido}
-            title={temPendente || temInvalido ? 'Salve as alterações primeiro' : undefined}
             onClick={() => handleMarcar('descartado')}
           >
-            <X size={14} strokeWidth={1.8} /> Descartar
+            <X size={13} strokeWidth={1.8} /> Descartar pedido
           </button>
           <button
             className={styles.btnRevisar}
             disabled={processando || salvando || temPendente || temInvalido}
-            title={temPendente || temInvalido ? 'Salve as alterações primeiro' : undefined}
             onClick={() => handleMarcar('revisado')}
           >
-            <Check size={14} strokeWidth={1.8} /> Marcar como revisado
+            <Check size={14} strokeWidth={1.8} /> {processando ? 'Um instante…' : 'Marcar como revisado'}
           </button>
         </div>
       )}
@@ -721,7 +833,8 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
 export default function RevisaoReposicao() {
   const { comprador } = useAuth()
   const [abertoId, setAbertoId] = useState(null)
-  const [refreshKey, setRefreshKey] = useState(0)
+  const [aba, setAba] = useState('rascunho')
+  const [refreshSignal, setRefreshSignal] = useState(0)
 
   // Menor privilégio: revisar/editar reposição é trabalho da equipe de compras.
   // O item também é escondido do menu em Sidebar.jsx; isto aqui é a trava real.
@@ -738,10 +851,20 @@ export default function RevisaoReposicao() {
       <DetalheRascunho
         id={abertoId}
         onVoltar={() => setAbertoId(null)}
-        onStatusChange={() => setRefreshKey(k => k + 1)}
+        onStatusChange={novoStatus => {
+          setRefreshSignal(s => s + 1)
+          if (novoStatus) setAba(novoStatus)   // ao revisar/descartar, a lista já abre na aba certa
+        }}
       />
     )
   }
 
-  return <ListaRascunhos key={refreshKey} onAbrir={setAbertoId} />
+  return (
+    <ListaRascunhos
+      aba={aba}
+      setAba={setAba}
+      refreshSignal={refreshSignal}
+      onAbrir={setAbertoId}
+    />
+  )
 }

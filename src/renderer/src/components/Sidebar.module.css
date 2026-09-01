@@ -88,6 +88,20 @@
 .navBtn svg { flex-shrink: 0; opacity: 0.5; }
 .active svg { opacity: 1; color: var(--bg-primary); }
 
+.navBadge {
+  margin-left: auto;
+  min-width: 1.15rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--yellow, #facc15);
+  color: #1a1a1a;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.15rem;
+  text-align: center;
+}
+.active .navBadge { background: var(--bg-primary); color: var(--text-primary); }
+
 .bottom {
   padding: 0.75rem;
   border-top: 1px solid var(--border);

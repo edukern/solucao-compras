@@ -1,6 +1,6 @@
 ---
 name: reposicao-revisao-estado
-description: Tela "Reposição" (RevisaoReposicao) — o que ela faz hoje, schema, e as decisões de design não-óbvias. Feita em PRs #19–#25 entre 20/08 e 01/09/2026.
+description: Tela "Reposição" (RevisaoReposicao) — o que ela faz hoje, schema, e as decisões de design não-óbvias. Feita em PRs #19–#26 entre 20/08 e 01/09/2026.
 metadata:
   type: project
 ---
@@ -35,8 +35,9 @@ Gravação da tela = **um `upsert` único** por chave natural `(pedido_reposicao
 3. **PDF fornecedor** — remetente/faturamento = linha de `compradores` **id 1 (Backes Art. Vestuário)**, confirmado pelo Eduardo. Nº do pedido = 8 primeiros chars do id do rascunho. Não há endereço da marca destinatária (não existe cadastro).
 4. **PDF fornecedor usa allow-list de campos** (não block-list): Referência (=reffornecedor) · Produto (tipo·classe·MASC/FEM) · tamanhos/Qtd · R$ un. · Total. Nunca `codigo_ponto_e` nem `qtd_sugerida`. Interno mostra o `codigo_ponto_e`. **Nenhum dos dois** mostra Vendido/Estoque CD/Já pedido (tirado a pedido do Eduardo — não pertence ao pedido).
 5. Botões de PDF travados enquanto houver alteração não salva.
-6. **Grade aberta esconde colunas de tamanho sem dado** (PR #25) enquanto o revisor não escolher a grade no seletor — grade adivinhada errada (ex.: produto UNI que caiu em "BB", tamanhos reais `0`/`FEM`/`MASC`) desenhava 4 colunas vazias + uma coluna oculta com peças, fazendo o Total parecer errado ("80+140=243"). Escolher a grade no seletor volta a mostrar a régua completa. O Total é somado sobre a régua canônica inteira (colunas ocultas são sempre 0, então bate). **Todos os rascunhos atuais** têm descasamento grade × tamanhos.
+6. **Grade aberta esconde colunas de tamanho sem dado** (PR #25) enquanto o revisor não escolher a grade no seletor — grade adivinhada errada (ex.: produto UNI que caiu em "BB", tamanhos reais `0`/`FEM`/`MASC`) desenhava 4 colunas vazias + uma coluna oculta com peças, fazendo o Total parecer errado ("80+140=243"). Escolher a grade no seletor **ou** o link "+ mostrar todos os N tamanhos da grade" (PR #26) volta a mostrar a régua completa. O Total é somado sobre a régua canônica inteira (colunas ocultas são sempre 0, então bate). **Todos os rascunhos atuais** têm descasamento grade × tamanhos.
 7. **Campos de qtd/custo selecionam o conteúdo ao focar** (PR #25) — a sugestão vem preenchida com valor real (no Compras começa vazio), então sem `select()` no `onFocus` digitar concatenava ("0"+6="60").
+8. **Melhorias de fluxo da auditoria heurística (PR #26).** `services/reposicao.js` ganhou `reabrir(id, statusAtual)` (revisado/descartado → rascunho, limpa revisado_por/em; RLS é `auth_full_access`, sem trava por editor no banco) e `contarRascunhos()`. Na tela: contador de rascunhos no item "Reposição" do menu (Sidebar, refetch a cada troca de tela); "Reabrir" nos cards revisado/descartado; guarda de "alterações não salvas" no Voltar; conflito de save **mantém** os campos digitados (só atualiza a base); barra de total geral (refs/peças/R$) ao vivo; "Descartar" no detalhe pede confirmação; após "Marcar como revisado" a tela **fica** (vira read-only) com banner de sucesso apontando pro PDF em vez de voltar pra lista; sugestão-fantasma ("sug. N") por tamanho quando o valor difere; "Expandir todas as grades"; `alert()` de status virou banner; `abaStatus` subiu pro orquestrador (não reseta mais pra "Rascunho" a cada ação). Nada de schema.
 
 ## Pendente (do lado de fora deste repo)
 
