@@ -55,26 +55,29 @@ describe('montarHTMLReposicao', () => {
     expect(montarHTMLReposicao(pedido, [{ ...grupos[0], totalQtd: 0 }])).toBe('')
   })
 
-  it('interno: mostra código interno e as colunas de métrica', () => {
+  it('interno: mostra código interno, gênero no produto, sem métricas', () => {
     const html = montarHTMLReposicao(pedido, grupos, { paraFornecedor: false })
     expect(html).toContain('uso interno')
-    expect(html).toContain('1.21204')      // codigo_ponto_e aparece
-    expect(html).toContain('Vend.')        // cabeçalho de métrica
-    expect(html).toContain('Est.CD')
-    expect(html).toContain('Já ped.')
-    expect(html).toContain('Grade: AD')    // multi-grade -> rótulo por grade
+    expect(html).toContain('1.21204')            // codigo_ponto_e aparece
+    expect(html).toContain('SUTIA · AD · FEM')   // gênero (do nome) na coluna Produto
+    expect(html).toContain('BOXER · EX · MASC')
+    expect(html).not.toContain('Vend.')          // métricas saíram
+    expect(html).not.toContain('Est.CD')
+    expect(html).not.toContain('Já ped.')
+    expect(html).toContain('Grade: AD')          // multi-grade -> rótulo por grade
     expect(html).toContain('Grade: EX')
     expect(html).toContain('SCHRAMM')
     expect(html).toContain('Total do pedido: 46 peças')
   })
 
-  it('fornecedor: NÃO vaza código interno nem métricas; usa reffornecedor', () => {
+  it('fornecedor: NÃO vaza código interno nem métricas; usa reffornecedor; tem gênero', () => {
     const html = montarHTMLReposicao(pedido, grupos, { paraFornecedor: true, cd })
     expect(html).not.toContain('1.21204')     // codigo_ponto_e escondido
     expect(html).not.toContain('2.14879')
     expect(html).not.toContain('Vend.')       // sem métricas internas
     expect(html).not.toContain('Est.CD')
     expect(html).not.toContain('uso interno')
+    expect(html).toContain('SUTIA · AD · FEM')
     expect(html).toContain('08.889.201/0004-46')  // bloco do CD
     expect(html).toContain('Backes Art. Vestuário')
     // ref 125 sem reffornecedor -> aviso
