@@ -604,37 +604,17 @@ export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride
     doc.line(ML, headerBottom, ML + PW, headerBottom)
     const tableStart = headerBottom + 3
 
-    // ── TABLE — agrupado por tipo_grade, uma coluna por tamanho ──────────
-    const W_REF  = 22, W_PROD = 22, W_SZ = 11, W_CORDET = 24, W_OBS = 24
+    // ── TABLE — ordem de digitação, uma coluna por tamanho ───────────────
+    const W_PROD = 20, W_SZ = 11, W_CORDET = 22
     const W_QTOT = 10, W_PREC = 16, W_TOT = 18, W_RLIQ = 16, W_ICMS = 10
     const MIN_SZ = 7 // abaixo disso o número do tamanho fica ilegível/cortado
     const temCorDetalhe = visPedidos.some(p => p.cor || p.detalhe)
-    const temObsCol     = visPedidos.some(p => p.obs)
+    const temObs        = visPedidos.some(p => p.obs)
 
-    // Agrupar pedidos por tipo_grade e ordenar cada grupo por produto (alfabética),
-    // pra não intercalar produtos diferentes dentro da mesma grade (ex.: boxer, meia
-    // calça, boxer de novo) — mais fácil de conferir no pedido impresso.
-    const gradeOrder = []
-    const gradeGroups = {}
-    for (const p of visPedidos) {
-      const tg = p.tipo_grade ?? p.segmentacao?.tipo_grade ?? 'AD'
-      if (!gradeGroups[tg]) { gradeGroups[tg] = []; gradeOrder.push(tg) }
-      gradeGroups[tg].push(p)
-    }
-    for (const tg of gradeOrder) {
-      gradeGroups[tg].sort((a, b) => {
-        const prodA = [a.tipo_produto ?? a.segmentacao?.tipo_produto ?? '', a.classe ?? a.segmentacao?.classe ?? ''].filter(Boolean).join(' ')
-        const prodB = [b.tipo_produto ?? b.segmentacao?.tipo_produto ?? '', b.classe ?? b.segmentacao?.classe ?? ''].filter(Boolean).join(' ')
-        return prodA.localeCompare(prodB, 'pt-BR') || String(a.referencia ?? '').localeCompare(String(b.referencia ?? ''), 'pt-BR')
-      })
-    }
-
-    function renderGrupo(grupoPedidos, startY) {
-      // Tamanhos ativos só deste grupo — união entre a grade canônica e qualquer tamanho
-      // realmente salvo com qtd>0 (mesmo fora da grade — tamanho extra pontual ou dado
-      // antigo fora do padrão). Sem isso a peça soma no total mas a coluna some.
+    function renderTabela(pedidos, startY) {
+      // Tamanhos ativos — união entre a grade canônica e qualquer tamanho com qtd>0
       const sizeOrder = [], sizeSet = new Set(), sizeHasQty = new Set()
-      for (const p of grupoPedidos) {
+      for (const p of pedidos) {
         const tg = p.tipo_grade ?? p.segmentacao?.tipo_grade ?? 'AD'
         const qtdMap = Object.fromEntries((p.itens ?? []).map(i => [i.tamanho, i.qtd]))
         for (const tam of GRADE_DEFINITIONS[tg]?.tamanhos ?? []) {
@@ -647,76 +627,75 @@ export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride
       }
       const activeSizes = sizeOrder.filter(t => sizeHasQty.has(t))
 
-      // Cor/Detalhe e Obs só viram coluna própria se sobrar espaço legível pros tamanhos —
-      // senão a grade fica ilegível (número cortado é pior que o texto quebrar linha), e
-      // volta a concatenar tudo na coluna Referência, como era antes.
-      let showCorDetCol = temCorDetalhe, showObsCol = temObsCol
-      const larguraDisponivel = extra => PW - (W_REF + extra + W_PROD + W_QTOT + W_PREC + W_TOT + W_RLIQ + (temICMS ? W_ICMS : 0))
-      let extraWidth = (showCorDetCol ? W_CORDET : 0) + (showObsCol ? W_OBS : 0)
-      let avail = larguraDisponivel(extraWidth)
-      if (activeSizes.length && avail / activeSizes.length < MIN_SZ) {
-        showObsCol = false
-        extraWidth = showCorDetCol ? W_CORDET : 0
-        avail = larguraDisponivel(extraWidth)
-      }
-      if (activeSizes.length && avail / activeSizes.length < MIN_SZ) {
+      // Cor/Detalhe vira coluna própria se houver; cai fora se não couber espaço legível.
+      // Obs vai sempre como linha abaixo da referência (não ocupa coluna).
+      let showCorDetCol = temCorDetalhe
+      const fixedExcludingRef = extra => W_PROD + extra + W_QTOT + W_PREC + W_TOT + W_RLIQ + (temICMS ? W_ICMS : 0)
+      const availForSizes = extra => PW - fixedExcludingRef(extra) - 20 // 20mm mín para ref
+      const extraCorDet = showCorDetCol ? W_CORDET : 0
+      if (activeSizes.length && availForSizes(extraCorDet) / activeSizes.length < MIN_SZ) {
         showCorDetCol = false
-        extraWidth = 0
-        avail = larguraDisponivel(0)
       }
-      // Uma coluna por tamanho; comprimir só se necessário pra caber
-      const wSZ = activeSizes.length
-        ? Math.min(W_SZ, avail / activeSizes.length)
-        : W_SZ
+      const avail = availForSizes(showCorDetCol ? W_CORDET : 0)
+      const wSZ = activeSizes.length ? Math.min(W_SZ, avail / activeSizes.length) : W_SZ
+
+      // Ref ocupa o espaço restante → tabela vai de borda a borda
+      const sizesTotal = activeSizes.length * wSZ
+      const wREF = PW - W_PROD - (showCorDetCol ? W_CORDET : 0) - sizesTotal - W_QTOT - W_PREC - W_TOT - W_RLIQ - (temICMS ? W_ICMS : 0)
 
       let col = 0
-      const colRef = col++
-      const colProd = col++
-      const colCorDet = showCorDetCol ? col++ : -1
-      const colObs    = showObsCol    ? col++ : -1
-      const colFirstSize = col
+      const colRef     = col++
+      const colProd    = col++
+      const colCorDet  = showCorDetCol ? col++ : -1
+      const colFirstSz = col
       col += activeSizes.length
       const iTotal = col
 
-      // Cabeçalho
+      const totalCols = 2 + (showCorDetCol ? 1 : 0) + activeSizes.length + 4 + (temICMS ? 1 : 0)
+
       const head = [[
-        'Referência',
-        'Produto',
+        'Referência', 'Produto',
         ...(showCorDetCol ? ['Cor/Detalhe'] : []),
-        ...(showObsCol ? ['Obs'] : []),
         ...activeSizes,
         'Qtd', 'R$ un.', 'Total', 'R$ Liq',
         ...(temICMS ? ['ICMS%'] : []),
       ]]
 
-      const body = grupoPedidos.map(p => {
+      const body = []
+      for (const p of pedidos) {
         const itens  = p.itens ?? []
         const qtdMap = Object.fromEntries(itens.map(i => [i.tamanho, i.qtd]))
         const totalQ = itens.reduce((s, i) => s + i.qtd, 0)
         const totalV = totalQ * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100)
         const tipo_produto = p.tipo_produto ?? p.segmentacao?.tipo_produto ?? ''
         const classe       = p.classe ?? p.segmentacao?.classe ?? ''
-        // Sem colunas próprias: mantém o formato antigo (tudo junto, uma linha por campo).
-        const refLabel = (showCorDetCol || showObsCol)
+        const refLabel = showCorDetCol
           ? (p.referencia || '')
-          : [p.referencia, p.cor, p.detalhe, p.obs].filter(Boolean).join('\n')
-        return [
+          : [p.referencia, p.cor, p.detalhe].filter(Boolean).join(' ')
+        body.push([
           refLabel,
           [tipo_produto, classe].filter(Boolean).join(' '),
           ...(showCorDetCol ? [[p.cor, p.detalhe].filter(Boolean).join(' ')] : []),
-          ...(showObsCol ? [p.obs || ''] : []),
           ...activeSizes.map(t => (qtdMap[t] ?? 0) || '—'),
           totalQ || '—',
           fmtV(p.valor_unitario ?? 0),
           totalV > 0 ? fmtV(totalV) : '—',
           fmtV((p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100)),
           ...(temICMS ? [(p.icms_pct ?? 0) > 0 ? `${p.icms_pct}%` : '—'] : []),
-        ]
-      })
+        ])
+        // Obs como linha horizontal abaixo da referência, quando houver
+        if (p.obs) {
+          body.push([{
+            content: `Obs.: ${p.obs}`,
+            colSpan: totalCols,
+            styles: { halign: 'left', fontSize: 7, fontStyle: 'italic', textColor: [80, 80, 80], cellPadding: { top: 1, bottom: 2, left: 3, right: 3 } },
+          }])
+        }
+      }
 
-      const totalBruto   = grupoPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0) * (p.valor_unitario ?? 0), 0)
-      const totalLiquido = grupoPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0) * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100), 0)
-      const totalPecas   = grupoPedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0), 0)
+      const totalBruto   = pedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0) * (p.valor_unitario ?? 0), 0)
+      const totalLiquido = pedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0) * (p.valor_unitario ?? 0) * (1 - (p.desconto_pct ?? 0) / 100), 0)
+      const totalPecas   = pedidos.reduce((s, p) => s + (p.itens ?? []).reduce((s2, i) => s2 + i.qtd, 0), 0)
 
       autoTable(doc, {
         startY,
@@ -727,13 +706,10 @@ export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride
         styles: { fontSize: 8, cellPadding: 1.5, overflow: 'hidden', halign: 'center' },
         headStyles: { fillColor: [220, 220, 220], textColor: 0, fontStyle: 'bold', fontSize: 7.5 },
         columnStyles: {
-          [colRef]: { halign: 'left', cellWidth: W_REF, overflow: 'linebreak' },
+          [colRef]:  { halign: 'left', cellWidth: wREF,    overflow: 'ellipsize' },
           [colProd]: { halign: 'left', cellWidth: W_PROD },
           ...(showCorDetCol ? { [colCorDet]: { halign: 'left', cellWidth: W_CORDET, overflow: 'linebreak', fontSize: 7 } } : {}),
-          ...(showObsCol ? { [colObs]: { halign: 'left', cellWidth: W_OBS, overflow: 'linebreak', fontSize: 7 } } : {}),
-          ...Object.fromEntries(activeSizes.map((_, i) => [
-            colFirstSize + i, { cellWidth: wSZ, fontStyle: 'bold', fontSize: 9 },
-          ])),
+          ...Object.fromEntries(activeSizes.map((_, i) => [colFirstSz + i, { cellWidth: wSZ, fontStyle: 'bold', fontSize: 9 }])),
           [iTotal]:     { cellWidth: W_QTOT, fontStyle: 'bold' },
           [iTotal + 1]: { cellWidth: W_PREC, halign: 'right' },
           [iTotal + 2]: { cellWidth: W_TOT,  halign: 'right', fontStyle: 'bold' },
@@ -744,22 +720,10 @@ export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride
       return { totalBruto, totalLiquido, totalPecas }
     }
 
-    const multiGrade = gradeOrder.length > 1
+    // Renderiza todas as referências em ordem de digitação (sem agrupar por grade)
     let nextY = tableStart
-    let totalBrutoGeral = 0, totalLiquidoGeral = 0, totalPecasGeral = 0
-    for (const tg of gradeOrder) {
-      if (multiGrade) {
-        doc.setFontSize(7).setFont('helvetica', 'bold').setTextColor(80, 80, 80)
-        doc.text(`Grade: ${tg}`, ML, nextY + 3)
-        doc.setTextColor(0)
-        nextY += 5
-      }
-      const totals = renderGrupo(gradeGroups[tg], nextY)
-      totalBrutoGeral += totals.totalBruto
-      totalLiquidoGeral += totals.totalLiquido
-      totalPecasGeral += totals.totalPecas
-      nextY = doc.lastAutoTable.finalY + (multiGrade ? 4 : 0)
-    }
+    const { totalBruto: totalBrutoGeral, totalLiquido: totalLiquidoGeral, totalPecas: totalPecasGeral } = renderTabela(visPedidos, nextY)
+    nextY = doc.lastAutoTable.finalY
 
     // Rodapé consolidado com totais de todas as grades
     const temDescontoGeral = totalBrutoGeral - totalLiquidoGeral > 0.001
