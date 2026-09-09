@@ -851,7 +851,7 @@ const REPOSICAO_PDF_STYLES = `
   .rp-tbl tfoot .tl { text-align:right; }
   .rp-foot { margin-top:12px; font-size:10px; font-weight:bold; text-align:right; border-top:2px solid #000; padding-top:6px; }
   .rp-warn { font-size:8px; color:#a00; margin-top:8px; }
-  @media print { @page { margin:10mm; size:A4 landscape; } }`
+  @media print { @page { margin:10mm; size:A4 portrait; } }`
 
 function fmtDataReposicao(iso) {
   if (!iso) return ''
@@ -868,13 +868,19 @@ function generoDoNome(nome) {
 
 // pedido_reposicao_itens não tem coluna própria de cor — mas o ponto-e-stock
 // manda o nome completo do produto ("BLUSINHA AD FEM 7005 ROSA"), com a cor
-// sempre depois da referência. Sem isso, duas linhas da mesma referência (uma
-// por cor) saíam idênticas no PDF — só dava pra distinguir pelo código interno.
-function corDoNome(nome, referencia) {
-  if (!nome || !referencia) return ''
-  const idx = nome.lastIndexOf(referencia)
-  if (idx === -1) return ''
-  return nome.slice(idx + referencia.length).trim()
+// sempre depois do código do produto. Sem isso, duas linhas da mesma referência
+// (uma por cor) saíam idênticas no PDF — só dava pra distinguir pelo código
+// interno. Tenta cada âncora possível (reffornecedor, depois referencia) porque
+// o formato de `referencia` varia por item vindo do ponto-e-stock (às vezes é o
+// próprio código do fornecedor, às vezes um id interno que não aparece no nome).
+function corDoNome(nome, ...ancoras) {
+  if (!nome) return ''
+  for (const ancora of ancoras) {
+    if (!ancora) continue
+    const idx = nome.lastIndexOf(ancora)
+    if (idx !== -1) return nome.slice(idx + ancora.length).trim()
+  }
+  return ''
 }
 
 // Monta só o HTML (puro, testável). gerarPDFReposicao abaixo abre a janela e imprime.
@@ -917,7 +923,7 @@ export function montarHTMLReposicao(pedido, grupos, { paraFornecedor = false, cd
         ? esc(g.reffornecedor || '')
         : `${esc(g.referencia || '')}${g.codigo_ponto_e ? ` <small>${esc(g.codigo_ponto_e)}</small>` : ''}`
       const prod = [g.tipo, g.classe, generoDoNome(g.nome)].filter(Boolean).join(' · ')
-      const cor = corDoNome(g.nome, g.referencia)
+      const cor = corDoNome(g.nome, g.reffornecedor, g.referencia)
       return `<tr>
         <td class="ref">${refCol || '—'}</td>
         <td class="prod">${esc(prod)}</td>
