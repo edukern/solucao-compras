@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from 'react'
-import { ArrowLeft, Check, X, ChevronRight, Save, FileText, RotateCcw, ChevronsUpDown } from 'lucide-react'
+import { ArrowLeft, Check, X, ChevronRight, Save, FileText, RotateCcw, ChevronsUpDown, Plus, Copy, Trash2 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { reposicao as reposicaoService } from '../services/reposicao'
 import { compradores as compradoresService } from '../services/compradores'
 import { gerarPDFReposicao } from '../lib/pdfHelpers'
-import { tamanhosDeTipoGrade } from '../constants/grades'
+import { tamanhosDeTipoGrade, CLASSIFICACOES } from '../constants/grades'
+import { TIPOS_PRODUTO } from '../constants/tipoProduto'
 import {
   agruparPorReferencia, editState, custoState, parseValorBR, fmtValorBR,
-  colunasDaGrade, gradesDoSeletor, METRICAS_LEITURA,
+  colunasDaGrade, gradesDoSeletor, METRICAS_LEITURA, normalizarReferencia, criarGrupoNovo,
 } from './reposicaoGrade'
 import styles from './RevisaoReposicao.module.css'
 
@@ -198,13 +199,28 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
   const [edits,       setEdits]       = useState({})      // { [ref]: { [tam]: rawString } }  qtd
   const [custoEdits,  setCustoEdits]  = useState({})      // { [ref]: rawString }  valor unit.
   const [gradeSel,    setGradeSel]    = useState({})      // { [ref]: gradeCode escolhido }
+  const [itensNovos,  setItensNovos]  = useState([])      // grupos cadastrados à mão nesta edição, ainda sem linha no banco
+  const [refsOcultas, setRefsOcultas] = useState({})      // { [ref]: true } — "excluídas" desta revisão (zeram no Salvar; dá pra restaurar antes de salvar)
+  const [addAberto,   setAddAberto]   = useState(false)
+  const [addForm,     setAddForm]     = useState({ referencia: '', nome: '', tipo: '', classe: 'AD', tipo_grade: 'AD', reffornecedor: '', custo: '' })
+  const [addErro,     setAddErro]     = useState(null)
 
   const [cd, setCd] = useState(null)     // linha de compradores do CD (remetente do PDF fornecedor)
 
   const firstQtdRef     = useRef(null)   // 1º input da linha Qtd da ref aberta
   const focusOnExpand   = useRef(false)  // pedir foco no 1º input ao expandir (nav por teclado)
+  const addRefFirstRef  = useRef(null)   // 1º input do form de "adicionar referência"
 
-  const limparEdits = () => { setEdits({}); setCustoEdits({}); setGradeSel({}) }
+  const limparEdits = () => {
+    setEdits({}); setCustoEdits({}); setGradeSel({}); setItensNovos([]); setRefsOcultas({})
+  }
+  // Limpa só o estado de edição de UMA referência (usado ao remover um item
+  // novo ainda não salvo — não pode deixar lixo pras próximas referências).
+  const limparEdicoesDaRef = (ref) => {
+    setEdits(prev => { const { [ref]: _r, ...rest } = prev; return rest })
+    setCustoEdits(prev => { const { [ref]: _r, ...rest } = prev; return rest })
+    setGradeSel(prev => { const { [ref]: _r, ...rest } = prev; return rest })
+  }
 
   useEffect(() => {
     compradoresService.list()
@@ -216,7 +232,7 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
   const carregar = useCallback(() => {
     setLoading(true)
     return reposicaoService.byId(id)
-      .then(p => { setPedido(p); setEdits({}); setCustoEdits({}); setGradeSel({}); setErro(null); return p })
+      .then(p => { setPedido(p); limparEdits(); setErro(null); return p })
       .catch(e => { setErro(e.message); return null })
       .finally(() => setLoading(false))
   }, [id])
@@ -225,7 +241,7 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
     let cancelled = false
     setLoading(true)
     reposicaoService.byId(id)
-      .then(p => { if (!cancelled) { setPedido(p); setEdits({}); setCustoEdits({}); setGradeSel({}) } })
+      .then(p => { if (!cancelled) { setPedido(p); limparEdits() } })
       .catch(e => { if (!cancelled) setErro(e.message) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
@@ -239,8 +255,12 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
     focusOnExpand.current = false
   }, [expandida])
 
-  const grupos      = useMemo(() => (pedido ? agruparPorReferencia(pedido.itens) : []), [pedido])
-  const gruposByRef = useMemo(() => Object.fromEntries(grupos.map(g => [g.referencia, g])), [grupos])
+  const grupos       = useMemo(() => (pedido ? agruparPorReferencia(pedido.itens) : []), [pedido])
+  // gruposTodos = vindos do banco + cadastrados à mão nesta edição (ainda sem linha salva).
+  const gruposTodos  = useMemo(() => [...grupos, ...itensNovos], [grupos, itensNovos])
+  const gruposByRef  = useMemo(() => Object.fromEntries(gruposTodos.map(g => [g.referencia, g])), [gruposTodos])
+  // gruposVisiveis = o que aparece na tabela — some o que foi "excluído" nesta edição.
+  const gruposVisiveis = useMemo(() => gruposTodos.filter(g => !refsOcultas[g.referencia]), [gruposTodos, refsOcultas])
   const editavel    = pedido?.status === 'rascunho'
 
   const gradeDaRef = (g) => gradeSel[g.referencia] ?? g.gradeInicial
@@ -283,8 +303,19 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
     if (st === 'invalid') temInvalido = true
     if (st === 'dirty') { temPendente = true; refsComEdicao.add(ref) }
   }
-  for (const g of grupos) {
+  for (const g of gruposTodos) {
     if (gradeMudou(g)) { temPendente = true; refsComEdicao.add(g.referencia) }
+  }
+  // Referência recém-cadastrada nesta edição ainda não tem linha no banco —
+  // é sempre uma alteração pendente (protege contra sair da tela / recarregar
+  // e perder o cadastro sem avisar).
+  if (itensNovos.length > 0) temPendente = true
+  // Exclusão só é "pendente" se a referência ainda tem alguma qtd gravada pra
+  // zerar — se já está tudo 0 no banco (ex.: reabriu depois de já ter salvo),
+  // não há UPDATE a fazer.
+  for (const ref of Object.keys(refsOcultas)) {
+    const gA = grupos.find(g => g.referencia === ref)
+    if (gA && gA.totalAtual > 0) temPendente = true
   }
 
   const setQtd = (ref, tam, raw) =>
@@ -300,10 +331,11 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
     return c != null ? totalEfetivoRef(g) * c : null
   }
 
-  // Totais do pedido inteiro (ao vivo, refletindo as edições da tela).
-  const totalGeralPecas = grupos.reduce((s, g) => s + totalEfetivoRef(g), 0)
-  const totalGeralValor = grupos.reduce((s, g) => s + (valorTotalRef(g) ?? 0), 0)
-  const refsComPeca     = grupos.filter(g => totalEfetivoRef(g) > 0).length
+  // Totais do pedido inteiro (ao vivo, refletindo as edições da tela e as
+  // referências excluídas — que não contam mais).
+  const totalGeralPecas = gruposVisiveis.reduce((s, g) => s + totalEfetivoRef(g), 0)
+  const totalGeralValor = gruposVisiveis.reduce((s, g) => s + (valorTotalRef(g) ?? 0), 0)
+  const refsComPeca     = gruposVisiveis.filter(g => totalEfetivoRef(g) > 0).length
 
   // "Voltar" com rede de proteção: não perde edição não salva sem avisar.
   function handleVoltar() {
@@ -324,15 +356,25 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
     const inputs = row ? Array.from(row.querySelectorAll('input')) : []
     const i = inputs.indexOf(e.target)
     if (i >= 0 && i < inputs.length - 1) { inputs[i + 1].focus(); return }
-    const idx = grupos.findIndex(g => g.referencia === expandida)
-    if (idx >= 0 && idx < grupos.length - 1) {
+    const idx = gruposVisiveis.findIndex(g => g.referencia === expandida)
+    if (idx >= 0 && idx < gruposVisiveis.length - 1) {
       focusOnExpand.current = true
-      setExpandida(grupos[idx + 1].referencia)
+      setExpandida(gruposVisiveis[idx + 1].referencia)
     }
   }
 
   async function handleSalvar() {
     setErroSalvar(null)
+    // Referência cadastrada nesta edição sem NENHUMA quantidade preenchida:
+    // bloqueia aqui em vez de deixar handleSalvar simplesmente ignorá-la (ela
+    // sumiria da tela sem aviso no próximo recarregamento — achado da revisão
+    // de impacto). O comprador escolhe: preenche algo ou remove com o ✕.
+    const novosSemQtd = itensNovos.filter(n =>
+      !Object.values(edits[n.referencia] ?? {}).some(v => editState(v, null) === 'dirty'))
+    if (novosSemQtd.length) {
+      setErroSalvar(`${novosSemQtd.length === 1 ? 'A referência' : 'As referências'} ${novosSemQtd.map(n => n.referencia).join(', ')} ainda não ${novosSemQtd.length === 1 ? 'tem' : 'têm'} quantidade preenchida — preencha ao menos um tamanho ou remova com o ✕ antes de salvar.`)
+      return
+    }
     setSalvando(true)
     try {
       const atual = await reposicaoService.byId(id)
@@ -359,7 +401,11 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
         return
       }
 
-      // Refs a gravar = qtd editada  ∪  custo editado  ∪  grade trocada.
+      const itensNovosByRef = Object.fromEntries(itensNovos.map(n => [n.referencia, n]))
+
+      // Refs a gravar = qtd editada ∪ custo editado ∪ grade trocada ∪
+      // referência nova (já garantida com qtd acima) ∪ referência excluída
+      // que ainda tem qtd gravada pra zerar.
       const refsAlteradas = new Set()
       for (const [ref, tam] of percorrerEdits(edits)) {
         if (estadoDe(ref, tam) === 'dirty') refsAlteradas.add(ref)
@@ -367,24 +413,34 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
       for (const ref of Object.keys(custoEdits)) {
         if (custoStateDe(ref) === 'dirty') refsAlteradas.add(ref)
       }
-      for (const g of grupos) if (gradeMudou(g)) refsAlteradas.add(g.referencia)
+      for (const g of gruposTodos) if (gradeMudou(g)) refsAlteradas.add(g.referencia)
+      for (const ref of Object.keys(refsOcultas)) {
+        const gA = gRefAtual[ref]
+        if (gA && Object.values(gA.porTamanho).some(it => it.qtd > 0)) refsAlteradas.add(ref)
+      }
       if (!refsAlteradas.size) { limparEdits(); return }
 
       const rows = []
       for (const ref of refsAlteradas) {
-        const gA = gRefAtual[ref]
-        if (!gA) continue
-        const irmao = Object.values(gA.porTamanho)[0] ?? {}
-        // valor_unitario da ref: o editado (se sujo) senão o atual do banco.
+        const gA = gRefAtual[ref]           // dados atuais do banco, se a ref já existir
+        const novo = itensNovosByRef[ref]   // metadados de referência cadastrada nesta edição, se for o caso
+        if (!gA && !novo) continue          // nem no banco, nem cadastrada agora — nada a fazer
+        // "Excluir" só existe pra referência que já tem linha no banco — zera
+        // todos os tamanhos dela em vez de gravar qualquer edição pendente.
+        const excluida = !!refsOcultas[ref] && !!gA
+        const meta = gA ? (Object.values(gA.porTamanho)[0] ?? {}) : {}
+        // valor_unitario da ref: o editado (se sujo) senão o atual do banco
+        // (ou o informado no cadastro, pra referência nova).
         const custo = custoStateDe(ref) === 'dirty'
           ? parseValorBR(custoEdits[ref])
-          : (gA.custoRef ?? null)
-        // tipo_grade: só a escolha explícita do comprador OU o que já estava salvo
-        // — nunca o palpite (senão o aviso "confira" some sem ninguém confirmar).
-        const tipoGrade = gradeSel[ref] ?? gA.tipoGradeSalva ?? null
+          : (gA?.custoRef ?? novo?.custoRef ?? null)
+        // tipo_grade: só a escolha explícita do comprador, o que já estava
+        // salvo, ou a grade escolhida no cadastro — nunca o palpite (senão o
+        // aviso "confira" some sem ninguém confirmar).
+        const tipoGrade = gradeSel[ref] ?? gA?.tipoGradeSalva ?? novo?.gradeInicial ?? null
 
         const mkRow = (tam, qtd, existente) => ({
-          pedido_reposicao_id: irmao.pedido_reposicao_id ?? pedido.id,
+          pedido_reposicao_id: existente?.pedido_reposicao_id ?? pedido.id,
           referencia:      ref,
           tamanho:         tam,
           qtd,
@@ -392,28 +448,36 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
           vendido_periodo: existente?.vendido_periodo ?? 0,
           estoque_cd:      existente?.estoque_cd ?? 0,
           ja_pedido:       existente?.ja_pedido ?? 0,
-          nome:            irmao.nome ?? null,
-          tipo:            irmao.tipo ?? null,
-          classe:          irmao.classe ?? null,
-          colecao:         irmao.colecao ?? null,
-          reffornecedor:   irmao.reffornecedor ?? null,
-          codigo_ponto_e:  irmao.codigo_ponto_e ?? null,
-          foto_url:        irmao.foto_url ?? null,
+          nome:            meta.nome ?? novo?.nome ?? null,
+          tipo:            meta.tipo ?? novo?.tipo ?? null,
+          classe:          meta.classe ?? novo?.classe ?? null,
+          colecao:         meta.colecao ?? null,
+          reffornecedor:   meta.reffornecedor ?? novo?.reffornecedor ?? null,
+          codigo_ponto_e:  meta.codigo_ponto_e ?? null,
+          foto_url:        meta.foto_url ?? null,
           tipo_grade:      tipoGrade,
           valor_unitario:  custo,
         })
 
-        // Todas as linhas que já existem da ref (mantém qtd atual, ou a editada).
-        for (const [tam, it] of Object.entries(gA.porTamanho)) {
-          const ed = edits[ref]?.[tam]
-          const qtd = editState(ed, it.qtd) === 'dirty' ? parseInt(String(ed).trim(), 10) : it.qtd
-          rows.push(mkRow(tam, qtd, it))
+        // Todas as linhas que já existem da ref: mantém qtd atual, a editada,
+        // ou força 0 em todas se a referência foi excluída.
+        if (gA) {
+          for (const [tam, it] of Object.entries(gA.porTamanho)) {
+            const ed = edits[ref]?.[tam]
+            const qtd = excluida ? 0 : (editState(ed, it.qtd) === 'dirty' ? parseInt(String(ed).trim(), 10) : it.qtd)
+            rows.push(mkRow(tam, qtd, it))
+          }
         }
-        // Tamanhos novos que o comprador preencheu (qtd >= 1) e ainda não têm linha.
-        for (const [tam, ed] of Object.entries(edits[ref] ?? {})) {
-          if (gA.porTamanho[tam]) continue
-          if (editState(ed, null) !== 'dirty') continue
-          rows.push(mkRow(tam, parseInt(String(ed).trim(), 10), null))
+        // Tamanhos novos que o comprador preencheu (qtd >= 0) e ainda não têm
+        // linha — vale tanto pra referência já existente quanto pra recém-
+        // cadastrada. Não roda em referência excluída (não faz sentido somar
+        // tamanho novo a algo que está sendo removido do pedido).
+        if (!excluida) {
+          for (const [tam, ed] of Object.entries(edits[ref] ?? {})) {
+            if (gA?.porTamanho[tam]) continue
+            if (editState(ed, null) !== 'dirty') continue
+            rows.push(mkRow(tam, parseInt(String(ed).trim(), 10), null))
+          }
         }
       }
       if (!rows.length) { limparEdits(); return }
@@ -426,6 +490,73 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
     } finally {
       setSalvando(false)
     }
+  }
+
+  // Adiciona uma referência nova (formulário abaixo da tabela). Fica só em
+  // estado local até "Salvar alterações" — aí entra no mesmo caminho de
+  // gravação de qualquer tamanho novo (handleSalvar acima).
+  function handleAdicionarRef() {
+    const referencia = addForm.referencia.trim()
+    if (!referencia) { setAddErro('Informe o código da referência.'); return }
+    if (referencia.length > 64) { setAddErro('Código da referência muito longo (máx. 64 caracteres).'); return }
+    const norm = normalizarReferencia(referencia)
+    if (gruposTodos.some(g => normalizarReferencia(g.referencia) === norm)) {
+      setAddErro(`Já existe uma referência "${referencia}" (ou equivalente) neste pedido — edite a quantidade dela na tabela em vez de cadastrar de novo.`)
+      return
+    }
+    if (!addForm.tipo.trim())          { setAddErro('Informe o produto (ex.: CAMISETA).'); return }
+    if (!addForm.tipo_grade)           { setAddErro('Escolha a grade.'); return }
+    if (!addForm.reffornecedor.trim()) { setAddErro('Informe o código do fornecedor — sem ele o PDF que vai pra marca sai com essa referência em branco.'); return }
+    const custo = addForm.custo.trim() ? parseValorBR(addForm.custo) : null
+    if (Number.isNaN(custo)) { setAddErro('Valor unitário inválido.'); return }
+
+    const novo = criarGrupoNovo({
+      referencia, nome: addForm.nome.trim(),
+      tipo: addForm.tipo.trim().toUpperCase(), classe: addForm.classe, tipo_grade: addForm.tipo_grade,
+      reffornecedor: addForm.reffornecedor.trim(), custoRef: custo,
+    })
+    setItensNovos(prev => [...prev, novo])
+    setAddForm(p => ({ ...p, referencia: '', nome: '', tipo: '', reffornecedor: '', custo: '' }))
+    setAddErro(null)
+    focusOnExpand.current = true
+    setExpandida(referencia)
+  }
+
+  // Pré-preenche o formulário de "adicionar" com os dados de uma referência
+  // existente (tipo/grade/classe/custo) — o código fica em branco de propósito
+  // pro comprador digitar o de um produto novo (não copia o código do
+  // fornecedor: é de outro produto).
+  function handleDuplicarRef(g) {
+    setAddForm(p => ({
+      ...p,
+      referencia: '', nome: g.nome || '',
+      tipo: g.tipo || '', classe: g.classe || p.classe, tipo_grade: gradeDaRef(g) || p.tipo_grade,
+      reffornecedor: '', custo: g.custoRef != null ? fmtValorBR(g.custoRef) : '',
+    }))
+    setAddErro(null)
+    setAddAberto(true)
+    requestAnimationFrame(() => addRefFirstRef.current?.focus())
+  }
+
+  // Referência ainda não salva (cadastrada nesta edição): remove de vez, sem
+  // chamada ao banco. Referência que já existe no banco: marca como
+  // "excluída" — some da tabela e zera todos os tamanhos ao salvar; dá pra
+  // restaurar (link abaixo da tabela) enquanto não salvar.
+  function handleExcluirRef(g) {
+    const isNovo = itensNovos.some(n => n.referencia === g.referencia)
+    if (isNovo) {
+      if (!window.confirm(`Remover a referência ${g.referencia} que você acabou de cadastrar?`)) return
+      setItensNovos(prev => prev.filter(n => n.referencia !== g.referencia))
+      limparEdicoesDaRef(g.referencia)
+      return
+    }
+    if (!window.confirm(`Excluir a referência ${g.referencia} deste pedido? Ela some da lista (dá pra restaurar antes de salvar) e, ao clicar em "Salvar alterações", todas as quantidades dela são zeradas.`)) return
+    setRefsOcultas(prev => ({ ...prev, [g.referencia]: true }))
+    if (expandida === g.referencia) setExpandida(null)
+  }
+
+  function handleRestaurarRef(ref) {
+    setRefsOcultas(prev => { const { [ref]: _rm, ...rest } = prev; return rest })
   }
 
   async function handleMarcar(status) {
@@ -542,16 +673,136 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
         </div>
       )}
 
-      {grupos.length > 1 && (
+      {(gruposVisiveis.length > 1 || editavel) && (
         <div className={styles.tabelaTopo}>
-          <button
-            type="button"
-            className={styles.btnToggleGrades}
-            onClick={() => setExpandirTudo(v => !v)}
-          >
-            <ChevronsUpDown size={13} strokeWidth={1.8} />
-            {expandirTudo ? 'Recolher todas as grades' : 'Expandir todas as grades'}
+          {editavel && (
+            <button
+              type="button"
+              className={styles.btnToggleGrades}
+              onClick={() => { setAddAberto(v => !v); setAddErro(null) }}
+            >
+              <Plus size={13} strokeWidth={1.8} />
+              {addAberto ? 'Fechar cadastro de referência' : 'Adicionar referência'}
+            </button>
+          )}
+          {gruposVisiveis.length > 1 && (
+            <button
+              type="button"
+              className={styles.btnToggleGrades}
+              onClick={() => setExpandirTudo(v => !v)}
+            >
+              <ChevronsUpDown size={13} strokeWidth={1.8} />
+              {expandirTudo ? 'Recolher todas as grades' : 'Expandir todas as grades'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {editavel && addAberto && (
+        <div className={styles.addRefForm}>
+          <datalist id="reposicao-tipos-produto-list">
+            {TIPOS_PRODUTO.map(t => <option key={t} value={t} />)}
+          </datalist>
+          <div className={styles.addRefField}>
+            <span className={styles.addRefLabel}>Referência *</span>
+            <input
+              ref={addRefFirstRef}
+              type="text"
+              className={styles.addRefInput}
+              placeholder="Cód. do produto"
+              value={addForm.referencia}
+              onChange={e => setAddForm(p => ({ ...p, referencia: e.target.value }))}
+              onKeyDown={e => { if (e.key === 'Enter') handleAdicionarRef() }}
+            />
+          </div>
+          <div className={styles.addRefField}>
+            <span className={styles.addRefLabel}>Nome</span>
+            <input
+              type="text"
+              className={styles.addRefInput}
+              placeholder="Ex: SUTIA LISO"
+              value={addForm.nome}
+              onChange={e => setAddForm(p => ({ ...p, nome: e.target.value }))}
+              onKeyDown={e => { if (e.key === 'Enter') handleAdicionarRef() }}
+            />
+          </div>
+          <div className={styles.addRefField}>
+            <span className={styles.addRefLabel}>Produto *</span>
+            <input
+              type="text"
+              list="reposicao-tipos-produto-list"
+              className={styles.addRefInput}
+              placeholder="Ex: CAMISETA"
+              value={addForm.tipo}
+              onChange={e => setAddForm(p => ({ ...p, tipo: e.target.value }))}
+              onKeyDown={e => { if (e.key === 'Enter') handleAdicionarRef() }}
+            />
+          </div>
+          <div className={styles.addRefField}>
+            <span className={styles.addRefLabel}>Classe *</span>
+            <select
+              value={addForm.classe}
+              onChange={e => {
+                const classe = e.target.value
+                const grades = gradesDoSeletor(classe)
+                setAddForm(p => ({ ...p, classe, tipo_grade: grades.includes(p.tipo_grade) ? p.tipo_grade : grades[0] }))
+              }}
+            >
+              {CLASSIFICACOES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className={styles.addRefField}>
+            <span className={styles.addRefLabel}>Grade *</span>
+            <select
+              value={addForm.tipo_grade}
+              onChange={e => setAddForm(p => ({ ...p, tipo_grade: e.target.value }))}
+            >
+              {gradesDoSeletor(addForm.classe, addForm.tipo_grade).map(k => (
+                <option key={k} value={k}>{k} — {tamanhosDeTipoGrade(k).join('/') || '—'}</option>
+              ))}
+            </select>
+          </div>
+          <div className={styles.addRefField}>
+            <span className={styles.addRefLabel}>Cód. fornecedor *</span>
+            <input
+              type="text"
+              className={styles.addRefInput}
+              placeholder="Ref. na marca"
+              value={addForm.reffornecedor}
+              onChange={e => setAddForm(p => ({ ...p, reffornecedor: e.target.value }))}
+              onKeyDown={e => { if (e.key === 'Enter') handleAdicionarRef() }}
+            />
+          </div>
+          <div className={styles.addRefField}>
+            <span className={styles.addRefLabel}>Valor unit.</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              className={styles.addRefInput}
+              placeholder="0,00"
+              value={addForm.custo}
+              onChange={e => setAddForm(p => ({ ...p, custo: e.target.value }))}
+              onKeyDown={e => { if (e.key === 'Enter') handleAdicionarRef() }}
+            />
+          </div>
+          <button type="button" className={styles.btnAddRef} onClick={handleAdicionarRef}>
+            <Plus size={13} strokeWidth={1.8} /> Adicionar
           </button>
+          {addErro && <div className={styles.addRefErro}>{addErro}</div>}
+        </div>
+      )}
+
+      {editavel && Object.keys(refsOcultas).length > 0 && (
+        <div className={styles.ocultasBar}>
+          {Object.keys(refsOcultas).length} referência{Object.keys(refsOcultas).length === 1 ? '' : 's'} excluída{Object.keys(refsOcultas).length === 1 ? '' : 's'} desta revisão:{' '}
+          {Object.keys(refsOcultas).map((ref, i) => (
+            <span key={ref}>
+              {i > 0 && ', '}
+              <button type="button" className={styles.gradeAvisoLink} onClick={() => handleRestaurarRef(ref)}>
+                restaurar {ref}
+              </button>
+            </span>
+          ))}
         </div>
       )}
 
@@ -562,10 +813,11 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
             <th>Produto · Grade · Classe</th>
             <th>Valor unit.</th>
             <th>Peças</th>
+            {editavel && <th>Ações</th>}
           </tr>
         </thead>
         <tbody>
-          {grupos.map(g => {
+          {gruposVisiveis.map(g => {
             const aberta  = expandirTudo || expandida === g.referencia
             const editada = refsComEdicao.has(g.referencia)
             const grade   = gradeDaRef(g)
@@ -582,6 +834,7 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
             // pede pra conferir a grade, até o revisor escolher a grade no
             // seletor ou pedir "a régua inteira".
             const gradePalpiteErrado = editavel && !gradeEscolhida &&
+              g.tamanhosPresentes.length > 0 &&
               tamanhosDeTipoGrade(grade).length > 0 &&
               tamanhosDeTipoGrade(grade).every(t => !g.porTamanho[t])
             const gradeForaDosDados = gradePalpiteErrado && !verReguaCheia[g.referencia]
@@ -630,11 +883,29 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
                     )}
                   </td>
                   <td><strong>{pecas > 0 ? pecas : <span className={styles.itemDot}>—</span>}</strong></td>
+                  {editavel && (
+                    <td onClick={e => e.stopPropagation()}>
+                      <div className={styles.itemAcoes}>
+                        <button
+                          type="button"
+                          className={styles.btnDuplicarRef}
+                          onClick={() => handleDuplicarRef(g)}
+                          title="Duplicar referência (pra cadastrar uma parecida)"
+                        ><Copy size={13} strokeWidth={1.8} /></button>
+                        <button
+                          type="button"
+                          className={styles.btnExcluirRef}
+                          onClick={() => handleExcluirRef(g)}
+                          title="Excluir referência deste pedido"
+                        ><Trash2 size={13} strokeWidth={1.8} /></button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
 
                 {aberta && (
                   <tr className={styles.gradeExpansionRow}>
-                    <td colSpan={4} className={styles.gradeExpansionCell}>
+                    <td colSpan={editavel ? 5 : 4} className={styles.gradeExpansionCell}>
                       <div className={styles.gradeInlineWrap}>
                         <div className={styles.expTopo}>
                           {g.foto_url && (

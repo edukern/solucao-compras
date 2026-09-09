@@ -628,6 +628,97 @@
 }
 .resumoBar strong { color: var(--text-primary); font-weight: 700; }
 
+/* ── Adicionar / duplicar / excluir referência ── */
+
+.addRefForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-end;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.addRefField { display: flex; flex-direction: column; }
+
+.addRefLabel {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.2rem;
+}
+
+.addRefInput,
+.addRefField select {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--input-bg, var(--bg-card));
+  color: var(--text-primary);
+  width: 130px;
+}
+
+.btnAddRef {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.9rem;
+  background: var(--accent);
+  color: var(--bg-primary);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.addRefErro {
+  flex-basis: 100%;
+  padding: 0.5rem 0.7rem;
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-radius: 7px;
+  color: var(--red);
+  font-size: 0.78rem;
+}
+
+.itemAcoes {
+  display: flex;
+  gap: 0.15rem;
+  align-items: center;
+}
+
+.btnDuplicarRef,
+.btnExcluirRef {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 5px;
+  line-height: 1;
+}
+.btnDuplicarRef:hover { color: var(--accent); background: rgba(var(--accent-rgb), 0.1); }
+.btnExcluirRef:hover { color: var(--red); background: rgba(248, 113, 113, 0.1); }
+
+.ocultasBar {
+  padding: 0.55rem 0.9rem;
+  margin-bottom: 0.75rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.8;
+}
+
 .btnDescartarSutil {
   display: inline-flex;
   align-items: center;

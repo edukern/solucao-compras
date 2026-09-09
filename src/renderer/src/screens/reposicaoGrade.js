@@ -108,6 +108,36 @@ export function agruparPorReferencia(itens) {
   })
 }
 
+// Normaliza um código de referência só para COMPARAR (evita duplicata por
+// acento/caixa/pontuação — mesmo problema que já mordeu no cadastro de
+// fornecedores, ver CLAUDE.md). A referência gravada mantém o texto original.
+export function normalizarReferencia(ref) {
+  return String(ref ?? '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toUpperCase()
+}
+
+// Monta um "grupo" no mesmo formato de agruparPorReferencia() para uma
+// referência cadastrada à mão nesta edição (ainda sem linha em
+// pedido_reposicao_itens) — assim ela entra nos mesmos cálculos/renderização
+// das referências que vieram do ponto-e-stock.
+export function criarGrupoNovo({ referencia, nome, tipo, classe, tipo_grade, reffornecedor, custoRef }) {
+  return {
+    referencia,
+    nome: nome || null, tipo: tipo || null, classe: classe || null,
+    colecao: null, reffornecedor: reffornecedor || null, codigo_ponto_e: null, foto_url: null,
+    tipoGradeSalva: tipo_grade || null,
+    porTamanho: {},
+    tamanhosPresentes: [],
+    gradePalpite: tipo_grade || null,
+    gradeInicial: tipo_grade || null,
+    custoRef: custoRef ?? null,
+    totalSugerido: 0,
+    totalAtual: 0,
+  }
+}
+
 // "16,90" / "16.90" / "R$ 16,90" -> 16.9 ; "" -> null ; inválido -> NaN.
 // Arredonda a 2 casas (a coluna no banco é numeric(10,2)).
 export function parseValorBR(raw) {

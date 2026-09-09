@@ -1,8 +1,40 @@
 import { describe, it, expect } from 'vitest'
 import {
   adivinharGrade, colunasDaGrade, gradesDoSeletor, agruparPorReferencia, editState,
-  parseValorBR, fmtValorBR, custoState,
+  parseValorBR, fmtValorBR, custoState, normalizarReferencia, criarGrupoNovo,
 } from '../src/renderer/src/screens/reposicaoGrade.js'
+
+describe('normalizarReferencia', () => {
+  it('ignora acento, caixa e pontuação ao comparar', () => {
+    expect(normalizarReferencia('Aconchêgo-do Bebê 01')).toBe(normalizarReferencia('ACONCHEGO DO BEBE 01'))
+  })
+
+  it('referências realmente diferentes não colidem', () => {
+    expect(normalizarReferencia('117')).not.toBe(normalizarReferencia('125'))
+  })
+
+  it('null/undefined não quebra', () => {
+    expect(normalizarReferencia(null)).toBe('')
+    expect(normalizarReferencia(undefined)).toBe('')
+  })
+})
+
+describe('criarGrupoNovo', () => {
+  it('monta um grupo vazio no mesmo formato de agruparPorReferencia', () => {
+    const g = criarGrupoNovo({ referencia: '999', nome: 'CAMISETA X', tipo: 'CAMISETA', classe: 'AD', tipo_grade: 'AD', reffornecedor: 'F999', custoRef: 19.9 })
+    expect(g.referencia).toBe('999')
+    expect(g.gradeInicial).toBe('AD')
+    expect(g.porTamanho).toEqual({})
+    expect(g.tamanhosPresentes).toEqual([])
+    expect(g.totalAtual).toBe(0)
+    expect(g.custoRef).toBe(19.9)
+  })
+
+  it('custoRef ausente vira null, não undefined', () => {
+    const g = criarGrupoNovo({ referencia: '999', tipo_grade: 'AD' })
+    expect(g.custoRef).toBeNull()
+  })
+})
 
 describe('adivinharGrade', () => {
   it('classe AD + tamanhos de letra -> AD', () => {
