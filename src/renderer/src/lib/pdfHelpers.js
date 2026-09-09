@@ -728,7 +728,7 @@ export async function salvarPDFVisita(sessao, vis, visPedidosRaw, sessaoOverride
         headStyles: { fillColor: [220, 220, 220], textColor: 0, fontStyle: 'bold', fontSize: 7.5 },
         columnStyles: {
           [colRef]: { halign: 'left', cellWidth: W_REF, overflow: 'linebreak' },
-          [colProd]: { halign: 'left', cellWidth: W_PROD },
+          [colProd]: { halign: 'left', cellWidth: W_PROD, overflow: 'linebreak', fontSize: 7 },
           ...(showCorDetCol ? { [colCorDet]: { halign: 'left', cellWidth: W_CORDET, overflow: 'linebreak', fontSize: 7 } } : {}),
           ...(showObsCol ? { [colObs]: { halign: 'left', cellWidth: W_OBS, overflow: 'linebreak', fontSize: 7 } } : {}),
           ...Object.fromEntries(activeSizes.map((_, i) => [
@@ -826,8 +826,9 @@ const REPOSICAO_PDF_STYLES = `
   body { font-family: Arial, sans-serif; font-size: 10px; color: #000; margin: 0; }
   .rp { padding: 12px 16px; }
   .rp-h { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #000; padding-bottom:8px; margin-bottom:10px; gap:24px; }
-  .rp-title { font-size:11px; font-weight:bold; letter-spacing:.06em; color:#a00; text-transform:uppercase; }
-  .rp-marca { font-size:18px; font-weight:900; margin:2px 0 4px; }
+  .rp-title { font-size:11px; font-weight:bold; letter-spacing:.06em; color:#222; text-transform:uppercase; }
+  .rp-title-interno { color:#a00; }
+  .rp-marca { font-size:14px; font-weight:bold; margin:2px 0 3px; }
   .rp-meta { font-size:9px; color:#444; }
   .rp-cd { text-align:right; font-size:9px; min-width:220px; }
   .rp-cd-name { font-size:11px; font-weight:bold; margin-bottom:2px; }
@@ -837,7 +838,8 @@ const REPOSICAO_PDF_STYLES = `
   .rp-tbl th { background:#e0e0e0; font-weight:bold; font-size:8px; }
   .rp-tbl .ref { text-align:left; width:110px; white-space:normal; word-break:break-word; }
   .rp-tbl .ref small { color:#777; font-weight:normal; }
-  .rp-tbl .prod { text-align:left; width:96px; white-space:normal; }
+  .rp-tbl .prod { text-align:left; width:88px; white-space:normal; }
+  .rp-tbl .cor { text-align:left; width:56px; white-space:normal; font-size:8px; color:#333; }
   .rp-tbl .t { width:20px; background:#f5f5f5; color:#555; font-size:8px; }
   .rp-tbl .q { width:22px; }
   .rp-tbl .q0 { color:#ccc; }
@@ -862,6 +864,17 @@ function generoDoNome(nome) {
   if (/\bMASC\b/i.test(nome || '')) return 'MASC'
   if (/\bFEM\b/i.test(nome || '')) return 'FEM'
   return ''
+}
+
+// pedido_reposicao_itens não tem coluna própria de cor — mas o ponto-e-stock
+// manda o nome completo do produto ("BLUSINHA AD FEM 7005 ROSA"), com a cor
+// sempre depois da referência. Sem isso, duas linhas da mesma referência (uma
+// por cor) saíam idênticas no PDF — só dava pra distinguir pelo código interno.
+function corDoNome(nome, referencia) {
+  if (!nome || !referencia) return ''
+  const idx = nome.lastIndexOf(referencia)
+  if (idx === -1) return ''
+  return nome.slice(idx + referencia.length).trim()
 }
 
 // Monta só o HTML (puro, testável). gerarPDFReposicao abaixo abre a janela e imprime.
@@ -904,9 +917,11 @@ export function montarHTMLReposicao(pedido, grupos, { paraFornecedor = false, cd
         ? esc(g.reffornecedor || '')
         : `${esc(g.referencia || '')}${g.codigo_ponto_e ? ` <small>${esc(g.codigo_ponto_e)}</small>` : ''}`
       const prod = [g.tipo, g.classe, generoDoNome(g.nome)].filter(Boolean).join(' · ')
+      const cor = corDoNome(g.nome, g.referencia)
       return `<tr>
         <td class="ref">${refCol || '—'}</td>
         <td class="prod">${esc(prod)}</td>
+        <td class="cor">${cor ? esc(cor) : '—'}</td>
         ${cells}
         <td class="qt">${g.totalQtd || '—'}</td>
         <td class="num">${g.custoRef != null ? 'R$ ' + fmtV(g.custoRef) : '—'}</td>
@@ -916,7 +931,7 @@ export function montarHTMLReposicao(pedido, grupos, { paraFornecedor = false, cd
 
     const subPecas = refs.reduce((s, g) => s + g.totalQtd, 0)
     const subValor = refs.reduce((s, g) => s + (g.custoRef != null ? g.totalQtd * g.custoRef : 0), 0)
-    const colsAntesTotal = 2 + ativos.length * 2
+    const colsAntesTotal = 3 + ativos.length * 2
 
     return `
       ${multiGrade ? `<div class="rp-grade">Grade: ${esc(gk)}</div>` : ''}
@@ -924,6 +939,7 @@ export function montarHTMLReposicao(pedido, grupos, { paraFornecedor = false, cd
         <thead><tr>
           <th class="ref">Referência</th>
           <th class="prod">Produto</th>
+          <th class="cor">Cor</th>
           ${headPares}
           <th class="qt">Qtd</th>
           <th class="num">R$ un.</th>
@@ -964,7 +980,7 @@ export function montarHTMLReposicao(pedido, grupos, { paraFornecedor = false, cd
     <body><div class="rp">
       <div class="rp-h">
         <div>
-          <div class="rp-title">Pedido de reposição${paraFornecedor ? '' : ' — uso interno'}</div>
+          <div class="rp-title${paraFornecedor ? '' : ' rp-title-interno'}">Pedido de reposição${paraFornecedor ? '' : ' — uso interno'}</div>
           <div class="rp-marca">${esc(pedido.marca ?? '')}</div>
           <div class="rp-meta">
             Pedido nº ${pedNum} · Data: ${fmtDataReposicao(pedido.gerado_em)}
