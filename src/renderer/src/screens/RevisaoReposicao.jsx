@@ -193,7 +193,8 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
   const [sucesso,     setSucesso]     = useState(null)   // 'revisado' → banner de fim de fluxo
   const [expandida,   setExpandida]   = useState(null)    // referencia aberta
   const [expandirTudo, setExpandirTudo] = useState(false) // abre todas as grades de uma vez
-  const [verReguaCheia, setVerReguaCheia] = useState({}) // { [ref]: true } mostra a régua canônica inteira
+  const [verReguaCheia, setVerReguaCheia] = useState({}) // { [ref]: true } força a régua inteira quando o palpite de grade parece errado
+  const [ocultarVazios, setOcultarVazios] = useState({}) // { [ref]: true } enxuga a grade só pros tamanhos com dado
   const [edits,       setEdits]       = useState({})      // { [ref]: { [tam]: rawString } }  qtd
   const [custoEdits,  setCustoEdits]  = useState({})      // { [ref]: rawString }  valor unit.
   const [gradeSel,    setGradeSel]    = useState({})      // { [ref]: gradeCode escolhido }
@@ -574,19 +575,29 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
             // (ex.: produto UNI que caiu em "BB") não polui a tabela com colunas
             // vazias que fazem o Total parecer errado.
             const gradeEscolhida = gradeSel[g.referencia] !== undefined
-            const mostrarRegua = gradeEscolhida || verReguaCheia[g.referencia]
             const colunasFull = colunasDaGrade(grade, g.tamanhosPresentes)
+            // Palpite de grade que errou feio: nenhum tamanho canônico da grade
+            // veio com dado (ex.: produto UNI que caiu em "BB"). Aí a régua
+            // inteira seria só coluna vazia — colapsa pros tamanhos com dado e
+            // pede pra conferir a grade, até o revisor escolher a grade no
+            // seletor ou pedir "a régua inteira".
+            const gradePalpiteErrado = editavel && !gradeEscolhida &&
+              tamanhosDeTipoGrade(grade).length > 0 &&
+              tamanhosDeTipoGrade(grade).every(t => !g.porTamanho[t])
+            const gradeForaDosDados = gradePalpiteErrado && !verReguaCheia[g.referencia]
+            // Padrão: mostra a régua canônica inteira da grade — o revisor quer
+            // ver os tamanhos que faltam pra decidir a reposição. Ele pode
+            // enxugar pros tamanhos com dado no botão "ocultar tamanhos vazios".
+            const mostrarRegua = !gradeForaDosDados && !ocultarVazios[g.referencia]
             const colunasVis  = mostrarRegua
               ? colunasFull
               : colunasFull.filter(t => g.porTamanho[t] || edits[g.referencia]?.[t] !== undefined)
             const colunas = colunasVis.length ? colunasVis : colunasFull
+            const temTamVazio = colunasFull.some(t => !g.porTamanho[t] && edits[g.referencia]?.[t] === undefined)
             // Total é somado sobre a régua completa; colunas ocultas nunca têm qtd
             // nem edição, então o número bate com o que aparece na tela.
             const pecas   = totalEfetivoRef(g)
             const custoSt = custoStateDe(g.referencia)
-            const gradeForaDosDados = editavel && !mostrarRegua &&
-              tamanhosDeTipoGrade(grade).length > 0 &&
-              tamanhosDeTipoGrade(grade).every(t => !g.porTamanho[t])
             return (
               <Fragment key={g.referencia}>
                 <tr
@@ -671,16 +682,16 @@ function DetalheRascunho({ id, onVoltar, onStatusChange }) {
                                 >mostre a régua inteira</button>.
                               </div>
                             )}
-                            {editavel && !gradeForaDosDados && (colunasFull.length > colunas.length || verReguaCheia[g.referencia]) && (
+                            {editavel && !gradeForaDosDados && temTamVazio && (
                               <div>
                                 <button
                                   type="button"
                                   className={styles.gradeAvisoLink}
-                                  onClick={() => setVerReguaCheia(p => ({ ...p, [g.referencia]: !verReguaCheia[g.referencia] }))}
+                                  onClick={() => setOcultarVazios(p => ({ ...p, [g.referencia]: !p[g.referencia] }))}
                                 >
-                                  {verReguaCheia[g.referencia]
-                                    ? 'esconder tamanhos vazios'
-                                    : `+ mostrar todos os ${colunasFull.length} tamanhos da grade`}
+                                  {ocultarVazios[g.referencia]
+                                    ? `+ mostrar todos os ${colunasFull.length} tamanhos da grade`
+                                    : 'ocultar tamanhos vazios'}
                                 </button>
                               </div>
                             )}
