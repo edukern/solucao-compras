@@ -1,11 +1,11 @@
 ---
 name: reposicao-revisao-estado
-description: Tela "Reposição" (RevisaoReposicao) — o que ela faz hoje, schema, e as decisões de design não-óbvias. Feita em PRs #19–#26 entre 20/08 e 01/09/2026.
+description: Tela "Reposição" (RevisaoReposicao) — o que ela faz hoje, schema, e as decisões de design não-óbvias. Feita em PRs #19–#26 entre 20/08 e 01/09/2026; CRUD de referência adicionado em 09/09/2026.
 metadata:
   type: project
 ---
 
-## O que a tela faz (produção, 01/09/2026)
+## O que a tela faz (produção, 09/09/2026)
 
 `src/renderer/src/screens/RevisaoReposicao.jsx` + `reposicaoGrade.js` (helpers puros, testados) + `services/reposicao.js` + `lib/pdfHelpers.js` (`gerarPDFReposicao`/`montarHTMLReposicao`).
 
@@ -14,7 +14,8 @@ Revisa rascunhos de pedido de reposição que o **ponto-e-stock** grava via RPC 
 - **escolher a grade** num seletor (ver decisão abaixo);
 - **editar o custo** (`valor_unitario`) — um por referência, gravado em TODAS as linhas da ref no mesmo upsert;
 - marcar `revisado` / `descartado`;
-- gerar **2 PDFs**: interno e fornecedor.
+- gerar **2 PDFs**: interno e fornecedor;
+- **adicionar referência nova**, **duplicar** (pré-preenche o form de adicionar com tipo/grade/classe/custo de uma existente, código em branco) e **excluir** uma referência do pedido (PR de 09/09/2026, ver seção própria abaixo).
 
 Visual = **cópia** da tabela do Compras (Registrar Pedidos / Por referência): classes `.itemsTable`/`.itemRow`/`.gradeInline*` copiadas de `Compras.module.css`. Navegação por teclado = `handleEnterOnInput` do Compras (Enter/Tab anda pelos campos, fim da linha abre a próxima ref).
 
@@ -38,6 +39,18 @@ Gravação da tela = **um `upsert` único** por chave natural `(pedido_reposicao
 6. **Grade aberta mostra a régua canônica INTEIRA por padrão** (mudança 08/09/2026 — reverteu o default do PR #25/#26). O revisor quer ver os tamanhos que faltam pra decidir a reposição. O link agora é "ocultar tamanhos vazios" (toggle de volta pra "+ mostrar todos os N tamanhos"), estado `ocultarVazios[ref]`. **Exceção preservada:** quando NENHUM tamanho canônico da grade tem dado (palpite errado feio, ex.: produto UNI que caiu em "BB", tamanhos reais `0`/`FEM`/`MASC`), ainda colapsa pros tamanhos com dado + mostra o aviso "confira a grade" com escape "mostre a régua inteira" (`verReguaCheia[ref]`) — sem isso desenhava 4 colunas vazias + coluna oculta com peças, Total parecendo errado ("80+140=243"). O Total sempre soma sobre a régua canônica inteira (colunas ocultas são 0, então bate). **Todos os rascunhos atuais** têm descasamento grade × tamanhos.
 7. **Campos de qtd/custo selecionam o conteúdo ao focar** (PR #25) — a sugestão vem preenchida com valor real (no Compras começa vazio), então sem `select()` no `onFocus` digitar concatenava ("0"+6="60").
 8. **Melhorias de fluxo da auditoria heurística (PR #26).** `services/reposicao.js` ganhou `reabrir(id, statusAtual)` (revisado/descartado → rascunho, limpa revisado_por/em; RLS é `auth_full_access`, sem trava por editor no banco) e `contarRascunhos()`. Na tela: contador de rascunhos no item "Reposição" do menu (Sidebar, refetch a cada troca de tela); "Reabrir" nos cards revisado/descartado; guarda de "alterações não salvas" no Voltar; conflito de save **mantém** os campos digitados (só atualiza a base); barra de total geral (refs/peças/R$) ao vivo; "Descartar" no detalhe pede confirmação; após "Marcar como revisado" a tela **fica** (vira read-only) com banner de sucesso apontando pro PDF em vez de voltar pra lista; sugestão-fantasma ("sug. N") por tamanho quando o valor difere; "Expandir todas as grades"; `alert()` de status virou banner; `abaStatus` subiu pro orquestrador (não reseta mais pra "Rascunho" a cada ação). Nada de schema.
+
+## Adicionar/duplicar/excluir referência (09/09/2026)
+
+Pedido do Eduardo: dar ao revisor de reposição o mesmo poder que ele já tem no Compras normal por referência. Sem mudança de schema/RLS/grants — `pedido_reposicao_itens` continua **sem permissão de DELETE** de propósito (migração 030), então tudo cabe dentro do INSERT/UPDATE já liberado.
+
+- **Estado local até salvar**: `itensNovos` (grupos criados nesta edição, formato igual a `agruparPorReferencia`, via `criarGrupoNovo` em `reposicaoGrade.js`) e `refsOcultas` (`{[ref]: true}`, referência "excluída" nesta edição). `gruposTodos = [...grupos, ...itensNovos]`; `gruposVisiveis = gruposTodos` menos `refsOcultas`. Só entram no banco ao clicar "Salvar alterações" — mesmo caminho de upsert que já gravava tamanho novo numa ref existente.
+- **"Excluir" não apaga linha nenhuma.** Referência já salva no banco: `handleSalvar` força `qtd=0` em todos os tamanhos dela (mesmo padrão de "0 = não repor" da migração 035) e ela some da tabela (visualmente reversível via "restaurar" **só até salvar**; depois de salvo, reabrir o rascunho mostra ela de novo com Total "—", indistinguível de alguém ter zerado manualmente — aceito de propósito, ver decisão abaixo). Referência ainda não salva: remoção 100% local, sem chamada ao banco.
+- **Decisão de negócio confirmada com o Eduardo**: excluir uma referência sugerida pelo ponto-e-stock **não** avisa o ponto-e-stock (projeto separado) — ela pode voltar a ser sugerida numa próxima leva normalmente. Não existe (e não foi criada) nenhuma coluna tipo `excluido`/`rejeitado` — o princípio de "um fato, um dono" já cobre isso via `qtd=0`.
+- **Migração 036** (só a view `pedidos_reposicao_lista`, sem tocar dado, **aplicada em produção em 09/09/2026**): a contagem `qtd_referencias` do card da lista agora ignora referência com todos os tamanhos zerados (`filter (where i.qtd > 0)`), pra não discordar do que a tela de detalhe mostra depois de uma exclusão.
+- **Validações no cadastro** (bloqueiam "Adicionar", não só avisam): código de referência obrigatório e comparado normalizado (`normalizarReferencia` — ignora acento/caixa/pontuação) contra toda referência já no pedido, pra não sobrescrever por engano o que o CD sugeriu; produto, grade e **código do fornecedor** obrigatórios (sem `reffornecedor` o PDF que vai pra marca sai com a referência em branco — `pdfHelpers.js` usa allow-list e essa coluna é a única identificação do produto nesse PDF).
+- **Referência nova sem nenhuma quantidade preenchida bloqueia "Salvar alterações"** com mensagem pedindo pra preencher ou excluir — sem essa trava ela sumiria em silêncio no próximo recarregamento (achado do `revisor-impacto` antes de codar: `handleSalvar` só grava linha pra referência que tem pelo menos um tamanho `dirty`).
+- Revisado pelo agente `revisor-impacto` antes de implementar (risco médio-alto na primeira versão do plano → baixo-médio depois das mitigações acima). Testado com `npx vitest run tests/reposicao-grade.test.js tests/reposicao-pdf.test.js` (51 testes) + `npm run build`; **não foi possível testar na UI real** nesta sessão (sem `.env` local, ver [[dev-local-usa-banco-producao]]) — pendente uma passada real do Eduardo.
 
 ## Pendente (do lado de fora deste repo)
 
