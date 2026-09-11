@@ -945,7 +945,7 @@ export function montarHTMLReposicao(pedido, grupos, { paraFornecedor = false, cd
         <thead><tr>
           <th class="ref">Referência</th>
           <th class="prod">Produto</th>
-          <th class="cor">Cor</th>
+          <th class="cor">Cor/Detalhe</th>
           ${headPares}
           <th class="qt">Qtd</th>
           <th class="num">R$ un.</th>

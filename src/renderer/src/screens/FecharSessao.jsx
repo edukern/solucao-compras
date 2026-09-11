@@ -59,10 +59,10 @@ export function FecharSessao({ sessao, visitas, segs, pedidos: pedidosProp, onNo
 
   function handleGerarPDFs() {
     setModalFields({
-      contato:          fornFull?.contato          ?? '',
-      vendedor:         sessao.vendedor            ?? '',
-      cond_pag:         sessao.cond_pag            ?? '',
-      frete:            sessao.frete               ?? '',
+      contato:          sessao.contato ?? fornFull?.contato          ?? '',
+      vendedor:         sessao.vendedor ?? fornFull?.vendedor_padrao ?? '',
+      cond_pag:         sessao.cond_pag ?? fornFull?.cond_pag_padrao ?? '',
+      frete:            sessao.frete    ?? fornFull?.frete_padrao    ?? '',
       icms_credito_pct: String(fornFull?.icms_credito_pct ?? ''),
       data_visita:      sessao.data_visita         ?? '',
       data_entrega:     sessao.data_entrega        ?? '',
