@@ -58,4 +58,24 @@ Pedido do Eduardo: dar ao revisor de reposição o mesmo poder que ele já tem n
 - Smoke test logado da tela (sem credencial de editor nas sessões de Claude).
 - Limpeza opcional em produção: tabelas `backup_pedido_reposicao_itens_20260901` / `backup_pedidos_reposicao_20260901`; rascunhos de teste "TESTE smoke ponto-e-stock" / "TESTE idempotencia" / "KEEPER" (teste-comparacao).
 
+## PDF: coluna "Cor/Detalhe" e cabeçalho pobre (11/09/2026, commit `72ff5fd`)
+
+`corDoNome()` em `pdfHelpers.js` pega o que sobra do `nome` depois do código da referência
+(âncora `reffornecedor`/`referencia`) — funciona quando o `ponto-e-stock` manda um resto que é
+cor de verdade (`"...ZR001 ROSA"`), mas o mesmo resto às vezes é detalhe de produto
+(`"...ZR0801-006 MODELADORA"`, `FAIXA`, `AMAMENTACAO`) porque `pedido_reposicao_itens` não tem
+coluna própria de cor — o campo `nome` conflita os dois conceitos na mesma posição de texto.
+Não dá pra diferenciar só pelo texto. Header da coluna renomeado de "Cor" pra "Cor/Detalhe"
+(mesmo termo do PDF de Compras normal, PR #14) — resolve a *aparência* de dado errado sem
+inventar dado que não existe. Pedido de campo `cor` próprio (+ identificador estável de
+fornecedor, pra puxar cond.pag/frete/ICMS por marca sem chutar por nome — achei duplicata de
+cadastro pra mesma marca, "ZEE RUCCI" x "ZEERUCCI") documentado como pendência externa no
+`HANDOFF.md`, pronto pra colar na sessão do `ponto-e-stock`.
+
+Junto nessa rodada: `FecharSessao.jsx` tinha um bug real no PDF do Compras normal também — o
+modal de gerar PDF só lia `sessao.cond_pag/frete/vendedor`, nunca caía pro
+`fornFull.cond_pag_padrao/frete_padrao/vendedor_padrao` (existem desde a migração 008
+`fornecedores_padrao`, só eram gravados, nunca lidos de volta). Corrigido — agora primeira
+sessão preenchida manualmente "ensina" o padrão do fornecedor pras próximas.
+
 Relacionado: [[project_ponto_e_stock_integracao]], [[dev-local-usa-banco-producao]], [[pedido-itens-tamanho-texto-livre]].
