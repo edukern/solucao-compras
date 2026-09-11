@@ -1,44 +1,60 @@
 # HANDOFF — Solução Compras
 Atualizado: 2026-09-11
 
-## 🟡 FRENTE EM ANDAMENTO — PDF de Reposição: falta ICMS, cabeçalho limitado, "dados errados"
+## ✅ FRENTE — PDF de Reposição/Compras: cabeçalho limitado + rótulo "Cor" — CONCLUÍDA (commit `72ff5fd`, 11/09)
 
-Pedido do Eduardo (11/09): ao enviar pedidos do stock pro compras (tela `RevisaoReposicao` /
-"seção de recompra"), o PDF pro fornecedor tem 3 problemas. PDF real anexado por ele:
-`C:\Users\CLIENTE\Downloads\Reposição ZEE RUCCI — 54A7A662.pdf` (também copiado em
-`.claude/memory/` não — ficou só no Downloads, não versionado).
+Pedido do Eduardo: PDF de Reposição (`RevisaoReposicao` / "seção de recompra") sem ICMS,
+cabeçalho pobre, "dados errados" na coluna Cor. Investigação completa: ver
+[[reposicao-revisao-estado]] (seção nova) e commit `72ff5fd`. Resumo do que era e do que foi:
 
-**Já apurado (código, sem precisar rodar nada):**
-1. **ICMS não existe em Reposição, ponto nenhum** — nem coluna no banco
-   (`pedido_reposicao_itens`/`pedidos_reposicao`, migrações 030–036), nem UI, nem em
-   `services/reposicao.js`. No fluxo normal de Compras, `icms_pct` é por item de `pedidos`
-   (`001_schema_inicial.sql:89`) e `icms_credito_pct` é padrão do **fornecedor**
-   (`008_fornecedores_padrao.sql:8`). Reposição não tem `fornecedor_id` — usa `marca` (texto
-   livre) no lugar. **Isso é feature nova, não bug** — precisa decidir com o Eduardo se é (a)
-   só puxar o `icms_credito_pct` já cadastrado do fornecedor cujo nome bate com a `marca` do
-   pedido (leitura, sem migração), ou (b) um campo de ICMS% por item que o comprador digita na
-   tela de revisão (schema novo + UI nova, mais trabalho e exige `revisor-impacto` antes).
-2. **Cabeçalho confirmado limitado** — `montarHTMLReposicao` em
-   `src/renderer/src/lib/pdfHelpers.js:983-998` só mostra: título, marca, nº pedido, data,
-   gerado por, janela de dias, e (só na versão fornecedor) nome/CNPJ/IE/endereço/cidade do CD
-   remetente (comprador id 1, Backes). Não tem: condição de pagamento, frete, transportadora,
-   observação — campos que o PDF normal de Compras já tem. Fix de baixo risco (só exibição),
-   dá pra fazer sem aprovação prévia formal.
-3. **"Dados errados"** — NÃO CONFIRMADO ainda. Rodei `pdftotext -layout` no PDF real e a
-   tabela saiu com preço/total aparentemente "um passo acima" da linha da referência — mas isso
-   é um artefato clássico de extração de texto em tabela com células de altura variável
-   (produto com nome longo quebra em 2 linhas), não prova de bug real no HTML/CSS da tabela
-   (que usa `<tr>`/`<td>` normais — colunas da MESMA linha não têm como desalinhar entre si
-   numa tabela HTML real, só entre linhas visualmente se o olho escorregar). Não consegui abrir
-   o PDF de verdade no navegador pra conferir visualmente (ferramenta de browser bloqueia abrir
-   arquivo local; não há `pdftoppm`/`magick`/`gs` nesta máquina pra converter em imagem; MCP
-   `markitdown` não está disponível nesta sessão). **Preciso que o Eduardo mande um print
-   marcando qual referência/coluna está com o dado errado**, ou descreva especificamente (ex.:
-   "a cor da linha ZR0201-001 é a da linha de cima").
+1. **Cabeçalho pobre era bug real, e não só na Reposição — no Compras normal também.**
+   `FecharSessao.jsx` (`handleGerarPDFs`) inicializava o modal de PDF (cond. pagamento, frete,
+   vendedor) só a partir de `sessao.*`, nunca caindo pro `fornFull.*_padrao`
+   (`cond_pag_padrao`/`frete_padrao`/`vendedor_padrao`) que a migração 008 criou exatamente pra
+   isso. O modal GRAVA esses padrões (linha 78-85 de antes) mas nunca os LÊ de volta — então
+   nenhuma sessão nova nunca se beneficiava do "padrão" salvo antes, todo mundo tinha que
+   redigitar cond.pag/frete/vendedor pra cada sessão, pra sempre. **Corrigido** — agora cai pro
+   padrão do fornecedor quando a sessão ainda não tem valor próprio. Efeito colateral: depois
+   que algum comprador preencher esses campos uma vez pra um fornecedor, as próximas sessões
+   com o mesmo fornecedor já vêm com cabeçalho cheio sozinhas.
+2. **Coluna "Cor" da Reposição renomeada pra "Cor/Detalhe"** — o texto ali vem do que sobra do
+   campo `nome` que o ponto-e-stock manda depois do código da referência
+   (`CALCINHA AD FEM ZR0801-006 MODELADORA` → mostra "MODELADORA"). Às vezes é cor de verdade
+   (ex. "ROSA"), às vezes é detalhe de produto (MODELADORA, FAIXA, AMAMENTAÇÃO) — o dado não
+   está errado, só o rótulo "Cor" sozinho enganava. "Cor/Detalhe" é o mesmo termo que o PDF do
+   Compras normal já usa pra essa mesma ambiguidade (PR #14).
+3. **ICMS e o vínculo fornecedor da Reposição ficaram de fora desta rodada** — ver frente
+   pendente abaixo, depende de mudança no `ponto-e-stock` primeiro.
 
-**Próximo passo:** perguntar ao Eduardo (a) qual dos dois formatos de ICMS ele quer, (b) o
-print/detalhe do "dado errado". Só depois disso implementar. `pdfHelpers.js` (cabeçalho) e
-schema de reposição (se for ICMS por item) são os pontos de código.
+## 🟡 FRENTE PENDENTE (do lado de FORA deste repo) — ponto-e-stock precisa mandar cor e fornecedor de verdade
+
+Pra Reposição ficar de fato igual ao Compras normal (ICMS, cond.pag, frete, transportadora,
+cor real), falta o `ponto-e-stock` mandar 2 coisas que hoje não manda. Texto pronto pra colar
+na sessão de Claude que roda naquele projeto:
+
+> No pedido de reposição (RPC `salvar_pedido_reposicao`), preciso de 2 campos novos e
+> opcionais no payload de cada item, além do que já é mandado hoje:
+>
+> 1. **`cor`** — a cor real da peça (ex. "ROSA", "PRETO"), vinda do cadastro do produto no
+>    ERP. Hoje o campo `nome` que vocês mandam concatena tudo
+>    (`"CALCINHA AD FEM ZR0801-006 MODELADORA"`) e o Compras tenta adivinhar a cor pegando o
+>    que sobra depois do código da referência — mas às vezes esse resto é a cor de verdade e
+>    às vezes é um detalhe de produto (MODELADORA, FAIXA, AMAMENTAÇÃO), sem jeito de
+>    diferenciar só pelo texto. Se o cadastro do produto no ERP não tiver uma cor única e limpa
+>    pra esse SKU, pode mandar vazio — vazio é melhor que chutar errado.
+> 2. **Um identificador estável do fornecedor** (o código do fornecedor no ERP, tipo
+>    `codfornecedor`) — hoje só mandam `marca` (texto livre tipo "ZEE RUCCI"). O Compras tem
+>    cadastro de fornecedor com condição de pagamento/frete/transportadora/ICMS padrão, mas
+>    bater isso com a `marca` por nome é arriscado: já achei a mesma marca cadastrada 2x com
+>    grafia diferente aqui (`ZEE RUCCI` e `ZEERUCCI` são registros diferentes). Com um código
+>    estável dá pra linkar direito, sem chute por nome.
+>
+> Não muda nada do que já é mandado hoje — são só 2 campos novos, opcionais, no mesmo payload.
+
+**Do lado de cá, depois que isso chegar:** vai precisar de uma migração nova (colunas `cor` e
+`fornecedor_ref_erp` em `pedido_reposicao_itens`/`pedidos_reposicao`) + ajuste no
+`pdfHelpers.js` pra usar isso — isso sim passa pelo `revisor-impacto` antes de implementar
+(schema + fluxo de pedidos), padrão do projeto.
 
 > Frentes anteriores (acesso da Scheila, migração de coleção 27/1→26/2, sync Macle) foram
 > confirmadas como resolvidas e removidas deste handoff. Detalhes históricos continuam em
