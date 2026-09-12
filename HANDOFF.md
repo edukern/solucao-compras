@@ -26,6 +26,27 @@ cabeçalho pobre, "dados errados" na coluna Cor. Investigação completa: ver
 3. **ICMS e o vínculo fornecedor da Reposição ficaram de fora desta rodada** — ver frente
    pendente abaixo, depende de mudança no `ponto-e-stock` primeiro.
 
+## ✅ FRENTE — Banco pronto pra receber cor e marca_codigo — CONCLUÍDA (migração 037, aplicada 12/09)
+
+`cor` (por item) e `p_marca_codigo` (por pedido) já podem ser mandados pelo `ponto-e-stock` —
+aplicado em produção com backup prévio, ensaio em transação com ROLLBACK e smoke test HTTP
+real (chave anon, formato antigo e novo) antes de ir pro ar. Revisado pelo `revisor-impacto`
+(achou um P0 real: `CREATE OR REPLACE` com lista de argumentos diferente vira uma SEGUNDA
+função em vez de substituir a antiga — corrigido com `DROP FUNCTION` explícito antes).
+
+**Liberado pro `ponto-e-stock` a partir de agora (12/09/2026):**
+- `cor` dentro de cada item — pode mandar a qualquer momento, já está pronto.
+- `p_marca_codigo` como parâmetro do pedido (irmão de `p_marca`, não vai dentro do item) —
+  também já pode mandar, a migração que precisava estar no ar antes já está.
+- Validação nova: se a mesma referência+tamanho vier com 2 cores diferentes na mesma carga,
+  a RPC recusa a carga inteira com mensagem própria (em vez de misturar as cores numa linha
+  só) — se acontecer, o rascunho daquele dia não entra até corrigir do lado do Stock.
+
+**Ainda NÃO fizemos** (fica pra quando tiver uso real): a tela de Revisão e o PDF ainda não
+leem `cor`/`marca_codigo` — o PDF continua caindo no `corDoNome()` (adivinha pelo `nome`) até
+alguém consumir a coluna nova. `marca_codigo` não tem link automático com `fornecedores`
+ainda (falta `fornecedores.codigo_erp` + resolver duplicata ZEE RUCCI/ZEERUCCI ids 482/563).
+
 ## 🟡 FRENTE PENDENTE (do lado de FORA deste repo) — ponto-e-stock precisa mandar cor e fornecedor de verdade
 
 Pra Reposição ficar de fato igual ao Compras normal (ICMS, cond.pag, frete, transportadora,
