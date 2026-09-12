@@ -42,10 +42,12 @@ função em vez de substituir a antiga — corrigido com `DROP FUNCTION` explíc
   a RPC recusa a carga inteira com mensagem própria (em vez de misturar as cores numa linha
   só) — se acontecer, o rascunho daquele dia não entra até corrigir do lado do Stock.
 
-**Ainda NÃO fizemos** (fica pra quando tiver uso real): a tela de Revisão e o PDF ainda não
-leem `cor`/`marca_codigo` — o PDF continua caindo no `corDoNome()` (adivinha pelo `nome`) até
-alguém consumir a coluna nova. `marca_codigo` não tem link automático com `fornecedores`
-ainda (falta `fornecedores.codigo_erp` + resolver duplicata ZEE RUCCI/ZEERUCCI ids 482/563).
+**Atualização 12/09:** Eduardo confirmou que o `ponto-e-stock` já foi atualizado pra mandar
+`cor`. PDF de Reposição já lê e mostra a coluna `cor` de verdade (prevalece sobre o palpite de
+`corDoNome()`, que agora só entra pra rascunho antigo ou item sem cor limpa no ERP) — commit
+`3579b7c`. `marca_codigo` continua só captura, sem link automático com `fornecedores` (falta
+`fornecedores.codigo_erp` + resolver duplicata ZEE RUCCI/ZEERUCCI ids 482/563) — ninguém pediu
+ainda, fica pra quando o ICMS/cond.pag da Reposição virar prioridade de novo.
 
 ## 🟡 FRENTE PENDENTE (do lado de FORA deste repo) — ponto-e-stock precisa mandar cor e fornecedor de verdade
 

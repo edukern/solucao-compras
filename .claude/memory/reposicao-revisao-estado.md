@@ -72,6 +72,16 @@ fornecedor, pra puxar cond.pag/frete/ICMS por marca sem chutar por nome — ache
 cadastro pra mesma marca, "ZEE RUCCI" x "ZEERUCCI") documentado como pendência externa no
 `HANDOFF.md`, pronto pra colar na sessão do `ponto-e-stock`.
 
+**Atualização 12/09 — cor de verdade no ar.** Migração 037 aplicada (coluna `cor` em
+`pedido_reposicao_itens`, `marca_codigo` em `pedidos_reposicao`, RPC `salvar_pedido_reposicao`
+com `p_marca_codigo` como 7º parâmetro opcional). `ponto-e-stock` já foi atualizado e manda
+`cor` por item. `pdfHelpers.js` agora usa `g.cor || corDoNome(...)` — coluna real vence,
+`corDoNome()` só cobre rascunho antigo (antes da 037) ou item sem cor limpa no ERP.
+`reposicaoGrade.js` (`agruparPorReferencia`) propaga `cor` pro grupo com o mesmo padrão do
+`tipo_grade` (primeira não-nula entre tamanhos-irmãos). `marca_codigo` segue só capturado, sem
+uso — precisa de `fornecedores.codigo_erp` (não existe) + resolver duplicata ZEE
+RUCCI/ZEERUCCI (ids 482/563) antes de virar link de verdade pra ICMS/cond.pag automáticos.
+
 Junto nessa rodada: `FecharSessao.jsx` tinha um bug real no PDF do Compras normal também — o
 modal de gerar PDF só lia `sessao.cond_pag/frete/vendedor`, nunca caía pro
 `fornFull.cond_pag_padrao/frete_padrao/vendedor_padrao` (existem desde a migração 008
