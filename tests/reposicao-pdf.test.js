@@ -84,6 +84,22 @@ describe('montarHTMLReposicao', () => {
     expect(html).toContain('sem código do fornecedor')
   })
 
+  it('cor: coluna real (migração 037) vence o palpite por corDoNome()', () => {
+    const comCorReal = [{ ...grupos[0], cor: 'ROSA' }]
+    const html = montarHTMLReposicao(pedido, comCorReal)
+    expect(html).toContain('>ROSA<')
+  })
+
+  it('cor: sem coluna real, cai no palpite por corDoNome() (comportamento antigo)', () => {
+    const grupoComDetalheNoNome = {
+      ...grupos[0],
+      nome: 'SUTIA AD FEM 112 AMAMENTACAO', // "resto" depois da referência = "detalhe", não cor de verdade
+    }
+    const html = montarHTMLReposicao(pedido, [grupoComDetalheNoNome])
+    expect(html).toContain('>AMAMENTACAO<')
+    expect(html).toContain('Cor/Detalhe') // rótulo cobre os dois casos (PR 11/09)
+  })
+
   it('escapa conteúdo (marca com < >)', () => {
     const html = montarHTMLReposicao({ ...pedido, marca: 'A<b>C' }, grupos)
     expect(html).toContain('A&lt;b&gt;C')

@@ -74,12 +74,17 @@ export function agruparPorReferencia(itens) {
         codigo_ponto_e: it.codigo_ponto_e ?? null,
         foto_url:       it.foto_url ?? null,
         tipoGradeSalva: it.tipo_grade ?? null,
+        cor:            it.cor ?? null,
         porTamanho:     {},
       })
     }
     const g = map.get(it.referencia)
     g.porTamanho[it.tamanho] = it
     if (!g.tipoGradeSalva && it.tipo_grade) g.tipoGradeSalva = it.tipo_grade
+    // Cor real (migração 037) pode faltar num tamanho específico (ex.: tamanho
+    // completado na tela depois, sem passar pela RPC) mesmo com irmãos que têm
+    // — pega a primeira não-nula entre os tamanhos da mesma referência.
+    if (!g.cor && it.cor) g.cor = it.cor
   }
 
   return [...map.values()].map(g => {
@@ -128,6 +133,7 @@ export function criarGrupoNovo({ referencia, nome, tipo, classe, tipo_grade, ref
     nome: nome || null, tipo: tipo || null, classe: classe || null,
     colecao: null, reffornecedor: reffornecedor || null, codigo_ponto_e: null, foto_url: null,
     tipoGradeSalva: tipo_grade || null,
+    cor: null, // referência cadastrada à mão na tela, sem dado do ERP — corDoNome() cobre com o que tiver no nome digitado.
     porTamanho: {},
     tamanhosPresentes: [],
     gradePalpite: tipo_grade || null,

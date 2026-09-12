@@ -866,13 +866,17 @@ function generoDoNome(nome) {
   return ''
 }
 
-// pedido_reposicao_itens não tem coluna própria de cor — mas o ponto-e-stock
-// manda o nome completo do produto ("BLUSINHA AD FEM 7005 ROSA"), com a cor
-// sempre depois do código do produto. Sem isso, duas linhas da mesma referência
-// (uma por cor) saíam idênticas no PDF — só dava pra distinguir pelo código
-// interno. Tenta cada âncora possível (reffornecedor, depois referencia) porque
-// o formato de `referencia` varia por item vindo do ponto-e-stock (às vezes é o
-// próprio código do fornecedor, às vezes um id interno que não aparece no nome).
+// Fallback de quando pedido_reposicao_itens.cor (migração 037) vem vazia —
+// rascunho gravado antes do ponto-e-stock mandar cor, ou item sem cor limpa no
+// ERP. Nesses casos, adivinha pegando o resto do `nome` completo do produto
+// ("BLUSINHA AD FEM 7005 ROSA") depois do código do produto. Sem isso, duas
+// linhas da mesma referência (uma por cor) saíam idênticas no PDF — só dava
+// pra distinguir pelo código interno. Tenta cada âncora possível (reffornecedor,
+// depois referencia) porque o formato de `referencia` varia por item vindo do
+// ponto-e-stock (às vezes é o próprio código do fornecedor, às vezes um id
+// interno que não aparece no nome). Chuta às vezes "detalhe" em vez de cor
+// (MODELADORA, FAIXA, AMAMENTACAO) — por isso a coluna do PDF chama
+// "Cor/Detalhe", não só "Cor".
 function corDoNome(nome, ...ancoras) {
   if (!nome) return ''
   for (const ancora of ancoras) {
@@ -923,7 +927,7 @@ export function montarHTMLReposicao(pedido, grupos, { paraFornecedor = false, cd
         ? esc(g.reffornecedor || '')
         : `${esc(g.referencia || '')}${g.codigo_ponto_e ? ` <small>${esc(g.codigo_ponto_e)}</small>` : ''}`
       const prod = [g.tipo, g.classe, generoDoNome(g.nome)].filter(Boolean).join(' · ')
-      const cor = corDoNome(g.nome, g.reffornecedor, g.referencia)
+      const cor = g.cor || corDoNome(g.nome, g.reffornecedor, g.referencia)
       return `<tr>
         <td class="ref">${refCol || '—'}</td>
         <td class="prod">${esc(prod)}</td>
